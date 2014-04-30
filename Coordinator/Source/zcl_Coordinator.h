@@ -94,9 +94,9 @@ extern "C"
 /*********************************************************************
  * VARIABLES
  */
-extern unit16 paramReg[];
+extern uint16 paramReg[];
 
-extern unit16 dataReg[];
+extern uint16 dataReg[];
    
 extern SimpleDescriptionFormat_t zclCoordinator_SimpleDesc;
 
@@ -128,7 +128,16 @@ extern uint8 zclCoordinator_ControlSequenceOfOperation;
 
 extern uint8 zclCoordinator_SystemMode;
 
-/*********************************************************************
+/* 
+extern uint8 zclCoordinator_Parameter_MeasuredValue;
+             
+extern uint8 zclCoordinator_Data_MeasuredValue;
+
+extern uint8 zclCoordinator_Add_MeasuredValue;
+
+extern uint8 zclCoordinator_Com_MeasuredValue;   
+*/
+/************************************************************e*********
  * FUNCTIONS
  */
 

@@ -99,6 +99,14 @@ int16 zclSmartMeter_MeasuredValue = 2200;  // 22.00C
 const int16 zclSmartMeter_MinMeasuredValue = 1700;   // 17.00C
 const uint16 zclSmartMeter_MaxMeasuredValue = 2700;  // 27.00C
 
+// Smart meter Clusters
+uint16 zclSmartMeter_Parameter_MeasuredValue =0;
+uint16 zclSmartMeter_Data_MeasuredValue =0;
+uint16 zclSmartMeter_Add_MeasuredValue =0;
+uint16 zclSmartMeter_Com_MeasuredValue =0;
+
+
+
 /*********************************************************************
  * ATTRIBUTE DEFINITIONS - Uses REAL cluster IDs
  */
@@ -219,7 +227,7 @@ CONST zclAttrRec_t zclSmartMeter_Attrs[SmartMeter_MAX_ATTRIBUTES] =
       (void *)&zclSmartMeter_MeasuredValue
     }
   },
-  {
+/* {
     ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
     { // Attribute record
       ATTRID_MS_TEMPERATURE_MIN_MEASURED_VALUE,
@@ -227,7 +235,7 @@ CONST zclAttrRec_t zclSmartMeter_Attrs[SmartMeter_MAX_ATTRIBUTES] =
       ACCESS_CONTROL_READ,
       (void *)&zclSmartMeter_MinMeasuredValue
     }
-  },
+  },*/
   {
     ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
     { // Attribute record
@@ -245,7 +253,7 @@ CONST zclAttrRec_t zclSmartMeter_Attrs[SmartMeter_MAX_ATTRIBUTES] =
       ATTRID_MS_PARAMETER_MEASURED_VALUE,
       ZCL_DATATYPE_INT16,
       ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Parameter_MeasuredValue
+      (void *)&zclSmartMeter_Parameter_MeasuredValue
     }
   },  
   
@@ -256,49 +264,31 @@ CONST zclAttrRec_t zclSmartMeter_Attrs[SmartMeter_MAX_ATTRIBUTES] =
       ATTRID_MS_DATA_MEASURED_VALUE,
       ZCL_DATATYPE_INT16,
       ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Data_MeasuredValue
+      (void *)&zclSmartMeter_Data_MeasuredValue
     }
-  },    
-// *** Power Reset Attriubtes ***
+  },  
+//  *** Address Attributes
   {
-    ZCL_CLUSTER_ID_MS_RESET_MEASUREMENT,
+    ZCL_CLUSTER_ID_MS_ADD_MEASUREMENT,
     { // Attribute record
-      ATTRID_MS_RESET_MEASURED_VALUE,
+      ATTRID_MS_ADD_MEASURED_VALUE,
       ZCL_DATATYPE_INT16,
       ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Reset_MeasuredValue
+      (void *)&zclSmartMeter_Add_MeasuredValue
+    }
+  },     
+// *** Power Reset Attriubtes ***
+  {
+    ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
+    { // Attribute record
+      ATTRID_MS_COM_MEASURED_VALUE,
+      ZCL_DATATYPE_INT16,
+      ACCESS_CONTROL_READ,
+      (void *)&zclSmartMeter_Com_MeasuredValue
     }
   },  
  // *** Relay Attriubtes ***
-  {
-    ZCL_CLUSTER_ID_MS_RELAY_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_RELAY_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Relay_MeasuredValue
-    }
-  },     
-// *** Start Attriubtes ***
-  {
-    ZCL_CLUSTER_ID_MS_START_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_START_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Start_MeasuredValue
-    }
-  },    
-// *** Start Attriubtes ***
-  {
-    ZCL_CLUSTER_ID_MS_ACK_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_ACK_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Ack_MeasuredValue
-    }
-  },        
+ 
 };
 
 /*********************************************************************

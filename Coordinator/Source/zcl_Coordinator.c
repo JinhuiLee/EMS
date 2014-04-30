@@ -58,8 +58,8 @@
 /*********************************************************************
 * Pin Definition
 */
-const uint16 senPinVoltage = SOCADC_AIN6;
-const uint16 senPinCurrent = SOCADC_AIN7;
+//const uint16 senPinVoltage = SOCADC_AIN6;
+//const uint16 senPinCurrent = SOCADC_AIN7;
 
 //! This example uses the following peripherals and I/O signals.
 //!
@@ -73,7 +73,7 @@ const uint16 senPinCurrent = SOCADC_AIN7;
 // UART pin for test purpose
 #define COORDINATOR_PIN_UART_RXD            GPIO_PIN_0
 #define COORDINATOR_PIN_UART_TXD            GPIO_PIN_1
-#define COORDINATOR_UART_BASE               GPIO_A_BASE
+#define COORDINATOR_GPIO_UART_BASE               GPIO_A_BASE
 
 
 /*********************************************************************
@@ -131,18 +131,22 @@ const uint16 senPinCurrent = SOCADC_AIN7;
 #define USR_TX_SET 0xC3
 #define COM_PARAM  0xC4
 #define COM_DATA   0xC5
-#define POWER_RESET  0xC6
-#define POWER_RELAY  0xC7
-#define POWER_START  0xC8
+#define COM_ADD    0xC6
+#define RESET      0xC7
+#define RELAY      0xC8
+#define START      0xC9
 #define FLASH_PARAM  0x0401   
    
-#define ATTRID_MS_PARAMETER_MEASURED_VALUE  0xA0
-#define ATTRID_MS_DATA_MEASURED_VALUE  0xA1
-#define ATTRID_MS_ADD_MEASURED_VALUE 0xA2
-#define ATTRID_MS_COMMAND_RESET_MEASURED_VALUE 0xA3
-#define ATTRID_MS_COMMAND_RELAY_MEASURED_VALUE 0xA4
-#define ATTRID_MS_COMMAND_RESTART_MEASURED_VALUE 0xA5
-
+//#define ATTRID_MS_PARAMETER_MEASURED_VALUE  0xA0
+//#define ATTRID_MS_DATA_MEASURED_VALUE  0xA1
+//#define ATTRID_MS_ADD_MEASURED_VALUE 0xA2
+//
+/*
+#define ATTRID_MS_PARAMETER_MEASURED_VALUE                               0x0012
+#define ATTRID_MS_DATA_MEASURED_VALUE                                    0x0013
+#define ATTRID_MS_ADD_MEASURED_VALUE                                     0x0014
+#define ATTRID_MS_COM_MEASURED_VALUE                                     0x0015
+*/
 // wait time for all smart meter to respond to network discovery command
 #define Coordinator_NwkDiscov_INTERVAL 5000 //in millisecond
 // wait time to request the next smart meter to send data
@@ -167,28 +171,27 @@ byte zclCoordinator_TaskID;
 uint8 zclCoordinatorSeqNum;
 static byte gPermitDuration = 0x00;
 
-uint16 paramReg[9]; 
-uint16 SmartMeterparamReg[9]; //parameters send by SmartMeter
+uint16 paramReg[10]; 
+uint16 SmartMeterparamReg[10]; //parameters send by SmartMeter
 uint16 dataReg_Ping[13], dataReg_Pong[13];
 uint8 dataRegSel;
-uint16 sm_ADD[500]; //smart meter address registers
+uint64 sm_ADD[500]; //smart meter address registers
 uint16 sm_index;  //index for sm_Add[index]
 uint16 index;  //general purpose index
 uint16 sm_max; //total number of smart meter
 uint8 controlReg[14];
-uint8 SerControl;
+//uint8 SerControl;
 uint32 ENERGY_RESET_VALUE;
-uint32 SmartMeter_ENERGY_RESET_VALUE; smart meter response to RESET
+uint32 SmartMeter_ENERGY_RESET_VALUE; //smart meter response to RESET
 uint64 RM_ADD;
 uint16 flagreset;
-uint16 relay;
+uint16 flagrelay;
 uint16 flaginc;
 uint16 datain_complete; //read of smart meter data completed
 uint16 SmartMeter_flagreset; //smart meter response to RESET
 uint16 SmartMeter_relay;  //smart meter response to RELAY
 uint16 SmartMeter_flaginc; //smart meter response to RESTART
-uint64 coordinator_extAddr; //coordinator local external IEEE address
-uint16 coordinator_nwkAddr;  //coordinator local network address
+
 
 
 uint16 MIN_ADC;
@@ -200,45 +203,48 @@ uint16 MAX_V;
 uint16 MIN_V;
 uint16 MAX_I;
 uint16 MIN_I;
-unint16 ADC_DELAY;
+uint16 ADC_DELAY;
 
 /* Define memory mapping*/
-uint8 *pparamReg;  //pointer to paramReg
-&paramReg[0] = 0x2000_0040;
-pparamReg = &paramReg[0];
+uint16 *pparamReg;  //pointer to paramReg
+//&paramReg[0] = 0x2000_0040;
+//pparamReg = &paramReg[0];
 
-uint8 *pdataReg_Ping;  //pointer to dataReg_Ping
-&dataReg_Ping[0] = 0x2000_0000;
-pdataReg_Ping = &dataReg_Ping[0];
+uint16 *pdataReg_Ping;  //pointer to dataReg_Ping
+//&dataReg_Ping[0] = 0x2000_0000;
+//pdataReg_Ping = &dataReg_Ping[0];
 
-uint8 *pdataReg_Pong;  //pointer to dataReg_Pong
-&dataReg_Pong[0] = 0x2000_0020;
-pdataReg_Pong = &dataReg_Pong[0];
+uint16 *pdataReg_Pong;  //pointer to dataReg_Pong
+//&dataReg_Pong[0] = 0x2000_0020;
+//pdataReg_Pong = &dataReg_Pong[0];
 
 uint8 *pcontrolReg; //pointer to controlReg
-pcontrolReg = 0x2000_060;
+//pcontrolReg = 0x2000_060;
 
-&SerControl = 0x2000_0060;
-uint8 pSerControl;
-pSerControl = &SerControl
+//&SerControl = 0x2000_0060;
+//uint8 pSerControl;
+//pSerControl = &SerControl
 
-&ENERGY_RESET_VALUE = 0x2000_0062;
-uint8 pENERGY_RESET_VALUE;
-pENERGY_RESET_VALUE = &ENERGY_RESET_VALUE;
+//&ENERGY_RESET_VALUE = 0x2000_0062;
+//uint8 pENERGY_RESET_VALUE;
+//pENERGY_RESET_VALUE = &ENERGY_RESET_VALUE;
 
-&RM_ADD = 0x2000_0066;
-uint8 pRM_ADD;
-pRM_ADD = &RM_ADD;
+//&RM_ADD = 0x2000_0066;
+//uint8 pRM_ADD;
+//pRM_ADD = &RM_ADD;
+
+uint64 coordinator_extAddr; //coordinator external IEEE address
+uint16 coordinator_nwkAddr;  //coordinator network address
 
 uint8 *pcoordinator_extAddr; //pointer to coordinator external IEEE address
-uint16 *pcoordinator_nwkAddr; //pointer to coordinator network address
+//uint16 coordinator_nwkAddr; //pointer to coordinator network address
 
-pcoordinator_extAddr = &coordinator_exAddr;  //set pointer to coordinator external IEEE address
-pcoordinator_nwkAddr = &coordinator_nwkAddr;  //set pointer to coordinator network address
+//pcoordinator_extAddr = &coordinator_exAddr;  //set pointer to coordinator external IEEE address
+//pcoordinator_nwkAddr = &coordinator_nwkAddr;  //set pointer to coordinator network address
 
-uint8 *psm_ADD; //pointer to smartmeter external IEEE addresses in routing table
-&sm_ADD[0] = 0x2000_0100;
-psm_ADD=&sm_ADD[0]; //set pointer to sm_ADD[0]
+uint64 *psm_ADD; //pointer to smartmeter external IEEE addresses in routing table
+//&sm_ADD[0] = 0x2000_0100;
+//psm_ADD=&sm_ADD[0]; //set pointer to sm_ADD[0]
 
 
 /*********************************************************************
@@ -268,7 +274,10 @@ static const zclEZMode_RegisterData_t zclCoordinator_RegisterEZModeData =
 
 static cId_t bindingOutClusters[] =
 {
-  ZCL_CLUSTER_ID_HVAC_THERMOSTAT
+  ZCL_CLUSTER_ID_HVAC_THERMOSTAT,
+    
+  
+
 };
 #define ZCLCoordinator_BINDINGLIST_OUT     1
 
@@ -276,6 +285,11 @@ static cId_t bindingInClusters[] =
 {
   ZCL_CLUSTER_ID_HVAC_THERMOSTAT,
   ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT
+   //data attribute for SmartMeter defined in zcl_SmartMeter_data_c 
+  ZCL_CLUSTER_ID_MS_PARAMETER_MEASUREMENT,  /*added for SmartMeter*/
+  ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT,  /*added for SmartMeter*/
+  ZCL_CLUSTER_ID_MS_ADD_MEASURMENT,  /*added for SmartMeter*/
+  ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,  /*added for SmartMeter*/
 };
 #define ZCLCoordinator_BINDINGLIST_IN      2
 #endif
@@ -318,14 +332,16 @@ void zclCoordinator_LcdDisplayHelpMode(void);
 
 //Coordinator functions
 void zclCoordinator_SendData( void );
-void zclCoordinator_SendParm( void );
-void zclCoordinator_SetParm( void );
+void zclCoordinator_SendParam( void );
+void zclCoordinator_SetParam( void );
 void zclCoordinator_nvWriteParam( void );
 void zclCoordinator_nvReadParam( void );
 void zclCoordinator_SetParm( void );
 void zclCoordinator_NetDiscov( void );
 void zclCoordinator_SendAck( void );
 void zclCoordinator_SendRestart( void );
+void zclCoordinator_SendReset(void);
+void zclCoordinator_SendRelay(void);
 void zclCoordinator_parameterInit(void);
 void zclCoordinator_controlRegInit(void);
 uint8 zclCoordinator_SmartMeterParamCompare(void);
@@ -335,21 +351,27 @@ uint8 zclCoordinator_ProcessInGetDataReportCmd( zclIncomingMsg_t *pInMsg );
 uint8 zclCoordinator_ProcessInAddReportCmd( zclIncomingMsg_t *pInMsg );
 uint8 zclCoordinator_ProcessInResetReportCmd( zclIncomingMsg_t *pInMsg );
 uint8 zclCoordinator_ProcessInRestartReportCmd( zclIncomingMsg_t *pInMsg );
-uint8 zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg );
+void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg );
 uint8 zclCoordinator_ProcessInRelayReportCmd( zclIncomingMsg_t *pInMsg );
+void zclCoordinator_dataRegInit (void);
+void InitConsole(void);
+uint32 BUILD_UINT32_16 (uint16 num1, uint16 numb2);
+uint64 BUILD_UINT64_8 (uint8 numb1, uint8 numb2, uint8 numb3, uint8 numb4, uint8 numb5, uint8 numb6, uint8 numb7, uint8 numb8);
+uint64 BUILD_UINT64_16 (uint16 numb1, uint16 numb2, uint16 numb3, uint16 numb4);
+//uint16 BUILD_UINT16 (uint8 numb1, uint8 numb2);
 
 // Functions to process ZCL Foundation incoming Command/Response messages
 static void zclCoordinator_ProcessIncomingMsg( zclIncomingMsg_t *msg );
 #ifdef ZCL_READ
-static uint8 zclCoordinator_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg );
+//static uint8 zclCoordinator_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg ); //removed
 #endif
 #ifdef ZCL_WRITE
-static uint8 zclCoordinator_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg );
+//'static uint8 zclCoordinator_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg ); //removed
 #endif
 #ifdef ZCL_REPORT
 static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg );
 #endif  // ZCL_REPORT
-static uint8 zclCoordinator_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg );
+//static uint8 zclCoordinator_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg ); //removed
 
 /*********************************************************************
  * STATUS STRINGS
@@ -460,45 +482,59 @@ void zclCoordinator_Init( byte task_id )
   // display the device name
   HalLcdWriteString( (char *)sDeviceName, HAL_LCD_LINE_3 );
 #endif
-  
+   // Get coordinator 64-bit IEEE external address and network address
+ pcoordinator_extAddr=NLME_GetExtAddr();
+ coordinator_extAddr = *pcoordinator_extAddr;
+ coordinator_nwkAddr=NLME_GetShortAddr();
+ 
  //Initialize controlReg in the coordinator
-  zclCoordinator_controlRegInit(void);
+  zclCoordinator_controlRegInit();
 //Initialize parameters in the coordinator
-  zclCoordinator_parameterInit(void);
+  zclCoordinator_parameterInit();
+//Initialize SmartMeter data register
+  zclCoordinator_dataRegInit();
  //Initialize UART
-  UARTInit();
-
-//
+ // UARTInit();
+ 
+ 
 // Set up the serial console to use for displaying messages.  This is
 // just for debugging purpose and is not needed for Systick operation.
 //
-//InitConsole();
+InitConsole();
  
-// Discover coordinator's network address and extended IEEE address
-  APSME_LookupNwkAddr( pcoordinator_extAddr, pcoordinator_nwkAddr );
+
   //Initialize routing table sm_ADD[index]
   sm_max = 0;
-  for (index = 0; index < 500, index++)
-    sm_ADD[index] = 0;
+  for (sm_index = 0; sm_index < 500; sm_index++)
+    sm_ADD[sm_index] = 0;
  
-  SerControl = SerControl & 0xFB;                
-// Read parameter in the SmartMeter
-  
-// Set destination address to 64-bit  >>? check
+//SerControl = SerControl & 0xFB;                
+// Read parameters in the SmartMeter
+// Set destination address to 64-bit  >>? check 
   zclCoordinator_DstAddr.addrMode = (afAddrMode_t)Addr64Bit;
   zclCoordinator_DstAddr.endPoint = Coordinator_ENDPOINT;
-  zclCoordinator_DstAddr.addr.shortAddr = 0;   
+  zclCoordinator_DstAddr.addr.shortAddr = 0;  
+ 
 //Send request for smart meter parameters using round robin method
    for (index=0; index < sm_max; index++)
    {
-  &zclCoordinator_DstAddr = &sm_Addr[index];
-    zclCoordinator_SendParam(void);
+//&zclCoordinator_DstAddr = &sm_ADD[index];
+    
+  zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[index])>>56)&0x00000000000000FF); //AF.h; highest
+  zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[index])>>48)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[index])>>40)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[index])>>32)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[index])>>24)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[index])>>16)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[index])>>8)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[index])&0x00000000000000FF);  
 
+  zclCoordinator_SendParam();
 // Compare SmartMeter parameters received to that of coordinator
 // If they are difference, then reprogram
-    if ((zclCoordinator_SmartMeterParamCompare(void)) == 1)
+    if ((zclCoordinator_SmartMeterParamCompare()) == 1)
       {
-        zclCoordinator_SetParam(void)
+        zclCoordinator_SetParam();
       }
    }
 }
@@ -621,16 +657,21 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
  //if ( events & Coordinator_DATA_SEND_EVT )
   
   
-  if ((controlReg[0] >> 7)(  & 0x01) == 1)
+  if (((controlReg[0] >> 7) & 0x01) == 1)
   {
   events = Coordinator_DATA_SEND_EVT;
- // Set destination address to 64-bit  >>? check 
-  zclCoordinator_DstAddr.addrMode = (afAddrMode_t)Addr64Bit;
-  zclCoordinator_DstAddr.endPoint = Coordinator_ENDPOINT;
-  zclCoordinator_DstAddr.addr.shortAddr = 0;   
+ 
   //Send request for smart meter data using round robin method
   //Specify which smart meter to request data
-  &zclCoordinator_DstAddr = &sm_ADD[sm_index];
+  //&zclCoordinator_DstAddr = &sm_ADD[sm_index];
+  zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_index])>>56)&0x00000000000000FF); //AF.h; highest
+  zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_index])>>48)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_index])>>40)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_index])>>32)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_index])>>24)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_index])>>16)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_index])>>8)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_index])&0x00000000000000FF);  
   //Stop power calculation
     flaginc = 0;
     zclCoordinator_SendRestart();
@@ -639,38 +680,38 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
     zclCoordinator_SendData();   //send request to get data
 //While waiting for data send from smart meter, send data from other dataReg
 //
-      UARTEnable(COORDINATOR_UART_BASE );
+      UARTEnable(COORDINATOR_GPIO_UART_BASE );
        
-      if (dataRegSel = 1) 
+      if (dataRegSel == 1) 
       {
-        pdataReg_Pong=&dataReg_Pong[0]    //initialize pointer
+        pdataReg_Pong=&dataReg_Pong[0];    //initialize pointer
       for (index=0; index <26; index++)
        {
-        UARTCharPut (Coordinator_UART_BASE, *pdataReg_Pong); //send data
+        UARTCharPut (COORDINATOR_GPIO_UART_BASE, *pdataReg_Pong); //send data
         pdataReg_Pong++;
         }  
       }
-     if (dataRegSel = 0) 
+     if (dataRegSel == 0) 
       {
-        pdataReg_Ping=&dataReg_Ping[0]    //initialize pointer
+        pdataReg_Ping=&dataReg_Ping[0];    //initialize pointer
       for (index=0; index <26; index++)
        {
-        UARTCharPut (Coordinator_UART_BASE, *pdataReg_Ping); //send data
+        UARTCharPut (COORDINATOR_GPIO_UART_BASE, *pdataReg_Ping); //send data
         pdataReg_Ping++;
         }  
       }  
    
-      UARTDisable(COORDINATOR_UART_BASE );
+      UARTDisable(COORDINATOR_GPIO_UART_BASE );
       controlReg[0] = controlReg[0] & 0x7F; //reset bit 7 to 0
    //   waiting for data send from smart meter to complete
         while (!datain_complete)
         {
         }
-       dataRegSel =  dataRegSel ^ 0x01  //toggle dataRegSel
+       dataRegSel =  dataRegSel ^ 0x01 ; //toggle dataRegSel
   //Restart power calculation
      flaginc = 1;
     zclCoordinator_SendRestart();
-    index++;
+    sm_index++;
     if (sm_index == sm_max)
         sm_index = 0;
 // get data periodically by delay Coordinator_SendData_INTERVAL
@@ -685,16 +726,16 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
   if ((controlReg[0]  & 0x01) == 1)
   {
       events = Coordinator_PARAM_SEND_EVT;
-      pparamReg=&paramReg[0]    //initialize pointer
-      UARTEnable(COORDINATOR_UART_BASE );
+      pparamReg=&paramReg[0];    //initialize pointer
+      UARTEnable(COORDINATOR_GPIO_UART_BASE );
  
 
   for (index=0; index <20; index++)
        {
-        UARTCharPut (Coordinator_UART_BASE, *pparamReg); //send parameters
+        UARTCharPut (COORDINATOR_GPIO_UART_BASE, *pparamReg); //send parameters
         pparamReg++;
         }
-  UARTDisable(COORDINATOR_UART_BASE );
+  UARTDisable(COORDINATOR_GPIO_UART_BASE );
   controlReg[0] = controlReg[0] & 0xFE; //reset bit 0 to 0
   return (events ^ Coordinator_PARAM_SEND_EVT);
  
@@ -705,38 +746,47 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
  // This operation will also write into FLASH or coordinator and smart meters
  // Reset this bit to default when write operation is completed
  //
- if ((controlReg[0] >> 1)& 0x01) == 0) 
+ if (((controlReg[0] >> 1)& 0x01) == 0) 
 {
- // UART recieve parameter data from server and store to parmReg[]
+ // UART receive parameter data from server and store to parmReg[]
       events = Coordinator_PARAM_SET_EVT;
-      pparamReg=&paramReg[0]    //initialize pointer
-      UARTEnable(COORDINATOR_UART_BASE );
+      pparamReg=&paramReg[0];    //initialize pointer
+      UARTEnable(COORDINATOR_GPIO_UART_BASE );
 //
 // Check for characters. Wait until a character is placed
 // into the receive FIFO.
 //
-while(!UARTCharsAvail(COORDINATOR_UART_BASE ))
+while(!UARTCharsAvail(COORDINATOR_GPIO_UART_BASE ))
 {
 }
   for (index=0; index < 20; index++)
   {  
 // Get the character(s) in the receive FIFO.
-   *pparamReg= UARTCharGetNonBlocking(COORDINATOR_UART_BASE);
+   *pparamReg= UARTCharGetNonBlocking(COORDINATOR_GPIO_UART_BASE);
     pparamReg++;
   }
-   UARTDisable (COORDINATOR_UART_BASE );
+   UARTDisable (COORDINATOR_GPIO_UART_BASE );
 //write parameters into FLASH memory of coordaintor
-   zclSmartMeter_nvWriteParam( void ); 
+   zclCoordinator_nvWriteParam(); 
 //write parameters to all the smart meters
    for (sm_index=0; sm_index < sm_max; sm_index++) {
-    &zclCoordinator_DstAdfdr = psm_ADD;
+   // &zclCoordinator_DstAdfdr = psm_ADD;
+  zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_index])>>56)&0x00000000000000FF); //AF.h; highest
+  zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_index])>>48)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_index])>>40)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_index])>>32)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_index])>>24)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_index])>>16)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_index])>>8)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_index])&0x00000000000000FF);   
+    
     zclCoordinator_SetParam();
 //check if parameter set is successful
     if (zclCoordinator_SmartMeterParamCompare()) {
      UARTprintf( "parameter set failed");
-      exit;
+     // exit;
     }
-    psm_ADD++;
+    sm_index++;
    }
    controlReg[0]=controlReg[0] | 0x02; //reset bit 1 to 1
    return (events ^ Coordinator_PARAM_SET_EVT);
@@ -746,14 +796,27 @@ while(!UARTCharsAvail(COORDINATOR_UART_BASE ))
 // Reset energy calculation if bit 2 is 1   *
 // Reset this bit to its default value when operation is finished
 //
- if ((controlReg[0] >> 2)& 0x01) == 1) 
+ if (((controlReg[0] >> 2)& 0x01) == 1) 
 {
       events = Coordinator_RESET_SEND_EVT;
-      &zclCoordinator_DstAddr = pRM_ADD;
-      ENERGY_RESET_VALUE = *pENERGY_RESET_VALUE;
-      zclCoordinatorSendReset();
+      //&zclCoordinator_DstAddr = pRM_ADD;
+  RM_ADD = BUILD_UINT64_8(controlReg[13], controlReg[12], controlReg[11], controlReg[10], controlReg[9], controlReg[8], controlReg[7], controlReg[6]);
+  zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((RM_ADD)>>56)&0x00000000000000FF); //AF.h; highest
+  zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((RM_ADD)>>48)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((RM_ADD)>>40)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((RM_ADD)>>32)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((RM_ADD)>>24)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((RM_ADD)>>16)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((RM_ADD)>>8)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((RM_ADD)&0x00000000000000FF);   
+    //  ENERGY_RESET_VALUE = *pENERGY_RESET_VALUE;
+  flagreset =(controlReg[0]>>2) & 0xFF;
+ ENERGY_RESET_VALUE = BUILD_UINT32(controlReg[5], controlReg[4], controlReg[3], controlReg[2]); 
+      zclCoordinator_SendReset();
       if (!(SmartMeter_ENERGY_RESET_VALUE == ENERGY_RESET_VALUE)){
         UARTprintf("RESET failed");
+        //exit;
+      }
       controlReg[0]=controlReg[0] & 0xFB; // reset bit 2 to 0
       return (events ^ Coordinator_RESET_SEND_EVT);
       
@@ -763,14 +826,26 @@ while(!UARTCharsAvail(COORDINATOR_UART_BASE ))
  // Reset this bit to its default value when operation is finished
  //
   
- if ((controlReg[0] >> 3)& 0x01) == 1) 
+ if (((controlReg[0] >> 3)& 0x01) == 1) 
 {
       events = Coordinator_RELAY_SEND_EVT;
-      &zclCoordinator_DstAddr = pRM_ADD; 
-      zclCoordinatorSendRelay();
-      if (!(SmartMeter_relay == relay)){
+     // &zclCoordinator_DstAddr = pRM_ADD; 
+  
+  zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((RM_ADD)>>56)&0x00000000000000FF); //AF.h; highest
+  zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((RM_ADD)>>48)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((RM_ADD)>>40)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((RM_ADD)>>32)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((RM_ADD)>>24)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((RM_ADD)>>16)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((RM_ADD)>>8)&0x00000000000000FF);
+  zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((RM_ADD)&0x00000000000000FF);  
+  flagrelay = (controlReg[0]>>3) & 0xFF;
+      zclCoordinator_SendRelay();
+      if (!(SmartMeter_relay == flagrelay)){
         UARTprintf("RELAY failed");
-      controlReg[0]=controlReg[0] & 0xF7; reset bit 3 to 0
+        //exit;
+      }
+      controlReg[0]=controlReg[0] & 0xF7;// reset bit 3 to 0
       return (events ^ Coordinator_RELAY_SEND_EVT);
       
   } 
@@ -778,10 +853,10 @@ while(!UARTCharsAvail(COORDINATOR_UART_BASE ))
  // Perform network discovery if bit 4 is 1           *  
 //  Reset this bit to its default value when operation is finished
 //
- if ((controlReg[0] >> 4)& 0x01) == 1) 
+ if (((controlReg[0] >> 4)& 0x01) == 1) 
 {
        events = Coordinator_NWKDISCOV_SEND_EVT; 
-       zclCoordinator_NetDiscov( void );
+       zclCoordinator_NetDiscov();
 //Wait 5 seconds for all the smart meters to respond to network discovery command
 //Each smart meter will send its IEEE address to coordinator during this time
 //A routing table sm_Addr[index] will be built. 
@@ -789,7 +864,7 @@ while(!UARTCharsAvail(COORDINATOR_UART_BASE ))
   osal_start_timerEx( zclCoordinator_TaskID, Coordinator_NWKDISCOV_SEND_EVT, Coordinator_NwkDiscov_INTERVAL );
   while (~(events & Coordinator_NWKDISCOV_SEND_EVT )){
   }  //wait for Coordinator_NwkDiscov_INTERVAL trigger event Coordinator_NwkDiscov_SEND_EVT
-  controlReg[0]=controlReg[0] & 0xEF; reset bit 4 to 0     
+  controlReg[0]=controlReg[0] & 0xEF; //reset bit 4 to 0     
   return (events ^ Coordinator_NWKDISCOV_SEND_EVT);
  
   } 
@@ -797,19 +872,19 @@ while(!UARTCharsAvail(COORDINATOR_UART_BASE ))
   // Send routing table when bit 5 is set to 1                 *     
   // Reset this bit to its default value when operation is finished
   //
- if ((controlReg[0] >> 5)& 0x01) == 1) 
+ if (((controlReg[0] >> 5)& 0x01) == 1) 
 { 
       events = Coordinator_RTABLE_SEND_EVT;
-      psm_ADD=&sm_ADD[0]    //initialize pointer
-      UARTEnable(COORDINATOR_UART_BASE );
+      psm_ADD=&sm_ADD[0];    //initialize pointer
+      UARTEnable(COORDINATOR_GPIO_UART_BASE );
    
 
   for (index=0; index <64*sm_max; index++)
        {
-        UARTCharPut (Coordinator_UART_BASE, *psm_ADD); //send parameters
+        UARTCharPut (COORDINATOR_GPIO_UART_BASE, *psm_ADD); //send parameters
         psm_ADD++;
         }
-  UARTDisable(COORDINATOR_UART_BASE );
+  UARTDisable(COORDINATOR_GPIO_UART_BASE );
   controlReg[0]=controlReg[0] & 0xDF; //reset bit 5 to 0
   return (events ^ Coordinator_RTABLE_SEND_EVT);
   
@@ -823,16 +898,16 @@ while(!UARTCharsAvail(COORDINATOR_UART_BASE ))
   if (((controlReg[0] >>6)  & 0x01) == 1)
   {
       events = Coordinator_CONTROL_SEND_EVT;
-      pcontrolReg=&controlReg[0]    //initialize pointer
-      UARTEnable(COORDINATOR_UART_BASE );
+      pcontrolReg=&controlReg[0];    //initialize pointer
+      UARTEnable(COORDINATOR_GPIO_UART_BASE );
 
 
-  for (index=0; index <20; index++)
+  for (index=0; index <14; index++)
        {
-        UARTCharPut (Coordinator_UART_BASE, *pcontrolReg); //send parameters
+        UARTCharPut (COORDINATOR_GPIO_UART_BASE, *pcontrolReg); //send parameters
         pcontrolReg++;
         }
-  UARTDisable(COORDINATOR_UART_BASE );
+  UARTDisable(COORDINATOR_GPIO_UART_BASE );
   controlReg[0] = controlReg[0] & 0xBF; //reset bit 6 to 0
   return (events ^ Coordinator_CONTROL_SEND_EVT);
  
@@ -841,25 +916,25 @@ while(!UARTCharsAvail(COORDINATOR_UART_BASE ))
   // Write to controlReg when parameter write is disabled  *
   // This is the normal write operation from server
 
- if ((controlReg[0] >> 1)& 0x01) == 1) 
+ if (((controlReg[0] >> 1)& 0x01) == 1) 
 {
  // UART recieve parameter data from server and store to controlReg[]
       events = Coordinator_CONTROL_SET_EVT;
-      pcontrolReg=&controlReg[0]    //initialize pointer
-      UARTEnable(COORDINATOR_UART_BASE );
+      pcontrolReg=&controlReg[0];    //initialize pointer
+      UARTEnable(COORDINATOR_GPIO_UART_BASE );
 //
 // Check for characters. Wait until a character is placed
 // into the receive FIFO.
 //
-while(!UARTCharsAvail(COORDINATOR_UART_BASE ))
+while(!UARTCharsAvail(COORDINATOR_GPIO_UART_BASE ))
 {
 }
   for (index=0; index < 14; index++)
   {// Get the character(s) in the receive FIFO.
-   *pcontrolReg= UARTCharGetNonBlocking(COORDINATOR_UART_BASE);
+   *pcontrolReg= UARTCharGetNonBlocking(COORDINATOR_GPIO_UART_BASE);
     pcontrolReg++;
   }
-   UARTDisable (COORDINATOR_UART_BASE );
+   UARTDisable (COORDINATOR_GPIO_UART_BASE );
    return (events ^ Coordinator_CONTROL_SET_EVT);
 }
        
@@ -1079,9 +1154,9 @@ void zclCoordinator_LCDDisplayUpdate( void )
   char sDisplayCurrent[16];
   char sDisplayEnergy[16];
   
-  int16_t VOLTAGE = dataRegister[4];
-  int16_t CURRENT = dataRegister[5];
-  int32_t ENERGY = BUILD_UNIT32(dataRegister[8], dataRegister[9]);
+  int16_t VOLTAGE = dataReg[4];
+  int16_t CURRENT = dataReg[5];
+  int32_t ENERGY = BUILD_UINT32_16(dataReg[8], dataReg[9]);
   
    osal_memcpy( sDisplayVoltage, "V: ", 11 );
   _ltoa(  VOLTAGE , (void *)(&sDisplayVoltage[11]), 10 ); // only use whole number
@@ -1098,7 +1173,60 @@ void zclCoordinator_LCDDisplayUpdate( void )
 #endif
   
 }
+/*********************************************************************
+ * @fn      zclCoordinator_LcdDisplayUpdate
+ *
+ * @brief   Called to update the LCD display.
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+void zclCoordinator_LcdDisplayUpdate( void )
+{
+  // use LEDs to show heating or cooling cycles based off local temperature
+  if ( zclCoordinator_LocalTemperature != NULL )
+  {
+    if ( zclCoordinator_LocalTemperature <= zclCoordinator_OccupiedHeatingSetpoint )
+    {
+      // turn on heating
+      zclCoordinator_SystemMode = HVAC_THERMOSTAT_SYSTEM_MODE_HEAT;
+      HalLedSet ( HAL_LED_1, HAL_LED_MODE_OFF );
+      HalLedSet ( HAL_LED_2, HAL_LED_MODE_ON );
+    }
+    else if ( zclCoordinator_LocalTemperature >= zclCoordinator_OccupiedCoolingSetpoint )
+    {
+      // turn on cooling
+      zclCoordinator_SystemMode = HVAC_THERMOSTAT_SYSTEM_MODE_COOL;
+      HalLedSet ( HAL_LED_1, HAL_LED_MODE_ON );
+      HalLedSet ( HAL_LED_2, HAL_LED_MODE_OFF );
+    }
+    else
+    {
+      // turn off heating/cooling
+      zclCoordinator_SystemMode = HVAC_THERMOSTAT_SYSTEM_MODE_OFF;
+      HalLedSet ( HAL_LED_1, HAL_LED_MODE_OFF );
+      HalLedSet ( HAL_LED_2, HAL_LED_MODE_OFF );
+    }
+  }
 
+  if ( giThermostatScreenMode == THERMOSTAT_HEATMODE )
+  {
+    zclCoordinator_LcdDisplayHeatMode();
+  }
+  else if ( giThermostatScreenMode == THERMOSTAT_COOLMODE )
+  {
+    zclCoordinator_LcdDisplayCoolMode();
+  }
+  else if ( giThermostatScreenMode == THERMOSTAT_HELPMODE )
+  {
+    zclCoordinator_LcdDisplayHelpMode();
+  }
+  else
+  {
+    zclCoordinator_LcdDisplayMainMode();
+  }
+}
 /*********************************************************************
  * @fn      zclCoordinator_LcdDisplayMainMode
  *
@@ -1531,12 +1659,12 @@ static void zclCoordinator_ProcessIncomingMsg( zclIncomingMsg_t *pInMsg)
   {
 #ifdef ZCL_READ
     case ZCL_CMD_READ_RSP:
-      zclCoordinator_ProcessInReadRspCmd( pInMsg );
+      //zclCoordinator_ProcessInReadRspCmd( pInMsg );
       break;
 #endif
 #ifdef ZCL_WRITE
     case ZCL_CMD_WRITE_RSP:
-      zclCoordinator_ProcessInWriteRspCmd( pInMsg );
+      //zclCoordinator_ProcessInWriteRspCmd( pInMsg );
       break;
 #endif
 #ifdef ZCL_REPORT
@@ -1561,7 +1689,7 @@ static void zclCoordinator_ProcessIncomingMsg( zclIncomingMsg_t *pInMsg)
       break;
 #endif
     case ZCL_CMD_DEFAULT_RSP:
-      zclCoordinator_ProcessInDefaultRspCmd( pInMsg );
+      //zclCoordinator_ProcessInDefaultRspCmd( pInMsg );
       break;
 
     default:
@@ -1584,7 +1712,7 @@ static void zclCoordinator_ProcessIncomingMsg( zclIncomingMsg_t *pInMsg)
  *
  * @return  none
  */
-static uint8 zclCoordinator_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
+/*static uint8 zclCoordinator_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
 {
   zclReadRspCmd_t *readRspCmd;
   uint8 i;
@@ -1598,7 +1726,7 @@ static uint8 zclCoordinator_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
   }
 
   return ( TRUE );
-}
+}*/
 #endif // ZCL_READ
 
 #ifdef ZCL_WRITE
@@ -1611,7 +1739,7 @@ static uint8 zclCoordinator_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
  *
  * @return  none
  */
-static uint8 zclCoordinator_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
+/*static uint8 zclCoordinator_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
 {
   zclWriteRspCmd_t *writeRspCmd;
   uint8 i;
@@ -1624,7 +1752,7 @@ static uint8 zclCoordinator_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
   }
 
   return ( TRUE );
-}
+}*/
 #endif // ZCL_WRITE
 
 #ifdef ZCL_REPORT
@@ -1706,13 +1834,14 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
  //  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
  // Process incomming parameter report from smart meter in response to GET parameter command *
  //
-  zclReportCmd_t *pInParamterReport;
- 
+  zclReportCmd_t *pInParameterReport;
+  
   pInParameterReport = (zclReportCmd_t *)pInMsg->attrCmd;
-  uint16_t OPERATION = pInParameterReport->attrList(0).attData[0];
-  uint16_t RESULT = pInParameterReport->attrList(0).attData[1];
+  uint16_t OPERATION = pInParameterReport->attrList[0].attrData[0];
+  uint16_t RESULT = pInParameterReport->attrList[0].attrData[1];
+ 
   if ((OPERATION == USR_TX_GET) && (RESULT == SUCCESS) && 
-      (pInParameterrReport->attrList[0].attrID == ATTRID_MS_PARAMETER_MEASURED_VALUE)) {
+      (pInParameterReport->attrList[0].attrID == ATTRID_MS_PARAMETER_MEASURED_VALUE)) {
  
     // store the current parameter value sent over the air from smart meter *
   SmartMeterparamReg[0] = pInParameterReport->attrList[0].attrData[2];
@@ -1730,7 +1859,7 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
   
   // Process incomming parameter report from smart meter in response to SET parameter command *
    if ((OPERATION == USR_TX_SET) && (RESULT == SUCCESS) && 
-      (pInParameterrReport->attrList[0].attrID == ATTRID_MS_PARAMETER_MEASURED_VALUE)) {
+      (pInParameterReport->attrList[0].attrID == ATTRID_MS_PARAMETER_MEASURED_VALUE)) {
  
     // store the current parameter value sent over the air from smart meter
        
@@ -1747,7 +1876,7 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
       }
   //Process incomming data report from smart meter in response to GET date command *
    if ((OPERATION == USR_TX_GET) && (RESULT == SUCCESS) && 
-      (pInParameterrReport->attrList[0].attrID == ATTRID_MS_DATA_MEASURED_VALUE)) {
+      (pInParameterReport->attrList[0].attrID == ATTRID_MS_DATA_MEASURED_VALUE)) {
 
     // store the current data value sent over the air from smart meter
     if (dataRegSel == 0) {
@@ -1780,38 +1909,38 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
   dataReg_Ping[11] = pInParameterReport->attrList[0].attrData[9];
   dataReg_Ping[12] = pInParameterReport->attrList[0].attrData[10]; 
     }
-    datain_complet=1;  //set flag to indicate all data have been received
+    datain_complete=1;  //set flag to indicate all data have been received
  }
   // Process incomming address report from smart meter in response to route discovery command *
-   if ((OPERATION == USR_TX_GET) && (RESULT == SUCCESS) && 
-         ((pInParameterrReport->attrList[0].attrID)== ATTRID_MS_ADD_MEASURED_VALUE )) {
-  sm_ADD[sm_index] = BUILD UINT64(pInParameterReport->attrList[0].attrData[2], 
+   if ((OPERATION == USR_TX_GET) && (RESULT == SUCCESS) &&
+         ((pInParameterReport->attrList[0].attrID)== ATTRID_MS_ADD_MEASURED_VALUE )) {
+  sm_ADD[sm_index] = BUILD_UINT64_16(pInParameterReport->attrList[0].attrData[2], 
                              pInParameterReport->attrList[0].attrData[3], 
                              pInParameterReport->attrList[0].attrData[4], 
                              pInParameterReport->attrList[0].attrData[5]); 
-  //Ack smart meter with sm_Add[index]
-  zclCoordinator_SendAck( void );
+  //Ack smart meter with sm_Add[index
+  zclCoordinator_SendAck();
   sm_index++; //increment index
   sm_max++; //total number of smart meter detected
   
          }
   // Process incomming energy reset report from smart meter in response to RESET command *
-   if ((OPERATION == USR_TX_SET) && (RESULT == SUCCESS) && 
-      (pInParameterrReport->attrList[0].attrID == ATTRID_MS_COMMAND_RESET_MEASURED_VALUE)) {
-  SmartMeter_flagreset = pInParameterReport->attrList(0).attData[2]; 
+   if ((OPERATION == RESET) && (RESULT == SUCCESS) && 
+      (pInParameterReport->attrList[0].attrID == ATTRID_MS_COM_MEASURED_VALUE)) {
+  SmartMeter_flagreset = pInParameterReport->attrList[0].attrData[2]; 
   uint16 energy_reset_value1 =  pInParameterReport->attrList[0].attrData[3];
-  uint16 energy_reset_value0 =  pinParameterReport->attrList[0].attrData[4];
-  SmartMeter_ENERGY_RESET_VALUE == BUILD UNIT64(energy_reset_value1, energy_reset_value0);
+  uint16 energy_reset_value0 =  pInParameterReport->attrList[0].attrData[4];
+  SmartMeter_ENERGY_RESET_VALUE = BUILD_UINT32_16(energy_reset_value1, energy_reset_value0);
       }
    // Process incomming relay report from smart meter in response to RELAY command *
-   if ((OPERATION == USR_TX_SET) && (RESULT == SUCCESS)  &&
-      (pInParameterrReport->attrList[0].attrID == ATTRID_MS_COMMAND_RELAY_MEASURED_VALUE)) {      
-    SmartMeter_relay = pInParameterReport->attrList(0).attData[2]; 
+   if ((OPERATION == RELAY) && (RESULT == SUCCESS)  &&
+      (pInParameterReport->attrList[0].attrID == ATTRID_MS_COM_MEASURED_VALUE)) {      
+    SmartMeter_relay = pInParameterReport->attrList[0].attrData[3]; 
       }
      // Process incomming restart report from smart meter in response to RESTART command *
-   if ((OPERATION == USR_TX_SET) && (RESULT == SUCCESS)  &&
-      (pInParameterrReport->attrList[0].attrID == ATTRID_MS_COMMAND_RESTART_MEASURED_VALUE)) {      
-    SmartMeter_flaginc = pInParameterReport->attrList(0).attData[2]; 
+   if ((OPERATION == START) && (RESULT == SUCCESS)  &&
+      (pInParameterReport->attrList[0].attrID == ATTRID_MS_COM_MEASURED_VALUE)) {      
+    SmartMeter_flaginc = pInParameterReport->attrList[0].attrData[2]; 
       } 
 }
 #endif  // ZCL_REPORT
@@ -1824,11 +1953,11 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
  *
  * @return  none
  */
-static void zclCoordinator_SendParm( void )
+static void zclCoordinator_SendParam( void )
 {
 
   zclReportCmd_t *pReportCmd;
-  int16_t packet[] = {USER_RX_GET, COM_PARAM};  
+  int16_t packet[] = {USR_RX_GET, COM_PARAM};  
 
   pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
   if ( pReportCmd != NULL )
@@ -1856,11 +1985,11 @@ static void zclCoordinator_SendParm( void )
  *
  * @return  none
  */
-static void zclCoordinator_SetParm( void )
+static void zclCoordinator_SetParam( void )
 {
 
   zclReportCmd_t *pReportCmd;
-  int16_t packet[] = {USER_RX_SET, COM_PARAM, MIN_ADC, MAX_ADC, SCALE_INT, SCALE_WIN, 
+  int16_t packet[] = {USR_RT_SET, COM_PARAM, MIN_ADC, MAX_ADC, SAMPLE_INT, SAMPLE_WIN, 
   MAG, MIN_V, MAX_V, MIN_I, MAX_I, ADC_DELAY};  
 
   pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
@@ -1893,7 +2022,7 @@ static void zclCoordinator_SendData( void )
 {
 
   zclReportCmd_t *pReportCmd;
-  int16_t packet[] = {USER_RX_GET, COM_DATA};  
+  int16_t packet[] = {USR_RX_GET, COM_DATA};  
 
   pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
   if ( pReportCmd != NULL )
@@ -1924,20 +2053,20 @@ static void zclCoordinator_SendReset( void )
 {
 
   zclReportCmd_t *pReportCmd;
-  int16 energy_reset_value_1 = ((ENERGY_RESET_VALUE>>16) & 0XFF);
-  int16 energy_reset_value_0 = ENERGY_RESET_VALUE & 0XFF;
-  int16 packet[] = {USER_RX_SET, POWER_RESET, flagreset, energy_reset_value_1, energy_reset_value_0 };  
+  int16 energy_reset_value_1 = ((ENERGY_RESET_VALUE>>16) & 0xFF);
+  int16 energy_reset_value_0 = ENERGY_RESET_VALUE & 0xFF;
+  int16 packet[] = {RESET, flagreset, energy_reset_value_1, energy_reset_value_0 };  
 
   pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
   if ( pReportCmd != NULL )
   {
     pReportCmd->numAttr = 1;
-    pReportCmd->atrList[0].attrID = ATTRID_MS_COMMAND_RESET_MEASURED_VALUE;
+    pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
     pReportCmd->attrList[0].dataType = ZCL_DATATYPE_INT16;
     pReportCmd->attrList[0].attrData = (void *)(&packet[0]);
 
     zcl_SendReportCmd( Coordinator_ENDPOINT, &zclCoordinator_DstAddr,
-                       ZCL_CLUSTER_ID_MS_RESET_MEASUREMENT,
+                       ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
                        pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclCoordinatorSeqNum++ );
   }
 
@@ -1959,18 +2088,18 @@ static void zclCoordinator_SendRelay( void )
 
   zclReportCmd_t *pReportCmd;
 
-  int16 packet[] = {USER_RX_SET, POWER_RELAY, relay };  
+  int16 packet[] = {RELAY, flagrelay };  
 
   pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
   if ( pReportCmd != NULL )
   {
     pReportCmd->numAttr = 1;
-    pReportCmd->atrList[0].attrID = ATTRID_MS_COMMAND_RELAY_MEASURED_VALUE;
+    pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
     pReportCmd->attrList[0].dataType = ZCL_DATATYPE_INT16;
     pReportCmd->attrList[0].attrData = (void *)(&packet[0]);
 
     zcl_SendReportCmd( Coordinator_ENDPOINT, &zclCoordinator_DstAddr,
-                       ZCL_CLUSTER_ID_MS_RELAY_MEASUREMENT,
+                       ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
                        pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclCoordinatorSeqNum++ );
   }
 
@@ -1992,18 +2121,18 @@ static void zclCoordinator_SendRestart( void )
 
   zclReportCmd_t *pReportCmd;
 
-  int16 packet[] = {USER_RX_SET, POWER_START, flaginc };  
+  int16 packet[] = {START, flaginc };  
 
   pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
   if ( pReportCmd != NULL )
   {
     pReportCmd->numAttr = 1;
-    pReportCmd->atrList[0].attrID = ATTRID_MS_COMMAND_RESTART_MEASURED_VALUE;
+    pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
     pReportCmd->attrList[0].dataType = ZCL_DATATYPE_INT16;
     pReportCmd->attrList[0].attrData = (void *)(&packet[0]);
 
     zcl_SendReportCmd( Coordinator_ENDPOINT, &zclCoordinator_DstAddr,
-                       ZCL_CLUSTER_ID_MS_RESTART_MEASUREMENT,
+                       ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
                        pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclCoordinatorSeqNum++ );
   }
 
@@ -2021,16 +2150,16 @@ static void zclCoordinator_SendRestart( void )
  */
 static void zclCoordinator_NetDiscov( void )
 {
-  afAddrType_t BcDstAddr;  //? check
+  afAddrType_t Bc_DstAddr;  //? check
   zclReportCmd_t *pReportCmd;
-  uint16 ADD_3 = ((*pcoordinator_extAddr) >>48 & 0xFFFF);
-  uint16 ADD_3 = ((*pcoordinator_extAddr) >>32 & 0xFFFF);
-  uint16 ADD_2 = ((*pcoordinator_extAddr) >>16 & 0xFFFF);
+  uint16 ADD_3 = ((coordinator_extAddr) >>48 & 0xFFFF);
+  uint16 ADD_2 = ((coordinator_extAddr) >>32 & 0xFFFF);
+  uint16 ADD_1 = ((coordinator_extAddr) >>16 & 0xFFFF);
   uint16 ADD_0 = *pcoordinator_extAddr & 0xFFFF;
-  uint16 packet[] = {USER_RX_GET, COM_ADD, ADD_3, ADD_2, ADD_1, ADD_0};  
+  uint16 packet[] = {USR_RX_GET, COM_ADD, ADD_3, ADD_2, ADD_1, ADD_0};  
   
   Bc_DstAddr.addrMode = (afAddrMode_t)AddrBroadcast; //? check
-  Bc_DstAddr.endPoint = SmartMeter_ENDPOINT; //? check
+  Bc_DstAddr.endPoint = Coordinator_ENDPOINT; //? check
   Bc_DstAddr.addr.shortAddr = 0xFFFF;  //? check
   
   pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
@@ -2061,20 +2190,23 @@ static void zclCoordinator_NetDiscov( void )
  */
 static void zclCoordinator_SendAck( void )
 {
-
+  uint16 sm_ADD3 = (sm_ADD[sm_index]>>48) & 0xFF;
+  uint16 sm_ADD2 = (sm_ADD[sm_index]>>32) & 0xFF;
+  uint16 sm_ADD1 = (sm_ADD[sm_index]>>16) & 0xFF;
+  uint16 sm_ADD0 = sm_ADD[sm_index] & 0xFF;
   zclReportCmd_t *pReportCmd;
-  int16_t packet[] = {USER_RX_SET, SUCCESS};  
+  int16_t packet[] = {USR_RX_GET, SUCCESS, sm_ADD3, sm_ADD2, sm_ADD1, sm_ADD0};  
 
   pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
   if ( pReportCmd != NULL )
   {
     pReportCmd->numAttr = 1;
-    pReportCmd->attrList[0].attrID = ATTRID_MS_ACK_MEASURED_VALUE;
+    pReportCmd->attrList[0].attrID = ATTRID_MS_ADD_MEASURED_VALUE;
     pReportCmd->attrList[0].dataType = ZCL_DATATYPE_INT16;
     pReportCmd->attrList[0].attrData = (void *)(&packet[0]);
 
     zcl_SendReportCmd( Coordinator_ENDPOINT, &zclCoordinator_DstAddr,
-                       ZCL_CLUSTER_ID_MS_ACK_MEASUREMENT,
+                       ZCL_CLUSTER_ID_MS_ADD_MEASUREMENT,
                        pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclCoordinatorSeqNum++ );
   }
 
@@ -2093,12 +2225,12 @@ static void zclCoordinator_SendAck( void )
  */
  static void zclCoordinator_parameterInit(void)
 {
-  zclSmartMeter_nvReadParam( ); //read parameter from FLASH
+  zclCoordinator_nvReadParam( ); //read parameter from FLASH
   //load into paramReg
-  for (index=0, index < 10; index++) {
-    paramReg[index] = BUID UNIT16 (*(pparamReg+1), *pparamReg);
-    paramReg = paramReg +2;
-  }
+  //for (index=0; index < 10; index++) {
+  //  paramReg[index] = BUILD_UINT16 (*(pparamReg+1), *pparamReg);
+  //  paramReg = paramReg +2;
+  //}
   /*paramReg[0] = 0;
   paramReg[1] = 1023;
   paramReg[2]=1000;
@@ -2113,12 +2245,12 @@ static void zclCoordinator_SendAck( void )
   MIN_ADC=paramReg[0];
   MAX_ADC=paramReg[1];
   SAMPLE_INT=paramReg[2];
-  SAMPPLE_WIN=paramReg[3];
+  SAMPLE_WIN=paramReg[3];
   MAG = paramReg[4];
   MAX_V = paramReg[5];
   MIN_V = paramReg[6];
   MAX_I = paramReg[7];
-  MIN_I = paramReg[8]2;
+  MIN_I = paramReg[8];
   ADC_DELAY = paramReg[9];
   index =0;
   sm_index=0;
@@ -2138,10 +2270,10 @@ static void zclCoordinator_SendAck( void )
  
  static void zclCoordinator_controlRegInit(void)
 {
-  ServControl = 0b00001010;
-  ENERGY_RESET_VALUE = 0x0000_0000;
-  RM_ADD=0x0000_0000_0000_0000;
-  controlReg[0]=0b00001010;
+  //ServControl = 0b00001010;
+  ENERGY_RESET_VALUE = 0x00000000;
+  RM_ADD=0x0000000000000000;
+  controlReg[0]=0x0A;
   controlReg[1]=0;
   controlReg[2]=0;
   controlReg[3]=0;
@@ -2167,22 +2299,22 @@ static void zclCoordinator_SendAck( void )
  *
  * @return  none
  */
-static void zclSmartMeter_nvReadParam( void )
+static void zclCoordinator_nvReadParam( void )
 {
-  osalSnvId_t FLASH_PARAM;
-  osalSnvLeng_t len;
-  len = 20;  //bytes
-  pparmRegtemp = &paramRegtemp[0];
+  //osalSnvId_t FLASH_PARAM;
+  //osalSnvLeng_t len;
+  //len = 20;  //bytes
+  uint16 *flashpt;
+  //flashpt = 0x20000020;  //point to memory mapped address
+  flashpt = &paramReg[0];
   //locate item in flash memory
-  osal_nv_item_init (FLASH_PARAM, len, NULL);
+  osal_nv_item_init (FLASH_PARAM, 20, NULL);
   //read from flash memory and load it into paramReg
-  osal_nv_read (FLASH_PARAM, 0, len, *pparamReg);
-   
- 
+  osal_nv_read (FLASH_PARAM, 0, 20, flashpt);
 }
  
 /*********************************************************************
- * @fn      zclSmartMeter_nvWriteParam
+ * @fn      zclCoordinator_nvWriteParam
  *
  * @brief   Called to write SmartMeter parameter information into Flash
  *
@@ -2190,16 +2322,18 @@ static void zclSmartMeter_nvReadParam( void )
  *
  * @return  none
  */
-static void zclSmartMeter_nvWriteParam( void )
+static void zclCoordinator_nvWriteParam( void )
 {
- osalSnvId_t FLASH_PARAM;
-  osalSnvLeng_t len;
-  len = 20;
-
+ //osalSnvId_t FLASH_PARAM;
+  //osalSnvLeng_t len;
+  //len = 20;
+  uint16 *flashpt;
+  //flashpt = 0x20000020;  //point to memory mapped address
+  flashpt = &paramReg[0];
   //locate item in flash
-  osal_nv_item_init (FLASH_PARAM, len, NULL);
+  osal_nv_item_init (FLASH_PARAM, 20, NULL);
   //write paramReg to FLASH
-  osal_nv_write (FLASH_PARAM, 0, len, *pparamReg);
+  osal_nv_write (FLASH_PARAM, 0, 20, flashpt);
    
 } 
 
@@ -2216,16 +2350,32 @@ static void zclSmartMeter_nvWriteParam( void )
 uint8 zclCoordinator_SmartMeterParamCompare (void)
 {
   uint8 returnvalue;
-  for (index=0; index<9; index++)
-  if (SmartMeterparamReg[index] == parameterReg[index])
+  for (index=0; index<10; index++)
+  if (SmartMeterparamReg[index] == paramReg[index])
       returnvalue = 0;
       else
         returnvalue = 1;
-      return = returnvalue;
+      return  returnvalue;
   
 }
 
-
+/*********************************************************************
+ * @fn      zclCoordinator_dataRegInit
+ *
+ * @brief   Called to initialize data registers
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+ 
+ static void zclCoordinator_dataRegInit(void) 
+ {
+   uint8 i;
+   for (i=0; i<13; i++)
+     dataReg_Pong[i] = 0;
+     dataReg_Ping[i] = 0;
+ }
 
 /***************************************************************************
 * This function sets up UART0 to be used for a console to display information
@@ -2252,6 +2402,64 @@ void InitConsole(void)
  //
  UARTStdioInit(0);
 }
+
+/*********************************************************************
+ * @fn      BUILD_UINT32_16
+ *
+ * @brief   concatenate 16 bits into 32 bits
+ *
+ * @param   numb1, numb2
+ *
+ * @return  32 bit result
+ */
+ 
+ uint32 BUILD_UINT32_16 (uint16 num1, uint16 num2)
+ {
+   uint32 result = num1;
+   result = (result << 16) | num2;
+   return result;
+ }
+/*********************************************************************
+ * @fn      BUILD_UINT64_16
+ *
+ * @brief   concatenate 16 bits into 64 bits
+ *
+ * @param   num1, num2, num3, num4
+ *
+ * @return  64 bit result
+ */
+ 
+ uint64 BUILD_UINT64_16 (uint16 num1, uint16 num2, uint16 num3, uint16 num4)
+ {
+   uint64 result = num1;
+   result = (result << 16) | num2;
+   result = (result << 16) | num3;
+   result = (result << 16) | num4;
+   return result;
+ }
+/*********************************************************************
+ * @fn      BUILD_UINT64_8
+ *
+ * @brief   concatenate 8 bits into 64 bits
+ *
+ * @param   num1, num2, num3, num4, numb5, numb6, numb7, numb8
+ *
+ * @return  64 bit result
+ */
+ 
+ uint64 BUILD_UINT64_8 (uint8 num1, uint8 num2, uint8 num3, uint8 num4, uint8 num5, uint8 num6, uint8 num7, uint8 num8)
+ {
+   uint64 result = num1;
+   result = (result << 8) | num2;
+   result = (result << 8) | num3;
+   result = (result << 8) | num4;
+   result = (result << 8) | num5;
+   result = (result << 8) | num6;
+   result = (result << 8) | num7;
+   result = (result << 8) | num8;
+   return result;
+ }
+
 /*********************************************************************
  * @fn      zclCoordinator_ProcessInDefaultRspCmd
  *
@@ -2261,7 +2469,7 @@ void InitConsole(void)
  *
  * @return  none
  */
-static uint8 zclCoordinator_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg )
+/*static uint8 zclCoordinator_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg )
 {
   // zclDefaultRspCmd_t *defaultRspCmd = (zclDefaultRspCmd_t *)pInMsg->attrCmd;
 
@@ -2269,7 +2477,7 @@ static uint8 zclCoordinator_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg )
   (void)pInMsg;
 
   return ( TRUE );
-}
+}*/
 
 #ifdef ZCL_EZMODE
 /*********************************************************************

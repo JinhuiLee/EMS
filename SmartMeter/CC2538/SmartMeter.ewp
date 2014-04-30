@@ -2977,6 +2977,12 @@
       <name>$PROJ_DIR$\..\Source\OSAL_SmartMeter.c</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\Source\uartstdio.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\uartstdio.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\Source\zcl_SmartMeter.c</name>
     </file>
     <file>

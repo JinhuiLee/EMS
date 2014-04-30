@@ -70,8 +70,8 @@ extern "C"
 
 #define SmartMeter_ADC_SEND_EVT                 0x0012
 #define SmartMeter_RESET_SEND_EVT               0x0014
-#define SmartMeter_RELAY_SEND_EVET              0x0016
-#define SmartMeter_NWKDISCOV_SEND_EVET         0x0018
+#define SmartMeter_RELAY_SEND_EVT              0x0016
+#define SmartMeter_NWKDISCOV_SEND_EVT         0x0018
 
 
 // Application Display Modes

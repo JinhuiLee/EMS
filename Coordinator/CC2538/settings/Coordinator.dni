@@ -30,7 +30,8 @@ LogFile=_ ""
 [Disassemble mode]
 mode=0
 [Breakpoints]
-Count=0
+Bp0=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation\Coordinator\Source\zcl_Coordinator.c}.1863.1" 1 0 0 0 "" 0 "" 0
+Count=1
 [Aliases]
 Count=0
 SuppressDialog=0

@@ -115,6 +115,18 @@ uint8 zclCoordinator_HeatingDemand = 100;   // 100% heating demanded of heating 
 uint8 zclCoordinator_CoolingDemand = 100;   // 100% cooling demanded of cooling device
 uint8 zclCoordinator_ControlSequenceOfOperation = HVAC_THERMOSTAT_CTRL_SEQ_OF_OPER_COOLING_HEATING;    // Both heating and cooling is possible
 uint8 zclCoordinator_SystemMode = HVAC_THERMOSTAT_SYSTEM_MODE_OFF;
+/*#define ATTRID_MS_PARAMETER_MEASURED_VALUE                               0x0012     
+#define  ATTRID_MS_DATA_MEASURED_VALUE                                   0x0013
+#define ATTRID_MS_ADD_MEASURED_VALUE                                     0x0014
+#define ATTRID_MS_COM_MEASURED_VALUE                                     0x0015*/
+
+uint8 zclCoordinator_Parameter_MeasuredValue = 0;
+             
+uint8 zclCoordinator_Data_MeasuredValue = 0;
+
+uint8 zclCoordinator_Add_MeasuredValue = 0;
+
+uint8 zclCoordinator_Com_MeasuredValue = 0;
 
 /*********************************************************************
  * ATTRIBUTE DEFINITIONS - Uses REAL cluster IDs
@@ -290,7 +302,7 @@ CONST zclAttrRec_t zclCoordinator_Attrs[Coordinator_MAX_ATTRIBUTES] =
       (void *)&zclCoordinator_MaxCoolSetpointLimit
     }
   },
-  {
+ {
     ZCL_CLUSTER_ID_HVAC_THERMOSTAT,
     { // Attribute record
       ATTRID_HVAC_THERMOSTAT_PI_COOLING_DEMAND,
@@ -299,7 +311,7 @@ CONST zclAttrRec_t zclCoordinator_Attrs[Coordinator_MAX_ATTRIBUTES] =
       (void *)&zclCoordinator_CoolingDemand
     }
   },
-  {
+ {
     ZCL_CLUSTER_ID_HVAC_THERMOSTAT,
     { // Attribute record
       ATTRID_HVAC_THERMOSTAT_PI_HEATING_DEMAND,
@@ -327,66 +339,48 @@ CONST zclAttrRec_t zclCoordinator_Attrs[Coordinator_MAX_ATTRIBUTES] =
     }
   },
   // *** Parameter Attriubtes ***
-  {
-    ZCL_CLUSTER_ID_MS_PARAMETER_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_PARAMETER_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Parameter_MeasuredValue
-    }
-  },  
+ //{
+ //   ZCL_CLUSTER_ID_MS_PARAMETER_MEASUREMENT,
+ //   { // Attribute record
+ //     ATTRID_MS_PARAMETER_MEASURED_VALUE,
+ //     ZCL_DATATYPE_INT16,
+ //     ACCESS_CONTROL_READ,
+ //     (void *)&zclCoordinator_Parameter_MeasuredValue
+ //   }
+ // },  
   
 // *** Data Attriubtes ***
-  {
-    ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_DATA_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Data_MeasuredValue
-    }
-  },    
-// *** Power Reset Attriubtes ***
-  {
-    ZCL_CLUSTER_ID_MS_RESET_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_RESET_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Reset_MeasuredValue
-    }
-  },  
- // *** Relay Attriubtes ***
-  {
-    ZCL_CLUSTER_ID_MS_RELAY_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_RELAY_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Relay_MeasuredValue
-    }
-  },     
-// *** Start Attriubtes ***
-  {
-    ZCL_CLUSTER_ID_MS_START_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_START_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Start_MeasuredValue
-    }
-  },    
-// *** Start Attriubtes ***
-  {
-    ZCL_CLUSTER_ID_MS_ACK_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_ACK_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter__Ack_MeasuredValue
-    }
-  },        
+//  {
+//    ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT,
+//    { // Attribute record
+//      ATTRID_MS_DATA_MEASURED_VALUE,
+//      ZCL_DATATYPE_INT16,
+//     ACCESS_CONTROL_READ,
+//      (void *)&zclCoordinator_Data_MeasuredValue
+//    }
+//  },    
+// *** Address Attributes ***
+//  {
+//    ZCL_CLUSTER_ID_MS_ADD_MEASUREMENT,
+//   { // Attribute record
+//      ATTRID_MS_ADD_MEASURED_VALUE,
+//      ZCL_DATATYPE_INT16,
+//      ACCESS_CONTROL_READ,
+//      (void *)&zclCoordinator_Add_MeasuredValue
+//   }
+//  },   
+  
+// *** Command Attriubtes ***
+// {
+//    ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
+//    { // Attribute record
+//      ATTRID_MS_COM_MEASURED_VALUE,
+//      ZCL_DATATYPE_INT16,
+//      ACCESS_CONTROL_READ,
+//     (void *)&zclCoordinator_Com_MeasuredValue
+//    }
+//  },  
+ 
 };
 
 /*********************************************************************
@@ -402,11 +396,17 @@ const cId_t zclCoordinator_InClusterList[ZCLCoordinator_MAX_INCLUSTERS] =
   ZCL_CLUSTER_ID_HVAC_THERMOSTAT
 };
 
-#define ZCLCoordinator_MAX_OUTCLUSTERS       1
+//#define ZCLCoordinator_MAX_OUTCLUSTERS       1
+#define ZCLCoordinator_MAX_OUTCLUSTERS       5
 const cId_t zclCoordinator_OutClusterList[ZCLCoordinator_MAX_OUTCLUSTERS] =
 {
-  ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT
-    
+  ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
+  // Add for smart meter
+  ZCL_CLUSTER_ID_MS_PARAMETER_MEASUREMENT,
+  ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT,
+  ZCL_CLUSTER_ID_MS_ADD_MEASUREMENT,
+  ZCL_CLUSTER_ID_MS_COM_MEASUREMENT
+  
 };
 
 SimpleDescriptionFormat_t zclCoordinator_SimpleDesc =

@@ -2980,13 +2980,19 @@
       <name>$PROJ_DIR$\..\Source\OSAL_Coordinator.c</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\Source\uartstdio.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\uartstdio.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\Source\zcl_Coordinator.c</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\zcl_Coordinator.h</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\Source\zcl_coordinator_data.c</name>
+      <name>$PROJ_DIR$\..\Source\zcl_Coordinator_data.c</name>
     </file>
   </group>
   <group>
