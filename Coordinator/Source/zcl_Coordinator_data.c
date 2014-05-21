@@ -5,37 +5,6 @@
 
 
   Description:    Zigbee Cluster Library - sample device application.
-
-
-  Copyright 2013 Texas Instruments Incorporated. All rights reserved.
-
-  IMPORTANT: Your use of this Software is limited to those specific rights
-  granted under the terms of a software license agreement between the user
-  who downloaded the software, his/her employer (which must be your employer)
-  and Texas Instruments Incorporated (the "License").  You may not use this
-  Software unless you agree to abide by the terms of the License. The License
-  limits your use, and you acknowledge, that the Software may not be modified,
-  copied or distributed unless embedded on a Texas Instruments microcontroller
-  or used solely and exclusively in conjunction with a Texas Instruments radio
-  frequency transceiver, which is integrated into your product.  Other than for
-  the foregoing purpose, you may not use, reproduce, copy, prepare derivative
-  works of, modify, distribute, perform, display or sell this Software and/or
-  its documentation for any purpose.
-
-  YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-  PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-  INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
-  NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
-  TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
-  NEGLIGENCE, STRICT LIABILITY, CONTRIBUTION, BREACH OF WARRANTY, OR OTHER
-  LEGAL EQUITABLE THEORY ANY DIRECT OR INDIRECT DAMAGES OR EXPENSES
-  INCLUDING BUT NOT LIMITED TO ANY INCIDENTAL, SPECIAL, INDIRECT, PUNITIVE
-  OR CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA, COST OF PROCUREMENT
-  OF SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
-  (INCLUDING BUT NOT LIMITED TO ANY DEFENSE THEREOF), OR OTHER SIMILAR COSTS.
-
-  Should you have any questions regarding your right to use this Software,
-  contact Texas Instruments Incorporated at www.TI.com.
 **************************************************************************************************/
 
 /*********************************************************************
@@ -88,9 +57,13 @@
 // Basic Cluster
 const uint8 zclCoordinator_HWRevision = Coordinator_HWVERSION;
 const uint8 zclCoordinator_ZCLVersion = Coordinator_ZCLVERSION;
-const uint8 zclCoordinator_ManufacturerName[] = { 16, 'T','e','x','a','s','I','n','s','t','r','u','m','e','n','t','s' };
-const uint8 zclCoordinator_ModelId[] = { 16, 'T','I','0','0','0','1',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
-const uint8 zclCoordinator_DateCode[] = { 16, '2','0','0','6','0','8','3','1',' ',' ',' ',' ',' ',' ',' ',' ' };
+// const uint8 zclCoordinator_ManufacturerName[] = { 16, 'T','e','x','a','s','I','n','s','t','r','u','m','e','n','t','s' };
+// const uint8 zclCoordinator_ModelId[] = { 16, 'T','I','0','0','0','1',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
+// const uint8 zclCoordinator_DateCode[] = { 16, '2','0','0','6','0','8','3','1',' ',' ',' ',' ',' ',' ',' ',' ' };
+const uint8 zclCoordinator_ManufacturerName[] = { 16, 'I','T','U',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
+const uint8 zclCoordinator_ModelId[] = { 16, 'I','T','U','0','0','1',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
+const uint8 zclCoordinator_DateCode[] = { 16, '2','0','1','4','0','5','1','3',' ',' ',' ',' ',' ',' ',' ',' ' };
+
 const uint8 zclCoordinator_PowerSource = POWER_SOURCE_MAINS_1_PHASE;
 
 uint8 zclCoordinator_LocationDescription[17] = { 16, ' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
@@ -105,14 +78,14 @@ uint8  zclCoordinator_OnOff = COMMAND_OFF;
 
 // HVAC Thermostat Cluster
 int16 zclCoordinator_LocalTemperature = NULL;
-int16 zclCoordinator_MinHeatSetpointLimit = 1700;  // 17.00C
-int16 zclCoordinator_MaxHeatSetpointLimit = 2700;  // 27.00C
-int16 zclCoordinator_MinCoolSetpointLimit = 1700;  // 17.00C
-int16 zclCoordinator_MaxCoolSetpointLimit = 2700;  // 27.00C
-int16 zclCoordinator_OccupiedHeatingSetpoint = 2000; // 20.00C
-int16 zclCoordinator_OccupiedCoolingSetpoint = 2400; // 24.00C
-uint8 zclCoordinator_HeatingDemand = 100;   // 100% heating demanded of heating device
-uint8 zclCoordinator_CoolingDemand = 100;   // 100% cooling demanded of cooling device
+//int16 zclCoordinator_MinHeatSetpointLimit = 1700;  // 17.00C
+//int16 zclCoordinator_MaxHeatSetpointLimit = 2700;  // 27.00C
+//int16 zclCoordinator_MinCoolSetpointLimit = 1700;  // 17.00C
+//int16 zclCoordinator_MaxCoolSetpointLimit = 2700;  // 27.00C
+//int16 zclCoordinator_OccupiedHeatingSetpoint = 2000; // 20.00C
+//int16 zclCoordinator_OccupiedCoolingSetpoint = 2400; // 24.00C
+//uint8 zclCoordinator_HeatingDemand = 100;   // 100% heating demanded of heating device
+//uint8 zclCoordinator_CoolingDemand = 100;   // 100% cooling demanded of cooling device
 uint8 zclCoordinator_ControlSequenceOfOperation = HVAC_THERMOSTAT_CTRL_SEQ_OF_OPER_COOLING_HEATING;    // Both heating and cooling is possible
 uint8 zclCoordinator_SystemMode = HVAC_THERMOSTAT_SYSTEM_MODE_OFF;
 /*#define ATTRID_MS_PARAMETER_MEASURED_VALUE                               0x0012     
@@ -239,6 +212,7 @@ CONST zclAttrRec_t zclCoordinator_Attrs[Coordinator_MAX_ATTRIBUTES] =
   },
 
   // *** HVAC Thermostat Cluster Attributes *** //
+ /*
   {
     ZCL_CLUSTER_ID_HVAC_THERMOSTAT,
     { // Attribute record
@@ -257,6 +231,7 @@ CONST zclAttrRec_t zclCoordinator_Attrs[Coordinator_MAX_ATTRIBUTES] =
       (void *)&zclCoordinator_OccupiedHeatingSetpoint
     }
   },
+  */
   {
     ZCL_CLUSTER_ID_HVAC_THERMOSTAT,
     { // Attribute record
@@ -266,6 +241,7 @@ CONST zclAttrRec_t zclCoordinator_Attrs[Coordinator_MAX_ATTRIBUTES] =
       (void *)&zclCoordinator_LocalTemperature
     }
   },
+  /*
   {
     ZCL_CLUSTER_ID_HVAC_THERMOSTAT,
     { // Attribute record
@@ -320,6 +296,7 @@ CONST zclAttrRec_t zclCoordinator_Attrs[Coordinator_MAX_ATTRIBUTES] =
       (void *)&zclCoordinator_HeatingDemand
     }
   },
+  */
   {
     ZCL_CLUSTER_ID_HVAC_THERMOSTAT,
     { // Attribute record

@@ -7,35 +7,7 @@
                   Automation Sample Application.
 
 
-  Copyright 2013 Texas Instruments Incorporated. All rights reserved.
 
-  IMPORTANT: Your use of this Software is limited to those specific rights
-  granted under the terms of a software license agreement between the user
-  who downloaded the software, his/her employer (which must be your employer)
-  and Texas Instruments Incorporated (the "License").  You may not use this
-  Software unless you agree to abide by the terms of the License. The License
-  limits your use, and you acknowledge, that the Software may not be modified,
-  copied or distributed unless embedded on a Texas Instruments microcontroller
-  or used solely and exclusively in conjunction with a Texas Instruments radio
-  frequency transceiver, which is integrated into your product.  Other than for
-  the foregoing purpose, you may not use, reproduce, copy, prepare derivative
-  works of, modify, distribute, perform, display or sell this Software and/or
-  its documentation for any purpose.
-
-  YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-  PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-  INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
-  NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
-  TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
-  NEGLIGENCE, STRICT LIABILITY, CONTRIBUTION, BREACH OF WARRANTY, OR OTHER
-  LEGAL EQUITABLE THEORY ANY DIRECT OR INDIRECT DAMAGES OR EXPENSES
-  INCLUDING BUT NOT LIMITED TO ANY INCIDENTAL, SPECIAL, INDIRECT, PUNITIVE
-  OR CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA, COST OF PROCUREMENT
-  OF SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
-  (INCLUDING BUT NOT LIMITED TO ANY DEFENSE THEREOF), OR OTHER SIMILAR COSTS.
-
-  Should you have any questions regarding your right to use this Software,
-  contact Texas Instruments Incorporated at www.TI.com.
 **************************************************************************************************/
 
 #ifndef ZCL_SmartMeter_H
@@ -78,10 +50,35 @@ extern "C"
 #define TEMPSENSE_MAINMODE         0x00
 #define TEMPSENSE_HELPMODE         0x01
 
+// lhy  
+#define ZCL_CLUSTER_ID_MS_PARAMETER_MEASUREMENT            0x0410
+#define ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT                 0x0411
+#define ZCL_CLUSTER_ID_MS_RESET_MEASUREMENT                0x0412
+#define ZCL_CLUSTER_ID_MS_RELAY_MEASUREMENT                0x0413
+#define ZCL_CLUSTER_ID_MS_START_MEASUREMENT                0x0414
+#define ZCL_CLUSTER_ID_MS_ACK_MEASUREMENT                  0x0415  
+
+#define ZCL_CLUSTER_ID_MS_RESTART_MEASUREMENT              0x0416
+#define ZCL_CLUSTER_ID_MS_ADD_MEASUREMENT                  0x0417
+#define ZCL_CLUSTER_ID_MS_COM_MEASUREMENT                  0x0418  
+  
+#define ATTRID_MS_PARAMETER_MEASURED_VALUE                 0x0020 
+#define ATTRID_MS_DATA_MEASURED_VALUE                      0x0021
+#define ATTRID_MS_RESET_MEASURED_VALUE                     0x0022
+#define ATTRID_MS_RELAY_MEASURED_VALUE                     0x0023
+#define ATTRID_MS_START_MEASURED_VALUE                     0x0024
+#define ATTRID_MS_ACK_MEASURED_VALUE                       0x0025
+#define ATTRID_MS_RESTART_MEASURED_VALUE                   0x0026
+#define ATTRID_MS_ADD_MEASURED_VALUE                       0x0027
+#define ATTRID_MS_COM_MEASURED_VALUE                       0x0028
+//  
+  
+  
 // Application Parameter Modes 
 // For test purpose only
 // To be replaced by osal_snv_write( )
 
+  
 /*********************************************************************
  * MACROS
  */
@@ -101,9 +98,9 @@ extern uint8  zclSmartMeter_OnOff;
 extern uint16 zclSmartMeter_IdentifyTime;
 
 // Temperature Measurement Cluster
-extern int16 zclSmartMeter_MeasuredValue;
-extern const int16 zclSmartMeter_MinMeasuredValue;
-extern const uint16 zclSmartMeter_MaxMeasuredValue;
+// extern int16 zclSmartMeter_MeasuredValue;
+// extern const int16 zclSmartMeter_MinMeasuredValue;
+// extern const uint16 zclSmartMeter_MaxMeasuredValue;
 
 
 /*********************************************************************
