@@ -87,7 +87,7 @@
         </option>
         <option>
           <name>OGLastSavedByProductVersion</name>
-          <state>7.10.1.6733</state>
+          <state>6.70.2.6303</state>
         </option>
         <option>
           <name>GeneralEnableMisra</name>
@@ -163,13 +163,9 @@
       <name>ICCARM</name>
       <archiveVersion>2</archiveVersion>
       <data>
-        <version>30</version>
+        <version>29</version>
         <wantNonLocal>1</wantNonLocal>
         <debug>1</debug>
-        <option>
-          <name>CCOptimizationNoSizeConstraints</name>
-          <state>0</state>
-        </option>
         <option>
           <name>CCDefines</name>
           <state>ewarm</state>
@@ -180,7 +176,7 @@
           <state>TC_LINKKEY_JOIN</state>
           <state>NV_INIT</state>
           <state>xNV_RESTORE</state>
-          <state>xHOLD_AUTO_START</state>
+          <state>HOLD_AUTO_START</state>
           <state>ZTOOL_P1</state>
           <state>MT_TASK</state>
           <state>MT_APP_FUNC</state>
@@ -255,7 +251,7 @@
         <option>
           <name>CCAllowList</name>
           <version>1</version>
-          <state>00000000</state>
+          <state>0000000</state>
         </option>
         <option>
           <name>CCDebugInfo</name>
@@ -276,7 +272,7 @@
         <option>
           <name>IExtraOptions</name>
           <state>-f $PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wConfig.cfg</state>
-          <state>-f $PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wCoord.cfg</state>
+          <state>-f $PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wRouter.cfg</state>
           <state>-f $PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wZCL.cfg</state>
         </option>
         <option>
@@ -444,12 +440,11 @@
           <state>0</state>
         </option>
         <option>
-          <name>CCNoLiteralPool</name>
+          <name>CCOptimizationNoSizeConstraints</name>
           <state>0</state>
         </option>
         <option>
-          <name>CCOptStrategySlave</name>
-          <version>0</version>
+          <name>CCNoLiteralPool</name>
           <state>0</state>
         </option>
       </data>
@@ -600,7 +595,7 @@
         </option>
         <option>
           <name>AIgnoreStdInclude</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>AUserIncludes</name>
@@ -1153,38 +1148,12 @@
       <name>ICCARM</name>
       <archiveVersion>2</archiveVersion>
       <data>
-        <version>30</version>
+        <version>29</version>
         <wantNonLocal>1</wantNonLocal>
         <debug>1</debug>
         <option>
-          <name>CCOptimizationNoSizeConstraints</name>
-          <state>0</state>
-        </option>
-        <option>
           <name>CCDefines</name>
-          <state>ewarm</state>
-          <state>CC2538_USE_ALTERNATE_INTERRUPT_MAP=1</state>
-          <state>FEATURE_RESET_MACRO</state>
-          <state>FEATURE_GREEN_POWER</state>
-          <state>SECURE=1</state>
-          <state>TC_LINKKEY_JOIN</state>
-          <state>NV_INIT</state>
-          <state>xNV_RESTORE</state>
-          <state>HOLD_AUTO_START</state>
-          <state>ZTOOL_P1</state>
-          <state>MT_TASK</state>
-          <state>MT_APP_FUNC</state>
-          <state>MT_SYS_FUNC</state>
-          <state>MT_ZDO_FUNC</state>
-          <state>LCD_SUPPORTED=DEBUG</state>
-          <state>ZCL_READ</state>
-          <state>ZCL_WRITE</state>
-          <state>ZCL_REPORT</state>
-          <state>ZCL_EZMODE</state>
-          <state>ZCL_BASIC</state>
-          <state>ZCL_IDENTIFY</state>
-          <state>ZCL_ON_OFF</state>
-          <state>ZCL_HVAC_CLUSTER</state>
+          <state></state>
         </option>
         <option>
           <name>CCPreprocFile</name>
@@ -1224,7 +1193,7 @@
         </option>
         <option>
           <name>CCDiagSuppress</name>
-          <state>Pa082</state>
+          <state></state>
         </option>
         <option>
           <name>CCDiagRemark</name>
@@ -1245,7 +1214,7 @@
         <option>
           <name>CCAllowList</name>
           <version>1</version>
-          <state>00000000</state>
+          <state>0000000</state>
         </option>
         <option>
           <name>CCDebugInfo</name>
@@ -1261,13 +1230,11 @@
         </option>
         <option>
           <name>IExtraOptionsCheck</name>
-          <state>1</state>
+          <state>0</state>
         </option>
         <option>
           <name>IExtraOptions</name>
-          <state>-f $PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wConfig.cfg</state>
-          <state>-f $PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wRouter.cfg</state>
-          <state>-f $PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wZCL.cfg</state>
+          <state></state>
         </option>
         <option>
           <name>CCLangConformance</name>
@@ -1299,7 +1266,7 @@
         </option>
         <option>
           <name>OutputFile</name>
-          <state>$FILE_BNAME$.o</state>
+          <state></state>
         </option>
         <option>
           <name>CCLibConfigHeader</name>
@@ -1315,32 +1282,7 @@
         </option>
         <option>
           <name>CCIncludePath2</name>
-          <state>$PROJ_DIR$\..\Source</state>
-          <state>$PROJ_DIR$\..\..\Source</state>
-          <state>$PROJ_DIR$\..\..\..\Zmain\TI2538DB</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\hal\include</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2538</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\source</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\sdriverlib\cc2538\source</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\mac\include</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\mac\high_level</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\mac\low_level\srf05\single_chip</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\mac\low_level\srf05</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\mt</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\osal\include</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\services\sdata</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\services\saddr</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\af</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\nwk</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\sapi</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\sec</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\sys</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\zcl</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\zdo</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\zmac</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\zmac\f8w</state>
+          <state></state>
         </option>
         <option>
           <name>CCStdIncCheck</name>
@@ -1360,7 +1302,7 @@
         </option>
         <option>
           <name>CCOptLevel</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>CCOptStrategy</name>
@@ -1369,7 +1311,7 @@
         </option>
         <option>
           <name>CCOptLevelSlave</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>CompilerMisraRules98</name>
@@ -1423,7 +1365,7 @@
         </option>
         <option>
           <name>IccCppInlineSemantics</name>
-          <state>1</state>
+          <state>0</state>
         </option>
         <option>
           <name>IccCmsis</name>
@@ -1434,12 +1376,11 @@
           <state>0</state>
         </option>
         <option>
-          <name>CCNoLiteralPool</name>
+          <name>CCOptimizationNoSizeConstraints</name>
           <state>0</state>
         </option>
         <option>
-          <name>CCOptStrategySlave</name>
-          <version>0</version>
+          <name>CCNoLiteralPool</name>
           <state>0</state>
         </option>
       </data>
@@ -2143,40 +2084,12 @@
       <name>ICCARM</name>
       <archiveVersion>2</archiveVersion>
       <data>
-        <version>30</version>
+        <version>29</version>
         <wantNonLocal>1</wantNonLocal>
         <debug>1</debug>
         <option>
-          <name>CCOptimizationNoSizeConstraints</name>
-          <state>0</state>
-        </option>
-        <option>
           <name>CCDefines</name>
-          <state>ewarm</state>
-          <state>CC2538_USE_ALTERNATE_INTERRUPT_MAP=1</state>
-          <state>FEATURE_RESET_MACRO</state>
-          <state>FEATURE_GREEN_POWER</state>
-          <state>SECURE=1</state>
-          <state>TC_LINKKEY_JOIN</state>
-          <state>NV_INIT</state>
-          <state>xNV_RESTORE</state>
-          <state>xPOWER_SAVING</state>
-          <state>NWK_AUTO_POLL</state>
-          <state>HOLD_AUTO_START</state>
-          <state>ZTOOL_P1</state>
-          <state>MT_TASK</state>
-          <state>MT_APP_FUNC</state>
-          <state>MT_SYS_FUNC</state>
-          <state>MT_ZDO_FUNC</state>
-          <state>LCD_SUPPORTED=DEBUG</state>
-          <state>ZCL_READ</state>
-          <state>ZCL_WRITE</state>
-          <state>ZCL_REPORT</state>
-          <state>ZCL_EZMODE</state>
-          <state>ZCL_BASIC</state>
-          <state>ZCL_IDENTIFY</state>
-          <state>ZCL_ON_OFF</state>
-          <state>ZCL_HVAC_CLUSTER</state>
+          <state></state>
         </option>
         <option>
           <name>CCPreprocFile</name>
@@ -2216,7 +2129,7 @@
         </option>
         <option>
           <name>CCDiagSuppress</name>
-          <state>Pa082</state>
+          <state></state>
         </option>
         <option>
           <name>CCDiagRemark</name>
@@ -2237,7 +2150,7 @@
         <option>
           <name>CCAllowList</name>
           <version>1</version>
-          <state>00000000</state>
+          <state>0000000</state>
         </option>
         <option>
           <name>CCDebugInfo</name>
@@ -2253,13 +2166,11 @@
         </option>
         <option>
           <name>IExtraOptionsCheck</name>
-          <state>1</state>
+          <state>0</state>
         </option>
         <option>
           <name>IExtraOptions</name>
-          <state>-f $PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wConfig.cfg</state>
-          <state>-f $PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wEndev.cfg</state>
-          <state>-f $PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wZCL.cfg</state>
+          <state></state>
         </option>
         <option>
           <name>CCLangConformance</name>
@@ -2291,7 +2202,7 @@
         </option>
         <option>
           <name>OutputFile</name>
-          <state>$FILE_BNAME$.o</state>
+          <state></state>
         </option>
         <option>
           <name>CCLibConfigHeader</name>
@@ -2307,32 +2218,7 @@
         </option>
         <option>
           <name>CCIncludePath2</name>
-          <state>$PROJ_DIR$\..\Source</state>
-          <state>$PROJ_DIR$\..\..\Source</state>
-          <state>$PROJ_DIR$\..\..\..\Zmain\TI2538DB</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\hal\include</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2538</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\source</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\sdriverlib\cc2538\source</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\mac\include</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\mac\high_level</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\mac\low_level\srf05\single_chip</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\mac\low_level\srf05</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\mt</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\osal\include</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\services\sdata</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\services\saddr</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\af</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\nwk</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\sapi</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\sec</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\sys</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\zcl</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\stack\zdo</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\zmac</state>
-          <state>$PROJ_DIR$\..\..\..\..\..\Components\zmac\f8w</state>
+          <state></state>
         </option>
         <option>
           <name>CCStdIncCheck</name>
@@ -2352,7 +2238,7 @@
         </option>
         <option>
           <name>CCOptLevel</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>CCOptStrategy</name>
@@ -2361,7 +2247,7 @@
         </option>
         <option>
           <name>CCOptLevelSlave</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>CompilerMisraRules98</name>
@@ -2415,7 +2301,7 @@
         </option>
         <option>
           <name>IccCppInlineSemantics</name>
-          <state>1</state>
+          <state>0</state>
         </option>
         <option>
           <name>IccCmsis</name>
@@ -2426,12 +2312,11 @@
           <state>0</state>
         </option>
         <option>
-          <name>CCNoLiteralPool</name>
+          <name>CCOptimizationNoSizeConstraints</name>
           <state>0</state>
         </option>
         <option>
-          <name>CCOptStrategySlave</name>
-          <version>0</version>
+          <name>CCNoLiteralPool</name>
           <state>0</state>
         </option>
       </data>

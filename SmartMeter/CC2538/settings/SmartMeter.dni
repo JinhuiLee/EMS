@@ -9,10 +9,10 @@ TriggerName=main
 LimitSize=0
 ByteLimit=50
 [xds100]
-xds100serialNo=06EB12100714
+xds100serialNo=06EB12100866
 xds100foundProbes=
 [DebugChecksum]
-Checksum=-315432336
+Checksum=856108878
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -20,6 +20,41 @@ StopOnThrow=_ 0
 ShowArgs=0
 [Disassembly]
 MixedMode=1
+[CallStackLog]
+Enabled=0
+[DriverProfiling]
+Enabled=0
+Mode=1
+Graph=0
+Symbiont=0
+Exclusions=
+[InterruptLog]
+LogEnabled=0
+SumEnabled=0
+GraphEnabled=0
+ShowTimeLog=1
+ShowTimeSum=1
+SumSortOrder=0
+[DataLog]
+LogEnabled=0
+SumEnabled=0
+GraphEnabled=0
+ShowTimeLog=1
+ShowTimeSum=1
+[Breakpoints2]
+Count=0
+[Interrupts]
+Enabled=1
+[MemoryMap]
+Enabled=0
+Base=0
+UseAuto=0
+TypeViolation=1
+UnspecRange=1
+ActionState=1
+[Trace1]
+Enabled=0
+ShowSource=1
 [Log file]
 LoggingEnabled=_ 0
 LogFile=_ ""
@@ -30,7 +65,10 @@ LogFile=_ ""
 [Disassemble mode]
 mode=0
 [Breakpoints]
-Count=0
+Bp0=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation\Smartmeter\Source\zcl_SmartMeter.c}.230.1" 0 0 0 0 "" 0 "" 0
+Bp1=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation\Smartmeter\Source\zcl_SmartMeter.c}.229.1" 0 0 0 0 "" 0 "" 0
+Bp2=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation\Smartmeter\Source\zcl_SmartMeter.c}.1139.1" 0 0 0 0 "" 0 "" 0
+Count=3
 [Aliases]
 Count=0
 SuppressDialog=0
