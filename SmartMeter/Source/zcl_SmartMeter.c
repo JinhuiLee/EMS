@@ -579,8 +579,7 @@ void zclCoordinator_Init( byte task_id )
   //  controlReg[0] = 0x40;
   //  controlReg[0] = 0x02;      // Coordinator_CONTROL_SET_EVT
    controlReg[0] = 0x08; 
-   controlReg[1] = 0x02; 
-//    
+   controlReg[1] = 0x02
 }
 
 
