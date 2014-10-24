@@ -1,12 +1,9 @@
 /**************************************************************************************************
   Filename:       zcl_SmartMeter_data.c
-  Revised:        $Date: 2013-10-18 11:49:27 -0700 (Fri, 18 Oct 2013) $
-  Revision:       $Revision: 35718 $
-
-
-  Description:    Zigbee Cluster Library - sample device application.
+  Revised:        $Date: 2014-10-24 11:49:27 -0700 (Fri, 24 Oct 2014) $
+  Revision:       $Revision: 1 $
+  Description:    This device will act as a smart meter.
 **************************************************************************************************/
-
 /*********************************************************************
  * INCLUDES
  */
@@ -14,71 +11,44 @@
 #include "OSAL.h"
 #include "AF.h"
 #include "ZDConfig.h"
-
 #include "zcl.h"
 #include "zcl_general.h"
 #include "zcl_ha.h"
 #include "zcl_ms.h"
 #include "zcl_ezmode.h"
-
 #include "zcl_smartmeter.h"
-
 /*********************************************************************
  * CONSTANTS
  */
-
 #define SmartMeter_DEVICE_VERSION     0
 #define SmartMeter_FLAGS              0
-
 #define SmartMeter_HWVERSION          1
 #define SmartMeter_ZCLVERSION         1
-
 /*********************************************************************
  * TYPEDEFS
  */
-
 /*********************************************************************
  * MACROS
  */
-
 /*********************************************************************
  * GLOBAL VARIABLES
  */
-
 // Basic Cluster
 const uint8 zclSmartMeter_HWRevision = SmartMeter_HWVERSION;
 const uint8 zclSmartMeter_ZCLVersion = SmartMeter_ZCLVERSION;
-//const uint8 zclSmartMeter_ManufacturerName[] = { 16, 'T','e','x','a','s','I','n','s','t','r','u','m','e','n','t','s' };
-//const uint8 zclSmartMeter_ModelId[] = { 16, 'T','I','0','0','0','1',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
-//const uint8 zclSmartMeter_DateCode[] = { 16, '2','0','0','6','0','8','3','1',' ',' ',' ',' ',' ',' ',' ',' ' };
 const uint8 zclSmartMeter_ManufacturerName[] = { 16, 'I','T','U',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
 const uint8 zclSmartMeter_ModelId[] = { 16, 'I','T','U','0','0','1',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
 const uint8 zclSmartMeter_DateCode[] = { 16, '2','0','1','4','0','5','1','3',' ',' ',' ',' ',' ',' ',' ',' ' };
 const uint8 zclSmartMeter_PowerSource = POWER_SOURCE_MAINS_1_PHASE;
-
 uint8 zclSmartMeter_LocationDescription[17] = { 16, ' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
 uint8 zclSmartMeter_PhysicalEnvironment = 0;
 uint8 zclSmartMeter_DeviceEnable = DEVICE_ENABLED;
-
 // Identify Cluster
 uint16 zclSmartMeter_IdentifyTime = 0;
-
-// On/Off Cluster
-uint8  zclSmartMeter_OnOff = LIGHT_OFF;
-
-// Temperature Sensor Cluster
-// int16 zclSmartMeter_MeasuredValue = 2200;  // 22.00C
-// const int16 zclSmartMeter_MinMeasuredValue = 1700;   // 17.00C
-// const uint16 zclSmartMeter_MaxMeasuredValue = 2700;  // 27.00C
-
 // Smart meter Clusters
-uint16 zclSmartMeter_Parameter_MeasuredValue =0;
 uint16 zclSmartMeter_Data_MeasuredValue =0;
 uint16 zclSmartMeter_Add_MeasuredValue =0;
 uint16 zclSmartMeter_Com_MeasuredValue =0;
-
-
-
 /*********************************************************************
  * ATTRIBUTE DEFINITIONS - Uses REAL cluster IDs
  */
@@ -166,7 +136,6 @@ CONST zclAttrRec_t zclSmartMeter_Attrs[SmartMeter_MAX_ATTRIBUTES] =
       (void *)&zclSmartMeter_DeviceEnable
     }
   },
-
   // *** Identify Cluster Attribute ***
   {
     ZCL_CLUSTER_ID_GEN_IDENTIFY,
@@ -177,61 +146,6 @@ CONST zclAttrRec_t zclSmartMeter_Attrs[SmartMeter_MAX_ATTRIBUTES] =
       (void *)&zclSmartMeter_IdentifyTime
     }
   },
-
-  // *** On/Off Cluster Attributes ***
-  {
-    ZCL_CLUSTER_ID_GEN_ON_OFF,
-    { // Attribute record
-      ATTRID_ON_OFF,
-      ZCL_DATATYPE_UINT8,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter_OnOff
-    }
-  },
-
-  // *** Temperature Measurement Attriubtes ***
-/*
-  {
-    ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_TEMPERATURE_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter_MeasuredValue
-    }
-  },
-*/
-/* {
-    ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_TEMPERATURE_MIN_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter_MinMeasuredValue
-    }
-  },*/
-/*
-  {
-    ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_TEMPERATURE_MAX_MEASURED_VALUE,
-      ZCL_DATATYPE_UINT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter_MaxMeasuredValue
-    }
-  },
-*/  
-// *** Parameter Attriubtes ***
-  {
-    ZCL_CLUSTER_ID_MS_PARAMETER_MEASUREMENT,
-    { // Attribute record
-      ATTRID_MS_PARAMETER_MEASURED_VALUE,
-      ZCL_DATATYPE_INT16,
-      ACCESS_CONTROL_READ,
-      (void *)&zclSmartMeter_Parameter_MeasuredValue
-    }
-  },  
-  
 // *** Data Attriubtes ***
   {
     ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT,
@@ -263,9 +177,7 @@ CONST zclAttrRec_t zclSmartMeter_Attrs[SmartMeter_MAX_ATTRIBUTES] =
     }
   },  
  // *** Relay Attriubtes ***
- 
 };
-
 /*********************************************************************
  * SIMPLE DESCRIPTOR
  */
@@ -276,15 +188,13 @@ const cId_t zclSmartMeter_InClusterList[ZCLSmartMeter_MAX_INCLUSTERS] =
 {
   ZCL_CLUSTER_ID_GEN_BASIC,
   ZCL_CLUSTER_ID_GEN_IDENTIFY,
-  ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT
+  ZCL_CLUSTER_ID_HVAC_EMS_SMARTMETER
 };
-
 #define ZCLSmartMeter_MAX_OUTCLUSTERS       1
 const cId_t zclSmartMeter_OutClusterList[ZCLSmartMeter_MAX_OUTCLUSTERS] =
 {
   ZCL_CLUSTER_ID_GEN_IDENTIFY
 };
-
 SimpleDescriptionFormat_t zclSmartMeter_SimpleDesc =
 {
   SmartMeter_ENDPOINT,                  //  int Endpoint;
@@ -297,16 +207,11 @@ SimpleDescriptionFormat_t zclSmartMeter_SimpleDesc =
   ZCLSmartMeter_MAX_OUTCLUSTERS,        //  byte  AppNumInClusters;
   (cId_t *)zclSmartMeter_OutClusterList //  byte *pAppInClusterList;
 };
-
 /*********************************************************************
  * GLOBAL FUNCTIONS
  */
-
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
-
 /****************************************************************************
 ****************************************************************************/
-
-
