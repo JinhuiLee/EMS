@@ -74,14 +74,26 @@
 #define CAL_ENE     0xCF
 #define TIME_SET    0xD0
 #define COM_CAL     0xD1
+#define COM_CONFIG   0xD2
+#define CAL_GEN_1    0xD3
+#define CAL_GEN_2    0xD4
 
 #define FLASH_PARAM  0x1000
-#define FLASH_PARAMCAL  0x1040
+#define FLASH_PARAMCAL  0x1100
+#define FLASH_CONFIG 0x1078
+
+//*****************************************************************
+#define TYPE_VOL_DELTA 			0x00
+#define TYPE_VOL_WYLE 			0x01
+#define TYPE_CUR 			0x02
+#define TYPE_GEN_INPUT1 		0x03
+#define TYPE_GEN_INPUT2 		0x04
+#define UNUSET_CNL                      0x05
+#define SUM_SQUR_LIMIT                  3000000000
+//******************************************************************
 
 
-
-#define COORDINATORADDRESS 0x01                 // which coordinator to communicate
-//Michelle: for UART settings
+//#define COORDINATORADDRESS 0x01                 // which coordinator to communicate
 //*****************************************************************************
 
 #define EXAMPLE_PIN_UART0_RXD            GPIO_PIN_0
@@ -103,7 +115,7 @@
 
 #define Connect_Mode WIRED_CONNECTION
 //#define Connect_Mode WIRELESS_CONNECTION
-#define TIMEINDEX 1
+#define TIMEINDEX 0.1
 //#defien TIMEINDEX 3.125
 /*********************************************************************
 * Pin Definition
@@ -135,14 +147,83 @@ uint8 zclSmartMeterSeqNum;
 uint16 flagreset = 0;
 uint16 flagrelay = 2;
 uint8 flaginc;
-uint8 SerControl;
+uint8 phase_dec_flag[8] = {0};
+uint32 phase_dec_V1 = 0;
+//uint32 phase_dec_V2 = 0;
+unsigned long phase_dec_V2 = 0;
+unsigned long ulValue_old = 0;
+unsigned long ulValue_new = 0;
+uint32 phase_dec_V3 = 0;
 
-uint8 SM_CONFIG_3;
-uint8 SM_CONFIG_2;
-uint8 SM_CONFIG_1;
-uint8 SM_CONFIG_0;
+//SM_CONFIG register
+uint8 SM_CONFIG_5 = 0x00;
+uint8 SM_CONFIG_4 = 0x00;
+uint8 SM_CONFIG_3 = 0x00;
+uint8 SM_CONFIG_2 = 0x00;
+uint8 SM_CONFIG_1 = 0x00;
+uint8 SM_CONFIG_0 = 0x00;
+uint16 ConfigReg[3] = {0};
+///////////////////////////////////////////////////////////////new variables
+uint8 ch_info[8] = {0};
+uint8 ch_Tag[8] = {0};
+uint16 senValue[8] = {0};
+uint8 len_DataReg = 0;
+uint8 Num_phase[5] = {0};
 
+int16 REAL_V1 = 0;           //can be negative
+int16 reg_REAL_V1 = 0;
+int16 phase_REAL_V1 = 0;
+uint32 rmsTemp_V1 = 0;
+uint8 overflow_num_V1 = 0;
 
+int16 REAL_V2 = 0;           //can be negative
+int16 reg_REAL_V2 = 0;
+int16 phase_REAL_V2 = 0;
+uint32 rmsTemp_V2 = 0;
+uint8 overflow_num_V2 = 0;
+
+int16 REAL_V3 = 0;           //can be negative
+int16 reg_REAL_V3 = 0;
+int16 phase_REAL_V3 = 0;
+uint32 rmsTemp_V3 = 0;
+uint8 overflow_num_V3 = 0;
+
+int16 REAL_I1[8] = {0};
+int16 reg_REAL_I1[8] = {0};
+uint32 rmsTemp_I1[8] = {0};
+uint8 overflow_num_I1[8] = {0};
+
+int16 REAL_I2[8] = {0};
+int16 reg_REAL_I2[8] = {0};
+uint32 rmsTemp_I2[8] = {0};
+uint8 overflow_num_I2[8] = {0};
+
+int16 REAL_I3[8] = {0};
+int16 reg_REAL_I3[8] = {0};
+uint32 rmsTemp_I3[8] = {0};
+uint8 overflow_num_I3[8] = {0};
+
+int16 REAL_VD = 0;
+uint32 rmsTemp_VD = 0;
+uint8 overflow_num_VD = 0;
+
+int16 REAL_ID = 0;
+uint32 rmsTemp_ID = 0;
+uint8 overflow_num_ID = 0;
+
+uint32 powerVal[8] = {0};
+uint64 energyVal[8] = {0};
+uint32 enecal_energy[8] = {0};
+//double energy_display[8] = {0};
+double Energy[8];
+float CurDisplay[8] = {0};
+float PowerDisplay[8] = {0};
+
+uint16 Theta1[8] = {0xffff};
+uint16 Theta2[8] = {0xffff};
+uint16 Theta3[8] = {0xffff};
+uint16 VIT_dataReg[16] = {0};
+//-----------------------------------------------------
 uint32 ENERGY_RESET_VALUE;
 uint16 ENERGY_RESET_VALUE_1;
 uint16 ENERGY_RESET_VALUE_0;
@@ -155,7 +236,7 @@ uint16 ENERGY0;
 uint16 SM_V;
 uint16 SM_I;
 uint16 STATUS;
-
+uint16 run_T_EFF;
 //paramters------------------------------
 uint16 MIN_ADC; //paramReg[0]
 uint16 MAX_ADC; //paramReg[1]
@@ -167,9 +248,7 @@ uint16 MAG_V2;//paramReg[6]
 uint16 MAG_I2;//paramReg[7]
 uint16 MAG_V3;//paramReg[8]
 uint16 MAG_I3;//paramReg[9]
-uint16 MAG_E1 = 100;
-uint16 MAG_E2;
-uint16 MAG_E3;
+
 
 uint16 MIN_V;//paramReg[10]
 uint16 MAX_V;//paramReg[11]
@@ -207,65 +286,74 @@ uint32 enecal_timenew = 0;
 uint16 enecal_timeperiod = 0;
 uint32 enecal_cycle = 0;
 
-uint8 V_CAL = 0;
-uint8 I_CAL = 0;
-uint8 T_CAL = 0;
-uint8 N_CAL = 0;
-uint16 CAL_OPT = 0;
-
-uint32 E_CAL = 0;
+uint16 V_CAL = 0;
+uint16 I_CAL = 0;
+uint16 T_CAL = 0;
+uint16 N_CAL = 0;
+uint16 INPUT_1_CAL = 0;
+uint16 INPUT_2_CAL = 0;
+uint8 CAL_OPT = 0;
+//uint32 E_CAL = 0;
 
 uint16 senValueV[3] = {0};
 uint16 senValueI[3] = {0};
 int16 realVol[3] = {0};        //can be negative
 int16 realCur[3] = {0};        //can be negative
-uint32 powerVal[3] = {0};
-uint32 energyVal[3] = {0};
-uint32 enecal_energy[3] = {0};
-double energy_display[3] = {0};
 
+uint16 REAL_GEN_INPUT1[8] = {0};
+uint32 accu_GEN_INPUT1[8] = {0};
+
+uint16 REAL_GEN_INPUT2[8] = {0};
+uint32 accu_GEN_INPUT2[8] = {0};
 
 int16_t value;
 uint16_t u_value;
 uint8_t u_partA;
 uint8_t u_partB;
 
-
 uint32 energyVal_Lcd_display;
 uint16 RMS_V1;
 uint16 RMS_V2;
 uint16 RMS_V3;
-uint16 RMS_I1;
-uint16 RMS_I2;
-uint16 RMS_I3;
+uint16 RMS_I1[8];
+uint16 RMS_I2[8];
+uint16 RMS_I3[8];
 uint16 THETA_1;
 uint16 THETA_2;
 uint16 THETA_3;
 
 
-float CurDisplay[3] = {0};
-float PowerDisplay[3] = {0};
-uint16 test_i = 1;
+uint8 power_flag = 1;
 
 int32 VrmsTemp[3] = {0};
 int32 IrmsTemp[3] = {0};
 int32 powerTemp[3] = {0};
-uint32 l_nSamples;
-uint16 CRMS_V[3] = {0};
-uint16 CRMS_I[3] = {0};
-double Energy[3];
+uint32 l_nSamples = 0;
+uint16 CRMS_V[8] = {0};
+uint16 CRMS_I[8] = {0};
+uint32 rmsTemp_calV[8] = {0};
+uint32 rmsTemp_calI[8] = {0};
+uint16 MAG_V[8] = {100};
+uint16 MAG_I[8] = {100};
+uint16 MAG_GEN_INPUT1[8] = {100};
+uint16 MAG_GEN_INPUT2[8] = {100};
+int16 Cal_Vreal[8] = {0};
+int16 Cal_Ireal[8] = {0};
+
+
 uint8 cal_index = 0;
 
+
+uint16 test_i = 1;
 uint16 status;
 char Enstring[25];    //parameter for display floating number
-
 
 uint64 sm_ADD; //smart meter external IEEE address
 uint16 sm_nwkADD;  //smart meter network address
 uint8 *psm_ADD; //pointer to smart meter external IEEE address
 uint64 coordinator_extAddr; // Coordinator extended IEEE address
 uint16 paramReg[18] = {0};
-uint16 calReg[20] = {0};
+uint16 calReg[40] = {0};
 
 uint16 dataReg[30];
 uint16 coordinator_Addr_3;
@@ -344,12 +432,16 @@ static void zclSmartMeter_SendRestart(void);
 
 static void zclSmartMeter_nvReadParam(void);
 static void zclSmartMeter_nvWriteParam(void);
+
+static void zclSmartMeter_WriteConfigReg(void);
+static void zclSmartMeter_ReadConfigReg(void);
+static void zclSmartMeter_SendConfigAck(void);
 static void initUART(void);
 static uint8 recognise_sm_id(void);
 
 int16_t uint16ToInt16(uint16_t u_i);
 uint16_t int16ToUint16(int16_t i);
-
+void Configuration_Reg_Process();
 void zclSmartMeter_sendACK(uint8 ControlReg0, uint8 ControlReg1, uint8 ControlReg2); //send ACK to coordinator
 void ProcessUartData( mtOSALSerialData_t *Uart_Msg);
 void zclSmartMeter_ProcessUART_Pkt(void);
@@ -435,9 +527,15 @@ void zclSmartMeter_Init( byte task_id )
 {
     zclSmartMeter_TaskID = task_id;
     // Initialize pins for relay control
-    GPIOPinTypeGPIOOutput(GPIO_A_BASE, GPIO_PIN_7);
-    GPIOPinWrite(GPIO_A_BASE, GPIO_PIN_7, 0x00);
+    //GPIOPinTypeGPIOOutput(GPIO_A_BASE, GPIO_PIN_7);
+    //GPIOPinWrite(GPIO_A_BASE, GPIO_PIN_7, 0x00);
     
+    //GPIOPinTypeGPIOOutput(GPIO_D_BASE, GPIO_PIN_0);
+    //GPIOPinWrite(GPIO_D_BASE, GPIO_PIN_0, 0x00);
+    
+    GPIOPinTypeGPIOOutput(GPIO_D_BASE, GPIO_PIN_1);//RF2.12
+    GPIOPinWrite(GPIO_D_BASE, GPIO_PIN_1, 0x00);
+
     GPIOPinTypeGPIOOutput(GPIO_C_BASE, (GPIO_PIN_0 | GPIO_PIN_1));
     //PC0 is in cut-off state, PC1 is in on state
     GPIOPinWrite(GPIO_C_BASE, (GPIO_PIN_0 | GPIO_PIN_1), 0x02);  //LED2=1, LED1=0
@@ -494,10 +592,88 @@ void zclSmartMeter_Init( byte task_id )
     initUART();
     enecal_timeold = osal_GetSystemClock();
     enecal_timenew = enecal_timeold;
-    energy_display[0] = 0;
+    Configuration_Reg_Process();
+    osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_ADC_SEND_EVT, 1 );
 
-    osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_ADC_SEND_EVT, 1000 );
 }
+
+
+//Initiation of configuration register
+void Configuration_Reg_Process()  //once
+{
+    //uint8 Num_phase[4] = {0};//phase0: DC phase1 phase2 phase3
+    ch_info[7] = (uint8)(SM_CONFIG_3 & 0xf0) >> 4;
+    ch_info[6] = (uint8)(SM_CONFIG_3 & 0x0f);
+    ch_info[5] = (uint8)(SM_CONFIG_2 & 0xf0) >> 4;
+    ch_info[4] = (uint8)(SM_CONFIG_2 & 0x0f);
+    ch_info[3] = (uint8)(SM_CONFIG_1 & 0xf0) >> 4;
+    ch_info[2] = (uint8)(SM_CONFIG_1 & 0x0f);
+    ch_info[1] = (uint8)(SM_CONFIG_0 & 0xf0) >> 4;
+    ch_info[0] = (uint8)(SM_CONFIG_0 & 0x0f);
+
+    uint8 i = 0;
+
+    for(i = 0; i < 8; i++)
+    {
+        switch(ch_info[i])
+        {
+        case 0x00:
+            ch_Tag[i] = UNUSET_CNL;
+            break;
+        case 0x01:
+            len_DataReg++;
+            if(SM_CONFIG_4 == 0x01)
+                ch_Tag[i] = TYPE_VOL_DELTA;
+            else if( SM_CONFIG_4 == 0x00 )
+                ch_Tag[i] = TYPE_VOL_WYLE;
+            break;
+        case 0x02:
+            len_DataReg++;
+            if(SM_CONFIG_4 == 0x01)
+                ch_Tag[i] = TYPE_VOL_DELTA;
+            else if( SM_CONFIG_4 == 0x00 )
+                ch_Tag[i] = TYPE_VOL_WYLE;
+            break;
+        case 0x03:
+            len_DataReg++;
+            if(SM_CONFIG_4 == 0x01)
+                ch_Tag[i] = TYPE_VOL_DELTA;
+            else if( SM_CONFIG_4 == 0x00 )
+                ch_Tag[i] = TYPE_VOL_WYLE;
+            break;
+        case 0x09:
+            ch_Tag[i] = TYPE_CUR;
+            Num_phase[1] ++;
+            len_DataReg += 2;
+            break;
+        case 0x0A:
+            ch_Tag[i] = TYPE_CUR;
+            Num_phase[2] ++;
+            len_DataReg += 2;
+            break;
+        case 0x0B:
+            ch_Tag[i] = TYPE_CUR;
+            Num_phase[3] ++;
+            len_DataReg += 2;
+            break;
+        case 0x04:
+            ch_Tag[i] = TYPE_GEN_INPUT1;
+            Num_phase[0] ++;
+            len_DataReg++;
+            break;
+        case 0x0C:
+            ch_Tag[i] = TYPE_GEN_INPUT2;
+            Num_phase[4] ++;
+            len_DataReg++;
+            break;
+        default:
+            ch_Tag[i] = UNUSET_CNL;
+            break;
+        }
+    }
+}
+
+
 /*********************************************************************
  * @fn          zclSample_event_loop
  *
@@ -606,15 +782,18 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
 
         if(CAL_OPT != 0)
             // get ADC reading every 1 millisecond
-            osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_ADC_SEND_EVT, SmartMeter_Calibration_INTERVAL );
+            //osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_ADC_SEND_EVT, SmartMeter_Calibration_INTERVAL );
+            osal_set_event(task_id, SmartMeter_ADC_SEND_EVT);
         else
             // get ADC reading every 56 millisecond
-            osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_ADC_SEND_EVT, SmartMeter_PowerCal_INTERVAL );
-
+            //osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_ADC_SEND_EVT, SmartMeter_PowerCal_INTERVAL );
+            osal_set_event(task_id, SmartMeter_ADC_SEND_EVT);
         sys_timenew = osal_GetSystemClock();
         sys_secnew = sys_secold + (uint32)((float)((sys_timenew - sys_timeold) * TIMEINDEX) / 1000);
         //sys_timeold = sys_timenew;
         //sys_secold = sys_secnew;
+
+        uint8 old_sec_print = TimeStruct.seconds;
         osal_ConvertUTCTime(&TimeStruct , sys_secnew);
         if(TimeStruct.month == 0)
         {
@@ -622,12 +801,28 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
             TimeStruct.year--;
         }
 
+        if(old_sec_print != TimeStruct.seconds)
+        {
 #ifdef LCD_SUPPORTED
-        sprintf((char *)lcdString, "%d %d %d %d %d %d", TimeStruct.year, TimeStruct.month,
-                TimeStruct.day, TimeStruct.hour, TimeStruct.minutes, TimeStruct.seconds);
-        HalLcdWriteString( lcdString, HAL_LCD_LINE_7 );
+            sprintf((char *)lcdString, "%d %d %d %d %d %d", TimeStruct.year, TimeStruct.month,
+                    TimeStruct.day, TimeStruct.hour, TimeStruct.minutes, TimeStruct.seconds);
+            HalLcdWriteString( lcdString, HAL_LCD_LINE_7 );
 #endif
+            /*
+            uint8 show_tick[4] = {0};
+            ulValue_new = SysTickValueGet();
+            show_tick[0] = (uint8)(((ulValue_new - ulValue_old) >> 24) & 0x000000FF);
+            show_tick[1] = (uint8)(((ulValue_new - ulValue_old) >> 16) & 0x000000FF);
+            show_tick[2] = (uint8)(((ulValue_new - ulValue_old) >> 8) & 0x000000FF);
+            show_tick[3] = (uint8)(((ulValue_new - ulValue_old)) & 0x000000FF);
+            sprintf((char *)lcdString, "%d %d %d %d ", show_tick[0], show_tick[1],
+                    show_tick[2], show_tick[3]);
+            HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
 
+            ulValue_old = ulValue_new;
+            */
+
+        }
         return ( events ^ SmartMeter_ADC_SEND_EVT );
     }
 
@@ -1010,57 +1205,42 @@ static void zclSmartMeter_SendTime( void )                                      
 
 
 /*********************************************************************
-
- * @fn      zclSmartMeter_SendData     *
+ * @fn      zclSmartMeter_SendConfigAck     *
  *
-
- * @brief   Called to send SmartMeter data information to the coordinator
+ * @brief   Called to send SmartMeter configuration acknowledge to the coordinator
  *
  * @param   none
  *
  * @return  none
  */
-
-static void zclSmartMeter_SendData( void )
+static void zclSmartMeter_SendConfigAck( void )                                         //added 11.12
 {
     if( Connect_Mode == WIRELESS_CONNECTION)
     {
 #ifdef ZCL_REPORT
         zclReportCmd_t *pReportCmd;
-
-
-        POWER1 = (powerVal[0] >> 16) & 0xFFFF;
-        POWER0 = powerVal[0] & 0xFFFF;
-        ENERGY1 = (energyVal[0] >> 16) & 0xFFFF;
-        ENERGY0 = energyVal[0] & 0xFFFF;
-        uint16 packet[] = {USR_TX_GET, SUCCESS, ADD_3, ADD_2, ADD_1, ADD_0, SM_ADD16,
-                           RMS_V1, RMS_I1, THETA_1, RMS_V2, RMS_I2, THETA_2, RMS_V3, RMS_I3, THETA_3, SM_V, SM_I, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, STATUS
-                          };
-
-        //UARTprintf(" RMS_V1: %d\n", RMS_V1);
-        //UARTprintf(" RMS_I1: %d\n", RMS_I1);
+        uint16 packet[] = {COM_CONFIG, SUCCESS, SM_CONFIG_2, SM_CONFIG_1, SM_CONFIG_0};
 
         pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
         if ( pReportCmd != NULL )
         {
             pReportCmd->numAttr = 1;
+            pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
 
-            pReportCmd->attrList[0].attrID = ATTRID_MS_DATA_MEASURED_VALUE;
-            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT512;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT256;
             pReportCmd->attrList[0].attrData = (void *)(packet);
             zcl_SendReportCmd( SmartMeter_ENDPOINT, &zclSmartMeter_DstAddr,
-
-                               ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT,
+                               ZCL_CLUSTER_ID_MS_PARAMETER_MEASUREMENT,
                                pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclSmartMeterSeqNum++ );
         }
+
         osal_mem_free( pReportCmd );
 #endif  // ZCL_REPORT
     }
     else if( Connect_Mode == WIRED_CONNECTION)
     {
-        uint16 packet[] = {COM_DATA, SUCCESS, ADD_3, ADD_2, ADD_1, ADD_0, SM_ADD16,
-                           RMS_V1, RMS_I1, THETA_1, RMS_V2, RMS_I2, THETA_2, RMS_V3, RMS_I3, THETA_3, SM_V, SM_I, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, STATUS
-                          };
+        uint16 packet[] = {COM_CONFIG, SUCCESS, SM_CONFIG_2, SM_CONFIG_1, SM_CONFIG_0};
+
         pack_out[0] = 0x68;
         uint8 i;
         for(i = 1; i <= 8; i++)
@@ -1083,6 +1263,128 @@ static void zclSmartMeter_SendData( void )
         pack_out[12 + sizeof(packet)] = 0x16;
 
         HalUART1Write ( HAL_UART_PORT_1, pack_out, 13 + sizeof(packet));
+    }
+}
+
+
+/*********************************************************************
+
+ * @fn      zclSmartMeter_SendData     *
+ *
+
+ * @brief   Called to send SmartMeter data information to the coordinator
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+
+static void zclSmartMeter_SendData( void )
+{
+    if( Connect_Mode == WIRELESS_CONNECTION)
+    {
+#ifdef ZCL_REPORT
+        zclReportCmd_t *pReportCmd;
+
+        /*
+        POWER1 = (powerVal[0] >> 16) & 0xFFFF;
+        POWER0 = powerVal[0] & 0xFFFF;
+        ENERGY1 = (energyVal[0] >> 16) & 0xFFFF;
+        ENERGY0 = energyVal[0] & 0xFFFF;
+        uint16 packet[] = {USR_TX_GET, SUCCESS, ADD_3, ADD_2, ADD_1, ADD_0, SM_ADD16,
+                           RMS_V1, RMS_I1, THETA_1, RMS_V2, RMS_I2, THETA_2, RMS_V3, RMS_I3, THETA_3, SM_V, SM_I, YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, STATUS
+                          };
+        */
+        uint16 packet[32] = {0};
+        packet[0] = USR_TX_GET;
+        packet[1] = SUCCESS;
+        packet[2] = ADD_3;
+        packet[3] = ADD_2;
+        packet[4] = ADD_1;
+        packet[5] = ADD_0;
+        packet[6] = ((uint16)(SM_CONFIG_5) << 8) + SM_CONFIG_4;
+        packet[7] = ((uint16)(SM_CONFIG_3) << 8) + SM_CONFIG_2;
+        packet[8] = ((uint16)(SM_CONFIG_1) << 8) + SM_CONFIG_0;
+        packet[9] = (uint16)len_DataReg;
+        uint8 i = 0;
+        for(i = 0; i < len_DataReg; i++)
+            packet[10 + i] =  VIT_dataReg[i];
+        packet[10 + len_DataReg] = STATUS;
+        packet[11 + len_DataReg] = YEAR;
+        packet[12 + len_DataReg] = MONTH;
+        packet[13 + len_DataReg] = DAY;
+        packet[14 + len_DataReg] = HOUR;
+        packet[15 + len_DataReg] = MINUTE;
+        packet[16 + len_DataReg] = SECOND;
+
+        //UARTprintf(" RMS_V1: %d\n", RMS_V1);
+        //UARTprintf(" RMS_I1: %d\n", RMS_I1);
+
+        pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
+        if ( pReportCmd != NULL )
+        {
+            pReportCmd->numAttr = 1;
+
+            pReportCmd->attrList[0].attrID = ATTRID_MS_DATA_MEASURED_VALUE;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT512;
+            pReportCmd->attrList[0].attrData = (void *)(packet);
+            zcl_SendReportCmd( SmartMeter_ENDPOINT, &zclSmartMeter_DstAddr,
+
+                               ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT,
+                               pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclSmartMeterSeqNum++ );
+        }
+        osal_mem_free( pReportCmd );
+#endif  // ZCL_REPORT
+    }
+    else if( Connect_Mode == WIRED_CONNECTION)
+    {
+
+        //whole length is 17+len_DataReg
+        uint16 packet[32] = {0};
+        packet[0] = COM_DATA;
+        packet[1] = SUCCESS;
+        packet[2] = ADD_3;
+        packet[3] = ADD_2;
+        packet[4] = ADD_1;
+        packet[5] = ADD_0;
+        packet[6] = ((uint16)(SM_CONFIG_5) << 8) + SM_CONFIG_4;
+        packet[7] = ((uint16)(SM_CONFIG_3) << 8) + SM_CONFIG_2;
+        packet[8] = ((uint16)(SM_CONFIG_1) << 8) + SM_CONFIG_0;
+        packet[9] = (uint16)len_DataReg;
+        uint8 i = 0;
+        for(i = 0; i < len_DataReg; i++)
+            packet[10 + i] =  VIT_dataReg[i];
+        packet[10 + len_DataReg] = STATUS;
+        packet[11 + len_DataReg] = YEAR;
+        packet[12 + len_DataReg] = MONTH;
+        packet[13 + len_DataReg] = DAY;
+        packet[14 + len_DataReg] = HOUR;
+        packet[15 + len_DataReg] = MINUTE;
+        packet[16 + len_DataReg] = SECOND;
+
+
+        pack_out[0] = 0x68;
+        for(i = 1; i <= 8; i++)
+            pack_out[i] = Msg_in[i];
+
+        pack_out[9] = 0x68;
+        pack_out[10] = (uint8)((17 + len_DataReg) * 2);
+
+        for(i = 0; i < (17 + len_DataReg); i++)
+        {
+            pack_out[11 + i * 2] = (uint8_t) ((packet[i] & 0xFF00) >> 8);
+            pack_out[12 + i * 2] = (uint8_t) (packet[i] & 0x00FF);
+        }
+
+        pack_out[11 + ((17 + len_DataReg) * 2)] = 0x00;
+
+        for(i = 0; i < 11 + ((17 + len_DataReg) * 2); i++)
+            pack_out[11 + ((17 + len_DataReg) * 2)] += pack_out[i];
+
+        pack_out[12 + ((17 + len_DataReg) * 2)] = 0x16;
+
+        HalUART1Write ( HAL_UART_PORT_1, pack_out, 13 + ((17 + len_DataReg) * 2));
+        //HalUART0Write ( HAL_UART_PORT_0, pack_out, 13 + ((17 + len_DataReg) * 2));
         HalLcdWriteString( "dataREG2", HAL_LCD_LINE_6 );
 
     }
@@ -1105,8 +1407,8 @@ static void zclSmartMeter_SendReset( void )
 {
     uint16 energy_reset_value_1 = 0;
     uint16 energy_reset_value_0 = 0;
-    energy_reset_value_1 = (uint16)(((uint32)(energy_display[0]) >> 16) & 0xFFFF);
-    energy_reset_value_0 = (uint16)((uint32)(energy_display[0]) & 0xFFFF);
+    energy_reset_value_1 = (uint16)(((uint32)(energyVal[0]) >> 16) & 0xFFFF);
+    energy_reset_value_0 = (uint16)((uint32)(energyVal[0]) & 0xFFFF);
     if( Connect_Mode == WIRELESS_CONNECTION)
     {
 #ifdef ZCL_REPORT
@@ -1221,10 +1523,10 @@ static void zclSmartMeter_SendRelay( void )
             pack_out[11 + sizeof(packet)] += pack_out[i];
 
         pack_out[12 + sizeof(packet)] = 0x16;
-        //HalLcdWriteString( "relayyyyyy", HAL_LCD_LINE_3 );           
-        
+        //HalLcdWriteString( "relayyyyyy", HAL_LCD_LINE_3 );
+
         HalUART1Write ( HAL_UART_PORT_1, pack_out, 13 + sizeof(packet));
-             
+
     }
 }
 
@@ -1266,7 +1568,7 @@ static void zclSmartMeter_SendCalibrate(void)
     }
     else if( Connect_Mode == WIRED_CONNECTION)
     {
-        uint16 packet[] = {CALIBRATE, SUCCESS, V_CAL, I_CAL, T_CAL, N_CAL};
+        uint16 packet[] = {CALIBRATE, SUCCESS, V_CAL, I_CAL, T_CAL, N_CAL, INPUT_1_CAL, INPUT_2_CAL};
         pack_out[0] = 0x68;
         uint8 i;
         for(i = 1; i <= 8; i++)
@@ -1423,7 +1725,7 @@ static void zclSmartMeter_SendAdd(void)
 
         pack_out[12 + sizeof(packet)] = 0x16;
 
-        uint8 SmartMeter_NwkDiscov_INTERVAL = (recognise_sm_id() + 4); //generate a random delay from 0 to 16000000 SysTIck
+        //uint8 SmartMeter_NwkDiscov_INTERVAL = (recognise_sm_id() + 4); //generate a random delay from 0 to 16000000 SysTIck
         // add random delay function here
         /*
         unsigned long ulValue_start;
@@ -1440,11 +1742,11 @@ static void zclSmartMeter_SendAdd(void)
         {
         };
         */
-        uint32 wait_timenew = osal_GetSystemClock();
-        while (osal_GetSystemClock() - wait_timenew < SmartMeter_NwkDiscov_INTERVAL * 5)
-        {
-        };
-        
+        //uint32 wait_timenew = osal_GetSystemClock();
+        //while (osal_GetSystemClock() - wait_timenew < SmartMeter_NwkDiscov_INTERVAL * 5)
+        //{
+        //}
+
         HalUART1Write ( HAL_UART_PORT_1, pack_out, 13 + sizeof(packet));
     }
 }
@@ -1468,7 +1770,10 @@ static void zclSmartMeter_SendCalPara(void)
         zclReportCmd_t *pReportCmd;
 
         uint16 packet[] = {COM_CAL, SUCCESS, SM_ADD16, ADD_3, ADD_2, ADD_1, ADD_0,
-                           MAG_V1, MAG_I1, MAG_V2, MAG_I2, MAG_V3, MAG_I3,
+                           UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4), UINT8_TO_16(SM_CONFIG_3, SM_CONFIG_2),
+                           UINT8_TO_16(SM_CONFIG_1, SM_CONFIG_0),
+                           MAG_V[0], MAG_I[0], MAG_V[1], MAG_I[1], MAG_V[2], MAG_I[2], MAG_V[3], MAG_I[3],
+                           MAG_V[4], MAG_I[4], MAG_V[5], MAG_I[5], MAG_V[6], MAG_I[6], MAG_V[7], MAG_I[7],
                            T_EFF
                           };
         pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
@@ -1476,7 +1781,7 @@ static void zclSmartMeter_SendCalPara(void)
         {
             pReportCmd->numAttr = 1;
             pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
-            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT256;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT512;
             pReportCmd->attrList[0].attrData = (void *)(packet);
             zcl_SendReportCmd( SmartMeter_ENDPOINT, &zclSmartMeter_DstAddr,
                                ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
@@ -1496,8 +1801,63 @@ static void zclSmartMeter_SendCalPara(void)
     }
     else if( Connect_Mode == WIRED_CONNECTION)
     {
+        uint16 MAG[8] = {0};
+        uint8 MAG_COUNT = 0;
+        if(Num_phase[1])
+        {
+            MAG[MAG_COUNT] = MAG_V[MAG_COUNT];
+            MAG_COUNT++;
+            for (uint8 i = 0;  i < Num_phase[1]; i++)
+            {
+                MAG[MAG_COUNT] = MAG_I[MAG_COUNT];
+                MAG_COUNT++;
+            }
+        }
+
+        if(Num_phase[2])
+        {
+            MAG[MAG_COUNT] = MAG_V[MAG_COUNT];
+            MAG_COUNT++;
+            for (uint8 i = 0;  i < Num_phase[2]; i++)
+            {
+                MAG[MAG_COUNT] = MAG_I[MAG_COUNT];
+                MAG_COUNT++;
+            }
+        }
+
+        if(Num_phase[3])
+        {
+            MAG[MAG_COUNT] = MAG_V[MAG_COUNT];
+            MAG_COUNT++;
+            for (uint8 i = 0;  i < Num_phase[3]; i++)
+            {
+                MAG[MAG_COUNT] = MAG_I[MAG_COUNT];
+                MAG_COUNT++;
+            }
+        }
+
+        if(Num_phase[0])
+        {
+            for (uint8 i = 0;  i < Num_phase[0]; i++)
+            {
+                MAG[MAG_COUNT] = MAG_GEN_INPUT1[MAG_COUNT];
+                MAG_COUNT++;
+            }
+        }
+
+        if(Num_phase[4])
+        {
+            for (uint8 i = 0;  i < Num_phase[4]; i++)
+            {
+                MAG[MAG_COUNT] = MAG_GEN_INPUT2[MAG_COUNT];
+                MAG_COUNT++;
+            }
+        }
+
         uint16 packet[] = {COM_CAL, SUCCESS, SM_ADD16, ADD_3, ADD_2, ADD_1, ADD_0,
-                           MAG_V1, MAG_I1, MAG_V2, MAG_I2, MAG_V3, MAG_I3,
+                           UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4), UINT8_TO_16(SM_CONFIG_3, SM_CONFIG_2),
+                           UINT8_TO_16(SM_CONFIG_1, SM_CONFIG_0),
+                           MAG[0], MAG[1], MAG[2], MAG[3], MAG[4], MAG[5], MAG[6], MAG[7],
                            T_EFF
                           };
         pack_out[0] = 0x68;
@@ -1543,6 +1903,13 @@ static void zclSmartMeter_nvReadParam( void )
     //read from flash memory and load it into paramReg
     osal_nv_read (FLASH_PARAM, 0, 36, flashpt);
 
+    uint8 pack_o[60] = {0};
+    for(uint8 i = 0; i < 18; i++)
+    {
+        pack_o[i * 2] = (uint8)((paramReg[i] & 0xff00) >> 8);
+        pack_o[i * 2 + 1] = (uint8)(paramReg[i] & 0x00ff);
+    }
+    //HalUART0Write ( HAL_UART_PORT_0, pack_o, 60);
 
 }
 /*********************************************************************
@@ -1587,9 +1954,9 @@ static void zclSmartMeter_nvWriteParam( void )
     int i;
     for(i = 0; i < 18; i++)
         //UARTprintf(" writeparamReg[%d]: %d\n", i, paramReg[i]);
-    //UARTprintf(" sm_index: %d\n", sm_index);
+        //UARTprintf(" sm_index: %d\n", sm_index);
 
-    flashpt = &paramReg[0];
+        flashpt = &paramReg[0];
     //locate item in flash
     osal_nv_item_init (FLASH_PARAM, 36, NULL);
     //write paramReg to FLASH
@@ -1597,8 +1964,40 @@ static void zclSmartMeter_nvWriteParam( void )
 
 }
 
+
+
+
 /*********************************************************************
- * @fn      zclSmartMeter_calReadParam
+ * @fn      zclSmartMeter_WriteConfigReg
+ *
+ * @brief   Called to write SmartMeter parameter information into Flash
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void zclSmartMeter_WriteConfigReg( void )
+{
+    uint16 *flashpt;
+
+    paramReg[0] = UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4);
+    paramReg[1] = UINT8_TO_16(SM_CONFIG_3, SM_CONFIG_2);
+    paramReg[2] = UINT8_TO_16(SM_CONFIG_1, SM_CONFIG_0);
+
+
+    uint8 i;
+    for(i = 0; i < 3; i++)
+        flashpt = &paramReg[0];
+
+    //locate item in flash
+    osal_nv_item_init (FLASH_CONFIG, 6, NULL);
+    //write paramReg to FLASH
+    osal_nv_write (FLASH_CONFIG, 0, 6, flashpt);
+
+}
+
+/*********************************************************************
+ * @fn      zclSmartMeter_ReadConfigReg
  *
  * @brief   Called to read SmartMeter calibration related parameter information from Flash
  *
@@ -1606,16 +2005,17 @@ static void zclSmartMeter_nvWriteParam( void )
  *
  * @return  none
  */
-static void zclSmartMeter_calReadParam( void )
+static void zclSmartMeter_ReadConfigReg( void )
 {
     uint16 *flashpt;
-    flashpt = &calReg[0];
+    flashpt = &ConfigReg[0];
     //locate item in flash memory
-    osal_nv_item_init (FLASH_PARAMCAL, 30, NULL);
+    osal_nv_item_init (FLASH_CONFIG, 6, NULL);
     //read from flash memory and load it into paramReg
-    osal_nv_read (FLASH_PARAMCAL, 0, 30, flashpt);
+    osal_nv_read (FLASH_CONFIG, 0, 6, flashpt);
 
 }
+
 /*********************************************************************
  * @fn      zclSmartMeter_calWriteParam
  *
@@ -1641,30 +2041,53 @@ static void zclSmartMeter_calWriteParam( void )
     else if(ADD_3 == 0x0012 && ADD_2 == 0x4B00 && ADD_1 == 0x040E && ADD_0 == 0xF19E)
         SM_ADD16 = 0x0002;
 
-    calReg[4] = SM_ADD16;
-    calReg[5] = MAG_V1;
-    calReg[6] = MAG_I1;
-    calReg[7] = MAG_E1;
-    calReg[8] = MAG_V2;
-    calReg[9] = MAG_I2;
-    calReg[10] = MAG_E2;
-    calReg[11] = MAG_V3;
-    calReg[12] = MAG_I3;
-    calReg[13] = MAG_E3;
-    calReg[14] = T_EFF;
+    calReg[4] = UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4);
+    calReg[5] = UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4);
+    calReg[6] = UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4);
 
+    uint8 i = 0;
+    for(i = 0; i < 8; i++)
+    {
+        if(CAL_OPT == CAL_VOL)
+            calReg[7 + i * 4] = MAG_V[i];
+        else if(CAL_OPT == CAL_CUR)
+            calReg[8 + i * 4] = MAG_I[i];
+        else if(CAL_OPT == CAL_GEN_1)
+            calReg[9 + i * 4] = MAG_GEN_INPUT1[i];
+        else if(CAL_OPT == CAL_GEN_2)
+            calReg[10 + i * 4] = MAG_GEN_INPUT2[i];
+    }
+    T_EFF = run_T_EFF;
+    calReg[39] = T_EFF;
 
-    int i;
-    for(i = 0; i < 15; i++)
+    for(i = 0; i < 40; i++)
         //UARTprintf(" writecalReg[%d]: %d\n", i, calReg[i]);
-
-    flashpt = &calReg[0];
+        flashpt = &calReg[0];
     //locate item in flash
-    osal_nv_item_init (FLASH_PARAMCAL, 30, NULL);
+    osal_nv_item_init (FLASH_PARAMCAL, 80, NULL);
     //write paramReg to FLASH
-    osal_nv_write (FLASH_PARAMCAL, 0, 30, flashpt);
+    osal_nv_write (FLASH_PARAMCAL, 0, 80, flashpt);
 }
 
+/*********************************************************************
+ * @fn      zclSmartMeter_calReadParam
+ *
+ * @brief   Called to read SmartMeter calibration related parameter information from Flash
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void zclSmartMeter_calReadParam( void )
+{
+    uint16 *flashpt;
+    flashpt = &calReg[0];
+    //locate item in flash memory
+    osal_nv_item_init (FLASH_PARAMCAL, 80, NULL);
+    //read from flash memory and load it into paramReg
+    osal_nv_read (FLASH_PARAMCAL, 0, 80, flashpt);
+
+}
 
 #ifdef ZCL_REPORT
 /*********************************************************************
@@ -1703,10 +2126,11 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         };
         zclSmartMeter_SendParam();
     }
-    if ((COMMAND == USR_RX_GET) && (OPERATION == COM_DATA) &&
-            (pInParameterReport->attrList[0].attrID) == ATTRID_MS_DATA_MEASURED_VALUE)
+    else if ((COMMAND == USR_RX_GET) && (OPERATION == COM_DATA) &&
+             (pInParameterReport->attrList[0].attrID) == ATTRID_MS_DATA_MEASURED_VALUE)
         // send the current data value sent over the air to Coordinator
     {
+        time_old = osal_GetSystemClock();
         flaginc = 1;
 
         sys_timenew = osal_GetSystemClock();
@@ -1737,8 +2161,8 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 
         zclSmartMeter_SendData();
     }
-    if ((COMMAND == USR_RX_SET) && (OPERATION == SET_PARAM) &&
-            (pInParameterReport->attrList[0].attrID) == ATTRID_MS_PARAMETER_MEASURED_VALUE)
+    else if ((COMMAND == USR_RX_SET) && (OPERATION == SET_PARAM) &&
+             (pInParameterReport->attrList[0].attrID) == ATTRID_MS_PARAMETER_MEASURED_VALUE)
     {
         // set the current parameter sent over the air from the Coordinator
         MIN_ADC = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
@@ -1769,8 +2193,8 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         zclSmartMeter_SendParam();
     }
 
-    if ((COMMAND == TIME_SET) &&
-            (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)                                    //added 11.12
+    else if ((COMMAND == TIME_SET) &&
+             (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)                                    //added 11.12
     {
         // set the current parameter sent over the air from the Coordinator
         YEAR = BUILD_UINT16(pInParameterReport->attrList[0].attrData[2], pInParameterReport->attrList[0].attrData[3]);
@@ -1828,14 +2252,17 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         //osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_CLOCK_EVT, 1000 );  //continues 1s
     }
 
-    if ((COMMAND == RESET)  &&
-            (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
+    else if ((COMMAND == RESET)  &&
+             (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
     {
         flagreset = OPERATION;
         ENERGY_RESET_VALUE_1 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
         ENERGY_RESET_VALUE_0 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]);
         ENERGY_RESET_VALUE = BUILD_UINT32_16(ENERGY_RESET_VALUE_1, ENERGY_RESET_VALUE_0);
-        energy_display[0] = (double)ENERGY_RESET_VALUE;
+        //energy_display[0] = (double)ENERGY_RESET_VALUE;
+        uint8 i = 0;
+        for(i = 0; i < 8; i++)
+            energyVal[i] = (uint64)ENERGY_RESET_VALUE;
 
         //UARTprintf(" ENERGY_RESET_VALUE: %d\n", ENERGY_RESET_VALUE);
         // send the current flagreset and ENERGY_RESET_VALUE to send over the air to Coordinator
@@ -1843,8 +2270,8 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     }
 
 
-    if ((COMMAND == RELAY) &&
-            (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
+    else if ((COMMAND == RELAY) &&
+             (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
     {
 #ifdef LCD_SUPPORTED
         HalLcdWriteString( "SendRelay SUCCESS", HAL_LCD_LINE_2 );
@@ -1861,18 +2288,18 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         flagrelay = 2;
     }
 
-    if ((COMMAND == START) &&
-            (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
+    else if ((COMMAND == START) &&
+             (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
     {
         flaginc = OPERATION;
         // send the current flaginc value to send over the air to Coordinator
         zclSmartMeter_SendRestart();
     }
 
-    if ((COMMAND == USR_RX_GET) && (OPERATION == COM_ADD) &&
-            (pInParameterReport->attrList[0].attrID) == ATTRID_MS_ADD_MEASURED_VALUE)
+    else if ((COMMAND == USR_RX_GET) && (OPERATION == COM_ADD) &&
+             (pInParameterReport->attrList[0].attrID) == ATTRID_MS_ADD_MEASURED_VALUE)
     {
-        
+
         // get the coordinator IEEE address
         coordinator_Addr_3 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
         coordinator_Addr_2 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]);
@@ -1897,21 +2324,21 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         zclSmartMeter_LcdDisplayTestMode(); // display C's IEEE address
     }
 
-    if ((COMMAND == USR_RX_GET) && (OPERATION == ACK_SUCCESS) &&
-            ((pInParameterReport->attrList[0].attrID) == ATTRID_MS_ACK_MEASURED_VALUE ))
+    else if ((COMMAND == USR_RX_GET) && (OPERATION == ACK_SUCCESS) &&
+             ((pInParameterReport->attrList[0].attrID) == ATTRID_MS_ACK_MEASURED_VALUE ))
     {
 #ifdef LCD_SUPPORTED
         HalLcdWriteString( "SendAck SUCCESS", HAL_LCD_LINE_2 );
 #endif
     }
 
-    if ((COMMAND == USR_RX_GET) && (OPERATION == COM_CAL) &&
-            ((pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE ))
+    else if ((COMMAND == USR_RX_GET) && (OPERATION == COM_CAL) &&
+             ((pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE ))
     {
         zclSmartMeter_SendCalPara();
     }
 
-    if ((COMMAND == CALIBRATE) && (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
+    else if ((COMMAND == CALIBRATE) && (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
     {
         V_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[2], pInParameterReport->attrList[0].attrData[3]);
         I_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
@@ -1949,9 +2376,7 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         else if(V_CAL != 0 && I_CAL != 0)
         {
             CAL_OPT = CAL_ENE;
-            MAG_E1 = 100;
-            MAG_E2 = 100;
-            MAG_E3 = 100;
+
             enecal_cycle = 0;
             //UARTprintf(" CAL_ENE ");
             //UARTprintf(" V_CAL: %d\n", V_CAL);
@@ -1959,6 +2384,22 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
             //UARTprintf(" T_CAL: %d\n", T_CAL);
             //UARTprintf(" N_CAL: %d\n", N_CAL);
         }
+
+    }
+
+    else if ((COMMAND == COM_CONFIG) && (pInParameterReport->attrList[0].attrID) == ATTRID_MS_PARAMETER_MEASURED_VALUE)
+    {
+        SM_CONFIG_5 = pInParameterReport->attrList[0].attrData[3];
+        SM_CONFIG_4 = pInParameterReport->attrList[0].attrData[2];
+        SM_CONFIG_3 = pInParameterReport->attrList[0].attrData[5];
+        SM_CONFIG_2 = pInParameterReport->attrList[0].attrData[4];
+        SM_CONFIG_1 = pInParameterReport->attrList[0].attrData[7];
+        SM_CONFIG_0 = pInParameterReport->attrList[0].attrData[6];
+
+        //Update flash memory
+        zclSmartMeter_WriteConfigReg();
+        // send the current parameter value to send over the air to Coordinator
+        zclSmartMeter_SendConfigAck();
 
     }
 
@@ -1973,20 +2414,20 @@ void zclSmartMeter_ProcessUART_Pkt(void)
 {
     //HalLcdWriteString( "9876", HAL_LCD_LINE_6 );
     char  lcdString[10];
-/*
-#ifdef LCD_SUPPORTED
-    sprintf((char *)lcdString, "%d %d %d %d", (int) ((uint16)((((Msg_in[1]) & 0x00FF) << 8) + (Msg_in[2] & 0x00FF))) , (int)ADD_3, (int)Msg_in[1], (int)Msg_in[2]);
-    HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
-#endif
-*/
+    /*
+    #ifdef LCD_SUPPORTED
+        sprintf((char *)lcdString, "%d %d %d %d", (int) ((uint16)((((Msg_in[1]) & 0x00FF) << 8) + (Msg_in[2] & 0x00FF))) , (int)ADD_3, (int)Msg_in[1], (int)Msg_in[2]);
+        HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+    #endif
+    */
     uint16 COMMAND = UINT8_TO_16(Msg_in[11], Msg_in[12]);
     uint16 OPERATION = UINT8_TO_16(Msg_in[13], Msg_in[14]);
-   
-    
+
+
     if(ADD_3 == ((uint16)((((Msg_in[1]) & 0x00FF) << 8) + (Msg_in[2] & 0x00FF))) && ADD_2 == ((uint16)((((Msg_in[3]) & 0x00FF) << 8) + (Msg_in[4] & 0x00FF)))
             && ADD_1 == ((uint16)((((Msg_in[5]) & 0x00FF) << 8) + (Msg_in[6] & 0x00FF))) && ADD_0 == ((uint16)((((Msg_in[7]) & 0x00FF) << 8) + (Msg_in[8] & 0x00FF))))
     {
-        
+
         sprintf((char *)lcdString, "%x %x", (uint8)COMMAND, (uint8)OPERATION );
         HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
 
@@ -1998,19 +2439,24 @@ void zclSmartMeter_ProcessUART_Pkt(void)
 #endif
             flagrelay = OPERATION;
             if(!flagrelay)
+            {
                 GPIOPinWrite(GPIO_C_BASE, (GPIO_PIN_0 | GPIO_PIN_1), 0x01); // PC1=0, PC0=1
+                power_flag = 0;
+            }
             else if (flagrelay == 1)
+            {
                 GPIOPinWrite(GPIO_C_BASE, (GPIO_PIN_0 | GPIO_PIN_1), 0x02); // PC1=1, PC0=0
-
+                power_flag = 1;
+            }
             // send the current relay value to send over the air to Coordinator
             zclSmartMeter_SendRelay();
 
             flagrelay = 2;
         }
 
-        if ((COMMAND == USR_RX_GET) && (OPERATION == COM_ADD))
+        else if ((COMMAND == USR_RX_GET) && (OPERATION == COM_ADD))
         {
-            //HalLcdWriteString( "COMADD", HAL_LCD_LINE_3 );
+            HalLcdWriteString( "COMADD Network", HAL_LCD_LINE_3 );
             // get the coordinator IEEE address
             coordinator_Addr_3 = UINT8_TO_16(Msg_in[15], Msg_in[16]);
             coordinator_Addr_2 = UINT8_TO_16(Msg_in[17], Msg_in[18]);
@@ -2020,10 +2466,10 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             // time of reception of network discovery command  -- add code
             zclSmartMeter_SendAdd();
             zclSmartMeter_LcdDisplayTestMode(); // display C's IEEE address
-        }     
-        
+        }
+
         //Process parameter read command
-        if ((COMMAND == USR_RX_GET) && (OPERATION == SET_PARAM))
+        else if ((COMMAND == USR_RX_GET) && (OPERATION == SET_PARAM))
             // send the current parameter value through UART to Coordinator
         {
             // set the current parameter sent over the air from the Coordinator
@@ -2053,20 +2499,30 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             zclSmartMeter_SendParam();
         }
 
-        if ((COMMAND == START))
+        else if ((COMMAND == START))
         {
             flaginc = OPERATION;
+            
+            
+            uint8 uart0show[1] = {0};
+            uart0show[0] = 0xee;
+            HalUART0Write ( HAL_UART_PORT_0, uart0show, 1);
+            
             // send the current flaginc value to send over the air to Coordinator
             zclSmartMeter_SendRestart();
         }
-        
-                //Process dataReg read command
-        if ((COMMAND == USR_RX_GET) && (OPERATION == COM_DATA))
+
+        //Process dataReg read command
+        else if ((COMMAND == USR_RX_GET) && (OPERATION == COM_DATA))
             // send the current data value through UART to Coordinator
         {
-            
+
             HalLcdWriteString( "dataREG", HAL_LCD_LINE_4 );
+            uint8 uart0show[1] = {0};
+            uart0show[0] = 0xFF;
+            HalUART0Write ( HAL_UART_PORT_0, uart0show, 1);
             
+            time_old = osal_GetSystemClock();
             flaginc = 1;
 
             sys_timenew = osal_GetSystemClock();
@@ -2094,12 +2550,12 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             //UARTprintf(" HOUR: %d\n", HOUR);
             //UARTprintf(" MINUTE: %d\n", MINUTE);
             //UARTprintf(" SECOND: %d\n", SECOND);
-            
+
             zclSmartMeter_SendData();
         }
         //Add in more command here
 
-        if ((COMMAND == USR_RX_SET) && (OPERATION == SET_PARAM))
+        else if ((COMMAND == USR_RX_SET) && (OPERATION == SET_PARAM))
         {
             // set the current parameter sent over the air from the Coordinator
             MIN_ADC = UINT8_TO_16(Msg_in[15], Msg_in[16]);
@@ -2128,7 +2584,7 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             zclSmartMeter_SendParam();
         }
 
-        if ((COMMAND == TIME_SET))
+        else if ((COMMAND == TIME_SET))
         {
             // set the current parameter sent over the air from the Coordinator
             YEAR = UINT8_TO_16(Msg_in[13], Msg_in[14]);
@@ -2179,13 +2635,16 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             //osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_CLOCK_EVT, 1000 );  //continues 1s
         }
 
-        if ((COMMAND == RESET))
+        else if ((COMMAND == RESET))
         {
             flagreset = OPERATION;
             ENERGY_RESET_VALUE_1 = UINT8_TO_16(Msg_in[15], Msg_in[16]);
             ENERGY_RESET_VALUE_0 = UINT8_TO_16(Msg_in[17], Msg_in[18]);
             ENERGY_RESET_VALUE = BUILD_UINT32_16(ENERGY_RESET_VALUE_1, ENERGY_RESET_VALUE_0);
-            energy_display[0] = (double)ENERGY_RESET_VALUE;
+            //energy_display[0] = (double)ENERGY_RESET_VALUE;
+            uint8 i = 0;
+            for(i = 0 ; i < 8; i++)
+                energyVal[i] = 0;
 
             //UARTprintf(" ENERGY_RESET_VALUE: %d\n", ENERGY_RESET_VALUE);
             // send the current flagreset and ENERGY_RESET_VALUE to send over the air to Coordinator
@@ -2193,7 +2652,7 @@ void zclSmartMeter_ProcessUART_Pkt(void)
         }
 
 
-        if ((COMMAND == USR_RX_GET) && (OPERATION == ACK_SUCCESS))
+        else if ((COMMAND == USR_RX_GET) && (OPERATION == ACK_SUCCESS))
         {
 #ifdef LCD_SUPPORTED
             HalLcdWriteString( "SendAck SUCCESS", HAL_LCD_LINE_2 );
@@ -2212,6 +2671,8 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             I_CAL = UINT8_TO_16(Msg_in[15], Msg_in[16]);
             T_CAL = UINT8_TO_16(Msg_in[17], Msg_in[18]);
             N_CAL = UINT8_TO_16(Msg_in[19], Msg_in[20]);
+            INPUT_1_CAL = UINT8_TO_16(Msg_in[21], Msg_in[22]);
+            INPUT_2_CAL = UINT8_TO_16(Msg_in[23], Msg_in[24]);
 
             time_old = osal_GetSystemClock();
             time_new = time_old;
@@ -2220,44 +2681,50 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             l_nSamples = 0;
             VrmsTemp[0] = 0;
             IrmsTemp[0] = 0;
-
+            sprintf((char *)lcdString, "%d %d %d %d %d %d", V_CAL, I_CAL, T_CAL, N_CAL, INPUT_1_CAL, INPUT_2_CAL);
+            HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
             if(V_CAL != 0 && I_CAL == 0)
             {
-                
+
                 CAL_OPT = CAL_VOL;
                 MAG_V1 = 0;
-                ////UARTprintf(" CAL_VOL ");
-                ////UARTprintf(" V_CAL: %d\n", V_CAL);
-                ////UARTprintf(" I_CAL: %d\n", I_CAL);
-                ////UARTprintf(" T_CAL: %d\n", T_CAL);
-                ////UARTprintf(" N_CAL: %d\n", N_CAL);
-                
-                sprintf((char *)lcdString, "%d %d %d %d", V_CAL, I_CAL, T_CAL,N_CAL );
-                HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+                //sprintf((char *)lcdString, "%d %d %d %d", V_CAL, I_CAL, T_CAL, N_CAL );
+                //HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
             }
             else if(V_CAL == 0 && I_CAL != 0)
             {
                 CAL_OPT = CAL_CUR;
                 MAG_I1 = 0;
-                //UARTprintf(" CAL_CUR ");
-                //UARTprintf(" V_CAL: %d\n", V_CAL);
-                //UARTprintf(" I_CAL: %d\n", I_CAL);
-                //UARTprintf(" T_CAL: %d\n", T_CAL);
-                //UARTprintf(" N_CAL: %d\n", N_CAL);
             }
             else if(V_CAL != 0 && I_CAL != 0)
             {
                 CAL_OPT = CAL_ENE;
-                MAG_E1 = 100;
-                MAG_E2 = 100;
-                MAG_E3 = 100;
                 enecal_cycle = 0;
-                //UARTprintf(" CAL_ENE ");
-                //UARTprintf(" V_CAL: %d\n", V_CAL);
-                //UARTprintf(" I_CAL: %d\n", I_CAL);
-                //UARTprintf(" T_CAL: %d\n", T_CAL);
-                //UARTprintf(" N_CAL: %d\n", N_CAL);
             }
+            else if(INPUT_1_CAL != 0 && N_CAL != 0)
+            {
+                CAL_OPT = CAL_GEN_1;
+            }
+
+            else if(INPUT_2_CAL != 0 && N_CAL != 0)
+            {
+                CAL_OPT = CAL_GEN_2;
+            }
+
+        }
+
+        else if (COMMAND == COM_CONFIG)
+        {
+            SM_CONFIG_5 = Msg_in[13];
+            SM_CONFIG_4 = Msg_in[14];
+            SM_CONFIG_3 = Msg_in[15];
+            SM_CONFIG_2 = Msg_in[16];
+            SM_CONFIG_1 = Msg_in[17];
+            SM_CONFIG_0 = Msg_in[18];
+            Configuration_Reg_Process();
+            //Update flash memory
+            zclSmartMeter_WriteConfigReg();
+            zclSmartMeter_SendConfigAck();
 
         }
 
@@ -2298,24 +2765,37 @@ static void zclSmartMeter_parameterInit(void)
     OFF = paramReg[16];
     N_SM = paramReg[17];
 
-    for (i = 0; i < 15; i++)
+    for (i = 0; i < 24; i++)
         calReg[i] = 0;
     zclSmartMeter_calReadParam();
+    /*
+        SM_CONFIG_5 = (uint8)((calReg[4] & 0xff00) >> 8);
+        SM_CONFIG_4 = (uint8)((calReg[4] & 0x00ff));
+        SM_CONFIG_3 = (uint8)((calReg[5] & 0xff00) >> 8);
+        SM_CONFIG_2 = (uint8)((calReg[5] & 0x00ff));
+        SM_CONFIG_1 = (uint8)((calReg[6] & 0xff00) >> 8);
+        SM_CONFIG_0 = (uint8)((calReg[6] & 0x00ff));
+        */
+    for(i = 0; i < 8; i++)
+    {
+        MAG_V[i] = calReg[7 + i * 4];
+        MAG_I[i] = calReg[8 + i * 4];
+        MAG_GEN_INPUT1[i] = calReg[9 + i * 4];
+        MAG_GEN_INPUT2[i] = calReg[10 + i * 4];
+    }
+    T_EFF = calReg[39];
 
-    SM_ADD16 = calReg[4];
-    MAG_V1 = calReg[5];
-    MAG_I1 = calReg[6];
-    MAG_E1 = calReg[7];
-    MAG_V2 = calReg[8];
-    MAG_I2 = calReg[9];
-    MAG_E2 = calReg[10];
-    MAG_V3 = calReg[11];
-    MAG_I3 = calReg[12];
-    MAG_E3 = calReg[13];
-    T_EFF = calReg[14];
+    for (i = 0; i < 3; i++)
+        ConfigReg[i] = 0;
+    zclSmartMeter_ReadConfigReg();
 
-
-
+    SM_CONFIG_5 = (uint8)((ConfigReg[0] & 0xff00) >> 8);
+    SM_CONFIG_4 = (uint8)((ConfigReg[0] & 0x00ff));
+    SM_CONFIG_3 = (uint8)((ConfigReg[1] & 0xff00) >> 8);
+    SM_CONFIG_2 = (uint8)((ConfigReg[1] & 0x00ff));
+    SM_CONFIG_1 = (uint8)((ConfigReg[2] & 0xff00) >> 8);
+    SM_CONFIG_0 = (uint8)((ConfigReg[2] & 0x00ff));
+    time_old = osal_GetSystemClock();
     flaginc = 1;
 }
 
@@ -2330,196 +2810,620 @@ static void zclSmartMeter_parameterInit(void)
 */
 static void zclSmartMeter_calibrateInc(void)
 {
+    char lcdString[15];
+
     if(flaginc == 0)
     {
-        //do the power calculation incrementally
-        senValueV[0] = analogRead(senPin1Voltage); //get ADC voltage value
-        senValueI[0] = analogRead(senPin1Current); //get ADC current value
-        realVol[0] = (int16)(zclSmartMeter_map((int16)senValueV[0], (int16)MIN_ADC, (int16)MAX_ADC, (int16)((float)(MIN_V) * sqrt(2)*(-1)), (int16)((float)MAX_V * sqrt(2)))); //map to real voltage
-        realCur[0] = (int16)(zclSmartMeter_map((int16)senValueI[0], (int16)MIN_ADC, (int16)MAX_ADC, (int16)((float)(MIN_I * 100) * sqrt(2)*(-1) ), (int16)(MAX_I * 100 * sqrt(2)))); //map to real current, mag by MAG
-        VrmsTemp[0] += realVol[0] * realVol[0]; //accumulate V^2
-        IrmsTemp[0] += realCur[0] * realCur[0]; //accumulate I^2
-       /*
-        //UARTprintf(" senValueV[0]: %d\n", senValueV[0]);
-        //UARTprintf(" senValueI[0]: %d\n", senValueI[0]);
-        //UARTprintf(" (int16)senValueV[0]: %d\n", (int16)senValueV[0]);
-        //UARTprintf(" (int16)MIN_ADC: %d\n", (int16)MIN_ADC);
-        //UARTprintf(" (int16)MAX_ADC: %d\n", (int16)MAX_ADC);
-        //UARTprintf(" MIN_V: %d\n", (int16)((float)(MIN_V) * sqrt(2)*(-1)));
-        //UARTprintf(" MAX_V: %d\n", (int16)((float)MAX_V * sqrt(2)));               
-        //UARTprintf(" realCur[0]: %d\n", realCur[0]);
-        //UARTprintf(" realVol[0]: %d\n", realVol[0]);
-         */   
-        ////UARTprintf(" senValueI[0]: %d\n", senValueI[0]);
-        ////UARTprintf(" realCur[0]: %d\n", realCur[0]);
-        ////UARTprintf(" (int16)MIN_I: %d\n", (int16)MIN_I);
-        ////UARTprintf(" (int16)MAX_I: %d\n", (int16)MAX_I);
-        ////UARTprintf(" realCur[0]: %d\n", realCur[0]);
-        ////UARTprintf(" realVol[0]: %d\n", realVol[0]);
-        if (CAL_OPT != CAL_VOL && CAL_OPT != CAL_CUR)
-        {          
-            if((l_nSamples%25) == 0 && (l_nSamples != 0))
-            {
-              
-                flaginc = 1;        
-                enecal_timenew = osal_GetSystemClock();
-                enecal_timeperiod = enecal_timenew - enecal_timeold;                  
-                enecal_timeold = enecal_timenew;
-                
-                if(CAL_OPT == CAL_ENE)
-                    enecal_energy[0] = enecal_energy[0] + energyVal[0];
-                
-                energy_display[0] = energy_display[0] + energyVal[0];  //energy for display use
-                ////UARTprintf(" energy_display[0]: %d\n", (int)( energy_display[0]/100000 ));
-                ////UARTprintf(" energy_display[0]1: %d\n", (int)( energy_display[0]));
-                
-                energyVal[0] = 0;
+        uint8 j = 0;
+        uint8 i = 0;
+        uint8 m = 0;
 
-                if(enecal_cycle == 0)
+        //uint32 ana_time_old = osal_GetSystemClock();
+
+        senValue[0] = analogRead(SOCADC_AIN0); //get ADC voltage value on channel 7
+        senValue[1] = analogRead(SOCADC_AIN1); //get ADC current value on channel 6
+        senValue[2] = analogRead(SOCADC_AIN2); //get ADC voltage value on channel 5
+        senValue[3] = analogRead(SOCADC_AIN3); //get ADC current value on channel 4
+        senValue[4] = analogRead(SOCADC_AIN4); //get ADC voltage value on channel 3
+        senValue[5] = analogRead(SOCADC_AIN5); //get ADC current value on channel 2
+        senValue[6] = analogRead(SOCADC_AIN6); //get ADC voltage value on channel 1
+        senValue[7] = analogRead(SOCADC_AIN7); //get ADC current value on channel 0
+        uint32 phase_time_now = osal_GetSystemClock();
+        
+        //uint32 ana_time_new = osal_GetSystemClock();
+        /*
+        uint8 uart0show[3] = {0};
+        uart0show[0] = 0xee;
+        uart0show[1] = (uint8)(ana_time_new - ana_time_old);
+        uart0show[2] = 0xff;
+        HalUART0Write ( HAL_UART_PORT_0, uart0show, 3);
+        /*
+        uint8 uart0show[6] = {0};
+        uart0show[0] = 0xee;
+        uart0show[1] = (uint8)((senValue[5] & 0xff00) >> 8);
+        uart0show[2] = (uint8)(senValue[5] & 0x00ff);
+        uart0show[3] = (uint8)((senValue[6] & 0xff00) >> 8);
+        uart0show[4] = (uint8)(senValue[6]);
+        uart0show[5] = 0xff;
+        */
+        //HalUART0Write ( HAL_UART_PORT_0, uart0show, 6);
+
+
+
+        l_nSamples ++;
+
+        if(CAL_OPT == 0)
+        {
+            if(l_nSamples % 1000 == 0 && l_nSamples <= 10000)
+            {
+                time_new = osal_GetSystemClock();
+
+                sprintf((char *)lcdString, "T_EFF: %d", ((time_new - time_old) / 10) );
+                HalLcdWriteString( lcdString, HAL_LCD_LINE_5 );
+                run_T_EFF = (uint16)((time_new - time_old) / 10) ;
+
+                time_old = time_new;
+            }
+            if(Num_phase[1])
+            {
+                reg_REAL_V1 = REAL_V1;
+                REAL_V1 = (int16)(zclSmartMeter_map((int16)senValue[j++], (int16)MIN_ADC,
+                                                    (int16)MAX_ADC, (int16)((float)(MIN_V) * sqrt(2) * (-1)), (int16)((float)MAX_V * sqrt(2)))); //map to real voltage
+
+
+                if(REAL_V1 >= 0 && REAL_V1 < (int16)((float)RMS_V1 * sqrt(2) * 0.1 * 100 / MAG_V[m]) && reg_REAL_V1 < 0 && phase_dec_flag[m] == 1)
                 {
-                    enecal_timeperiod = 0;
-                    enecal_energy[0] = 0;
+                    HalLcdWriteString( "REAL_V1", HAL_LCD_LINE_4 );
+                    phase_REAL_V1 = REAL_V1;
+                    phase_dec_flag[m] = 0;
+                    phase_dec_V1 = phase_time_now;
                 }
-                enecal_cycle ++;
-                
-                if(CAL_OPT == CAL_ENE)
-                {                    
-                    //UARTprintf(" enecal_timeperiod: %d\n", enecal_timeperiod);
-                    //UARTprintf(" enecal_energy[0]: %d\n", enecal_energy[0]);
-                    //UARTprintf(" enecal_cycle: %d\n", enecal_cycle);
+                m++;
+                rmsTemp_V1 += (REAL_V1 * REAL_V1);
+
+                if (rmsTemp_V1 >= SUM_SQUR_LIMIT)
+                {
+                    rmsTemp_V1 = rmsTemp_V1 - SUM_SQUR_LIMIT;
+                    overflow_num_V1++;
+                }
+
+                for(i = 0; i < Num_phase[1]; i++)
+                {
+
+                    reg_REAL_I1[i] = REAL_I1[i];
+                    REAL_I1[i] = (int16)(zclSmartMeter_map((int16)senValue[j++], (int16)MIN_ADC, (int16)MAX_ADC,
+                                                           (int16)((float)(MIN_I * 100) * sqrt(2) * (-1) ), (int16)(MAX_I * 100 * sqrt(2)))); //map to real current, mag by MAG
+
+
+                    if(REAL_I1[i] >= 0 && REAL_I1[i] < (int16)((float)RMS_I1[i] * sqrt(2) * 0.1 * 100 / MAG_I[m]) && reg_REAL_I1[i] < 0 && phase_dec_flag[m] == 1 && phase_dec_flag[m - i - 1] == 0)
+                    {
+                        HalLcdWriteString( "REAL_I1", HAL_LCD_LINE_4 );
+                        Theta1[i] = (uint16)(((((uint32)(phase_time_now - phase_dec_V1) * 3 ) % 500) * 360 / 500) + 90
+                                             + (int16)((float)3.4 * (i + 1) - (float)360 * 1000 * 3 / (float)(120 * 3.1416 * 50) * (((float)REAL_I1[i] / ((float)RMS_I1[i] * sqrt(2) * 100 / MAG_I[m])) - ((float)phase_REAL_V1 / ((float)RMS_V1 * sqrt(2) * 100 / MAG_V[m - i - 1]))))); // DELTA%(50/3) * 360 / (50/3) + 90
+                        if(Theta1[i] >= 360)
+                            Theta1[i] = Theta1[i] - 360;
+                        phase_dec_flag[m] = 0;
+
+                    }
+                    m++;
+                    rmsTemp_I1[i] += REAL_I1[i] * REAL_I1[i];
+                    if (rmsTemp_I1[i] >= SUM_SQUR_LIMIT)
+                    {
+                        rmsTemp_I1[i] = rmsTemp_I1[i] - SUM_SQUR_LIMIT;
+                        overflow_num_I1[i]++;
+                    }
                 }
             }
-        }
-          
-        
-            
-        //if(l_nSamples == ((uint32)(T_CAL * (200000 / SAMPLE_INT)) / N_CAL) && CAL_OPT == CAL_VOL) //200000 TO 1000000
-        //if(((uint16)((float)(time_new - time_old)*3.125)*N_CAL >= T_CAL *1000) && CAL_OPT == CAL_VOL)
-        if(CAL_OPT == CAL_VOL)
-        {
-            
-            //UARTprintf(" realCur[0]: %d\n", realCur[0]);
-            //UARTprintf(" realVol[0]: %d\n", realVol[0]);
-            if (cal_index == (N_CAL - 1))
+
+            if(Num_phase[2])
             {
-                //UARTprintf(" VrmsTemp[0]: %d\n", VrmsTemp[0]);
-                CRMS_V[0] = (uint16)sqrt(VrmsTemp[0] / l_nSamples); //get RMS voltage
-                VrmsTemp[0] = 0;
-                IrmsTemp[0] = 0;
+                reg_REAL_V2 = REAL_V2;
+                REAL_V2 = (int16)(zclSmartMeter_map((int16)senValue[j++], (int16)MIN_ADC,
+                                                    (int16)MAX_ADC, (int16)((float)(MIN_V) * sqrt(2) * (-1)), (int16)((float)MAX_V * sqrt(2)))); //map to real voltage
 
-                MAG_V1 = (uint16)(V_CAL * 100 / CRMS_V[0]);
+                //if(((float)REAL_V2 > ((float)RMS_V2 * sqrt(2) * 0.96 * 100 / MAG_V[m])) && phase_dec_flag[m] == 1)
+                if(REAL_V2 >= 0 && REAL_V2 < (int16)((float)RMS_V2 * sqrt(2) * 0.1 * 100 / MAG_V[m]) && reg_REAL_V2 < 0 && phase_dec_flag[m] == 1)
+                {
+                    HalLcdWriteString( "REAL_V2", HAL_LCD_LINE_4 );
+                    ///////////////////////////////////////////////////////
+                    uint8 ccc[8] = {0};
+                    ccc[0] = 0x00;
+                    ccc[1] = (uint8)((((uint16)REAL_V2) & 0xff00 ) >> 8);
+                    ccc[2] = (uint8)(((uint16)REAL_V2) & 0x00ff );
+                    ccc[3] = (uint8)((((uint16)((float)RMS_V2 * sqrt(2) * 0.1 * 100 / MAG_V[m])) & 0xff00 ) >> 8);
+                    ccc[4] = (uint8)(((uint16)((float)RMS_V2 * sqrt(2) * 0.1 * 100 / MAG_V[m])) & 0x00ff );
+                    ccc[5] = (uint8)((MAG_V[m] & 0xff00) >> 8);
+                    ccc[6] = (uint8)(MAG_V[m] & 0x00ff);
+                    ccc[7] = 0xAA;
+                    //HalUART0Write ( HAL_UART_PORT_0, ccc, 8);
+                    //////////////////////////////////////////////////////
+                    phase_REAL_V2 = REAL_V2;
+                    phase_dec_flag[m] = 0;
+                    phase_dec_V2 = phase_time_now;
+                    //phase_dec_V2 = ulValue_phase_start;
+                }
+                m++;
+                rmsTemp_V2 += (REAL_V2 * REAL_V2);
 
-                //UARTprintf(" realVol[0]: %d\n", realVol[0]);
-                //UARTprintf(" MAG_V1: %d\n", MAG_V1);
-                //UARTprintf(" l_nSamples: %d\n", l_nSamples);
-                
-                //UARTprintf(" CRMS_V[0]: %d\n", CRMS_V[0]);            
+                if (rmsTemp_V2 >= SUM_SQUR_LIMIT)
+                {
+                    rmsTemp_V2 = rmsTemp_V2 - SUM_SQUR_LIMIT;
+                    overflow_num_V2++;
+                }
 
+                for(i = 0; i < Num_phase[2]; i++)
+                {
+
+                    reg_REAL_I2[i] = REAL_I2[i];
+                    REAL_I2[i] = (int16)(zclSmartMeter_map((int16)senValue[j++], (int16)MIN_ADC, (int16)MAX_ADC,
+                                                           (int16)((float)(MIN_I * 100) * sqrt(2) * (-1) ), (int16)(MAX_I * 100 * sqrt(2)))); //map to real current, mag by MAG
+
+                    //if(((float)REAL_I2[i] > ((float)RMS_I2[i] * sqrt(2) * 0.96 * 100 / MAG_I[m])) && phase_dec_flag[m] == 1 && phase_dec_flag[m - i - 1] == 0) // m-i-1 means voltage flag, current after voltage
+
+                    if(REAL_I2[i] >= 0 && REAL_I2[i] < (int16)((float)RMS_I2[i] * sqrt(2) * 0.1 * 100 / MAG_I[m]) && reg_REAL_I2[i] < 0 && phase_dec_flag[m] == 1 && phase_dec_flag[m - i - 1] == 0)
+                    {
+                        ///////////////////////////////////////////////////////
+                        uint8 ccc[8] = {0};
+                        ccc[0] = 0x00;
+                        ccc[1] = (uint8)((((uint16)REAL_I2[i]) & 0xff00 ) >> 8);
+                        ccc[2] = (uint8)(((uint16)REAL_I2[i]) & 0x00ff );
+                        ccc[3] = (uint8)((((uint16)((float)RMS_I2[i] * sqrt(2) * 0.1 * 100 / MAG_I[m])) & 0xff00 ) >> 8);
+                        ccc[4] = (uint8)(((uint16)((float)RMS_I2[i] * sqrt(2) * 0.1 * 100 / MAG_I[m])) & 0x00ff );
+                        ccc[5] = (uint8)((MAG_I[m] & 0xff00) >> 8);
+                        ccc[6] = (uint8)(MAG_I[m] & 0x00ff);
+                        ccc[7] = 0xBB;
+                        //HalUART0Write ( HAL_UART_PORT_0, ccc, 8);
+                        //////////////////////////////////////////////////////
+                        HalLcdWriteString( "REAL_I2", HAL_LCD_LINE_4 );
+                        Theta2[i] = (uint16)(((((uint32)(phase_time_now - phase_dec_V2) * 3 ) % 500) * 360 / 500) + 90
+                                             + (int16)((float)3.4 * (i + 1) - (float)360 * 1000 * 3 / (float)(120 * 3.1416 * 50) * (((float)REAL_I2[i] / ((float)RMS_I2[i] * sqrt(2) * 100 / MAG_I[m])) - ((float)phase_REAL_V2 / ((float)RMS_V2 * sqrt(2) * 100 / MAG_V[m - i - 1]))))); // DELTA%(50/3) * 360 / (50/3) + 90
+                        if(Theta2[i] >= 360)
+                            Theta2[i] = Theta2[i] - 360;
+                        phase_dec_flag[m] = 0;
+                        ///////////////////////////////////////////////////////
+                        uint8 dd[10] = {0};
+                        dd[0] = 0x00;
+                        dd[1] = (uint8)((((((uint16)(phase_time_now - phase_dec_V2) * 3 ) % 50) * 360 / 50 ) & 0xff00 ) >> 8);
+                        dd[2] = (uint8)(((((uint16)(phase_time_now - phase_dec_V2) * 3 ) % 50) * 360 / 50 ) & 0x00ff );
+                        dd[3] = (uint8)((((uint16)((float)360 / 3.1416 * (((float)REAL_I2[i] / ((float)RMS_I2[i] * sqrt(2) * 100 / MAG_I[m])) - ((float)phase_REAL_V2 / ((float)RMS_V2 * sqrt(2) * 100 / MAG_V[m - i - 1]))))) & 0xff00 ) >> 8);
+                        dd[4] = (uint8)(((uint16)((float)360 / 3.1416 * (((float)REAL_I2[i] / ((float)RMS_I2[i] * sqrt(2) * 100 / MAG_I[m])) - ((float)phase_REAL_V2 / ((float)RMS_V2 * sqrt(2) * 100 / MAG_V[m - i - 1]))))) & 0x00ff );
+                        dd[5] = (uint8)(((uint16)(phase_time_now - phase_dec_V2) & 0xff00) >> 8);
+                        dd[6] = (uint8)((uint16)(phase_time_now - phase_dec_V2) & 0x00ff);
+                        dd[7] = (uint8)(((uint16)(Theta2[i]) & 0xff00) >> 8);
+                        dd[8] = (uint8)((uint16)(Theta2[i]) & 0x00ff);
+                        dd[9] = 0xCC;
+                        //HalUART0Write ( HAL_UART_PORT_0, dd, 10);
+                        //////////////////////////////////////////////////////
+                    }
+                    m++;
+                    rmsTemp_I2[i] += REAL_I2[i] * REAL_I2[i];
+                    if (rmsTemp_I2[i] >= SUM_SQUR_LIMIT)
+                    {
+                        rmsTemp_I2[i] = rmsTemp_I2[i] - SUM_SQUR_LIMIT;
+                        overflow_num_I2[i]++;
+                    }
+                }
+            }
+            /*
+            if(Num_phase[2])
+            {
+                reg_REAL_V2 = REAL_V2;
+                REAL_V2 = (int16)(zclSmartMeter_map((int16)senValue[j++], (int16)MIN_ADC,
+                                                    (int16)MAX_ADC, (int16)((float)(MIN_V) * sqrt(2) * (-1)), (int16)((float)MAX_V * sqrt(2)))); //map to real voltage
+
+                //if(((float)REAL_V2 > ((float)RMS_V2 * sqrt(2) * 0.96 * 100 / MAG_V[m])) && phase_dec_flag[m] == 1)
+                if(REAL_V2 >= 0 && REAL_V2 < 10 && reg_REAL_V2 < 0 && phase_dec_flag[m] == 1)
+                {
+                    phase_dec_flag[m++] = 0;
+                    phase_dec_V2 = osal_GetSystemClock();
+                }
+                rmsTemp_V2 += (REAL_V2 * REAL_V2);
+
+                if (rmsTemp_V2 >= SUM_SQUR_LIMIT)
+                {
+                    rmsTemp_V2 = rmsTemp_V2 - SUM_SQUR_LIMIT;
+                    overflow_num_V2++;
+                }
+
+                for(i = 0; i < Num_phase[2]; i++)
+                {
+                    reg_REAL_I2[i] = REAL_I2[i];
+                    REAL_I2[i] = (int16)(zclSmartMeter_map((int16)senValue[j++], (int16)MIN_ADC, (int16)MAX_ADC,
+                                                           (int16)((float)(MIN_I * 100) * sqrt(2) * (-1) ), (int16)(MAX_I * 100 * sqrt(2)))); //map to real current, mag by MAG
+
+                    //if(((float)REAL_I2[i] > ((float)RMS_I2[i] * sqrt(2) * 0.96 * 100 / MAG_I[m])) && phase_dec_flag[m] == 1 && phase_dec_flag[m - i - 1] == 0) // m-i-1 means voltage flag, current after voltage
+                    if(REAL_I2[i] >= 0 && REAL_I2[i] < 10 && reg_REAL_I2[i] < 0 && phase_dec_flag[m] == 1 && phase_dec_flag[m - i - 1] == 0)
+                    {
+                        phase_dec_flag[m++] = 0;
+                        Theta2[i] = (uint16)((((uint16)(osal_GetSystemClock() - phase_dec_V2) * 3 )% 50) * 360 / 50 )+ 90; // DELTA%(50/3) * 360 / (50/3) + 90
+                        if(Theta2[i] >= 360)
+                            Theta2[i] = Theta2[i] - 360;
+                    }
+                    rmsTemp_I2[i] += REAL_I2[i] * REAL_I2[i];
+                    if (rmsTemp_I2[i] >= SUM_SQUR_LIMIT)
+                    {
+                        rmsTemp_I2[i] = rmsTemp_I2[i] - SUM_SQUR_LIMIT;
+                        overflow_num_I2[i]++;
+                    }
+                }
+            }
+            */
+            if(Num_phase[3])
+            {
+                reg_REAL_V3 = REAL_V3;
+                REAL_V3 = (int16)(zclSmartMeter_map((int16)senValue[j++], (int16)MIN_ADC,
+                                                    (int16)MAX_ADC, (int16)((float)(MIN_V) * sqrt(2) * (-1)), (int16)((float)MAX_V * sqrt(2)))); //map to real voltage
+
+
+                if(REAL_V3 >= 0 && REAL_V3 < (int16)((float)RMS_V3 * sqrt(2) * 0.1 * 100 / MAG_V[m]) && reg_REAL_V3 < 0 && phase_dec_flag[m] == 1)
+                {
+                    HalLcdWriteString( "REAL_V3", HAL_LCD_LINE_4 );
+                    phase_REAL_V3 = REAL_V3;
+                    phase_dec_flag[m] = 0;
+                    phase_dec_V3 = phase_time_now;
+                }
+                m++;
+                rmsTemp_V3 += (REAL_V3 * REAL_V3);
+
+                if (rmsTemp_V3 >= SUM_SQUR_LIMIT)
+                {
+                    rmsTemp_V3 = rmsTemp_V3 - SUM_SQUR_LIMIT;
+                    overflow_num_V3++;
+                }
+
+                for(i = 0; i < Num_phase[3]; i++)
+                {
+
+                    reg_REAL_I3[i] = REAL_I3[i];
+                    REAL_I3[i] = (int16)(zclSmartMeter_map((int16)senValue[j++], (int16)MIN_ADC, (int16)MAX_ADC,
+                                                           (int16)((float)(MIN_I * 100) * sqrt(2) * (-1) ), (int16)(MAX_I * 100 * sqrt(2)))); //map to real current, mag by MAG
+
+
+                    if(REAL_I3[i] >= 0 && REAL_I3[i] < (int16)((float)RMS_I3[i] * sqrt(2) * 0.1 * 100 / MAG_I[m]) && reg_REAL_I3[i] < 0 && phase_dec_flag[m] == 1 && phase_dec_flag[m - i - 1] == 0)
+                    {
+                        HalLcdWriteString( "REAL_I3", HAL_LCD_LINE_4 );
+                        Theta3[i] = (uint16)(((((uint32)(phase_time_now - phase_dec_V2) * 3 ) % 500) * 360 / 500) + 90
+                                             + (int16)((float)3.4 * (i + 1) - (float)360 * 1000 * 3 / (float)(120 * 3.1416 * 50) * (((float)REAL_I3[i] / ((float)RMS_I3[i] * sqrt(2) * 100 / MAG_I[m])) - ((float)phase_REAL_V3 / ((float)RMS_V3 * sqrt(2) * 100 / MAG_V[m - i - 1]))))); // DELTA%(50/3) * 360 / (50/3) + 90
+                        if(Theta3[i] >= 360)
+                            Theta3[i] = Theta3[i] - 360;
+                        phase_dec_flag[m] = 0;
+
+                    }
+                    m++;
+                    rmsTemp_I3[i] += REAL_I3[i] * REAL_I3[i];
+                    if (rmsTemp_I3[i] >= SUM_SQUR_LIMIT)
+                    {
+                        rmsTemp_I3[i] = rmsTemp_I3[i] - SUM_SQUR_LIMIT;
+                        overflow_num_I3[i]++;
+                    }
+                }
+            }
+
+            if(Num_phase[0])
+            {
+
+                for (i = 0;  i < Num_phase[0]; i++)
+                {
+                  /*
+                    uint8 uart0show[6] = {0};
+                    uart0show[0] = 0x11;
+                    uart0show[1] = (uint8)((senValue[7] & 0xff00) >> 8);
+                    uart0show[2] = (uint8)(senValue[7] & 0x00ff);
+                    uart0show[3] = (uint8)((senValue[j] & 0xff00) >> 8);
+                    uart0show[4] = (uint8)(senValue[j]);
+                    uart0show[5] = 0x88;    
+                    HalUART0Write ( HAL_UART_PORT_0, uart0show, 6);
+                    */
+                    REAL_GEN_INPUT1[i] = senValue[j++];
+                    accu_GEN_INPUT1[i] += REAL_GEN_INPUT1[i];
+                }
+            }
+
+            if(Num_phase[4])
+            {
+
+                for (i = 0;  i < Num_phase[4]; i++)
+                {
+                    REAL_GEN_INPUT2[i] = senValue[j++];
+                    accu_GEN_INPUT2[i] += REAL_GEN_INPUT2[i];
+                }
+            }
+
+
+        }
+
+        else if(CAL_OPT == CAL_VOL)
+        {
+
+            sprintf((char *)lcdString, "sample: %d", l_nSamples );
+            HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+
+            if (l_nSamples == N_CAL * 4)
+            {
+                time_new = osal_GetSystemClock();
+
+                sprintf((char *)lcdString, "time1: %d", (time_new - time_old) );
+                HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+                time_old = time_new;
+                for(uint8 i = 0; i < 8; i++)
+                {
+                    CRMS_V[i] = (uint16)sqrt(rmsTemp_calV[i] / l_nSamples); //get RMS voltage
+                    rmsTemp_calV[i] = 0;
+                    MAG_V[i] = (uint16)(V_CAL * 100 / CRMS_V[i]);
+                }
                 l_nSamples = 0;
-                                
-                //UARTprintf(" MAG_V1FINAL: %d\n", MAG_V1);
-                //zclSmartMeter_nvWriteParam();
+
                 zclSmartMeter_calWriteParam();
-                // send the calibration value over the air to Coordinator
                 zclSmartMeter_SendCalibrate();
-                cal_index = 0;
                 CAL_OPT = 0;
             }
             else
-                cal_index++;
+            {
+                //l_nSamples++;
+                for(uint8 i = 0; i < 8; i++)
+                {
+                    Cal_Vreal[i] = (int16)(zclSmartMeter_map((int16)senValue[i], (int16)MIN_ADC,
+                                           (int16)MAX_ADC, (int16)((float)(MIN_V) * sqrt(2) * (-1)), (int16)((float)MAX_V * sqrt(2)))); //map to real voltage
+                    rmsTemp_calV[i] += (Cal_Vreal[i] * Cal_Vreal[i]);
+                }
+            }
         }
 
-        //else if(l_nSamples == ((uint32)(T_CAL * (200000 / SAMPLE_INT)) / N_CAL) && CAL_OPT == CAL_CUR) ///////////////////////////200000 TO 1000000
         else if(CAL_OPT == CAL_CUR)
-        {            
-            if (cal_index == (N_CAL - 1))
-            {
-                //UARTprintf(" VrmsTemp[0]: %d\n", VrmsTemp[0]);
-                CRMS_I[0] = (uint16)sqrt(IrmsTemp[0] / l_nSamples); //get RMS voltage
-                VrmsTemp[0] = 0;
-                IrmsTemp[0] = 0;
+        {
+            sprintf((char *)lcdString, "sample: %d", l_nSamples );
+            HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
 
-                ////UARTprintf(" senValueI[0]: %d\n", senValueI[0]);
-                //UARTprintf(" realCur[0]: %d\n", realCur[0]);
-                ////UARTprintf(" senValueV[0]: %d\n", senValueV[0]);
-                ////UARTprintf(" realVol[0]: %d\n", realVol[0]);
-                MAG_I1 = (uint16)(I_CAL * 10000 / CRMS_I[0]);
-                //UARTprintf(" MAG_I1: %d\n", MAG_I1);
-                //UARTprintf(" l_nSamples: %d\n", l_nSamples);               
-                //UARTprintf(" CRMS_I[0]: %d\n", CRMS_I[0]);
+            if (l_nSamples == N_CAL * 4)
+            {
+                time_new = osal_GetSystemClock();
+
+                sprintf((char *)lcdString, "time2: %d", (time_new - time_old) );
+                HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+                time_old = time_new;
+                for(uint8 i = 0; i < 8; i++)
+                {
+                    CRMS_I[i] = (uint16)sqrt(rmsTemp_calI[i] / l_nSamples); //get RMS voltage
+                    rmsTemp_calI[i] = 0;
+                    MAG_I[i] = (uint16)(I_CAL * 10000 / CRMS_I[i]);
+                }
 
                 l_nSamples = 0;
-                //UARTprintf(" MAG_I1FINAL: %d\n", MAG_I1);
                 zclSmartMeter_calWriteParam();
                 // send the calibration value over the air to Coordinator
                 zclSmartMeter_SendCalibrate();
-                cal_index = 0;
                 CAL_OPT = 0;
             }
             else
             {
-                cal_index++;              
+                //l_nSamples++;
+                for(uint8 i = 0; i < 8; i++)
+                {
+                    Cal_Ireal[i] = (int16)(zclSmartMeter_map((int16)senValue[i], (int16)MIN_ADC, (int16)MAX_ADC,
+                                           (int16)((float)(MIN_I * 100) * sqrt(2) * (-1) ), (int16)(MAX_I * 100 * sqrt(2)))); //map to real current, mag by MAG
+                    rmsTemp_calI[i] += (Cal_Ireal[i] * Cal_Ireal[i]);
+                }
             }
         }
 
-        //else if(l_nSamples == ((uint32)(T_CAL * (200000 / SAMPLE_INT)) / N_CAL) && CAL_OPT == CAL_ENE) /////////////////////////200000 TO 1000000
-        else if(((uint16)((float)(time_new - time_old)*TIMEINDEX) >= T_CAL *1000) && CAL_OPT == CAL_ENE)
+        else if(CAL_OPT == CAL_GEN_1)
         {
-            //CRMS_V[0] = (uint16)sqrt(VrmsTemp[0] / l_nSamples); //get RMS voltage
-            //CRMS_I[0] = (uint16)sqrt(IrmsTemp[0] / l_nSamples); //get RMS current
-            //VrmsTemp[0] = 0;
-            //IrmsTemp[0] = 0;
-            
+            sprintf((char *)lcdString, "samplegen1: %d", l_nSamples );
+            HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
 
-            MAG_E1 = (uint16)((V_CAL * I_CAL * T_CAL * 10000) / (enecal_energy[0]/1000));
-            enecal_energy[0] = 0;
-            //UARTprintf(" MAG_E1: %d\n", MAG_E1);            
-            //UARTprintf(" 0000: %d\n", (V_CAL * I_CAL * T_CAL * 10000)); 
-            
-            //UARTprintf(" l_nSamples: %d\n", l_nSamples);
-            //UARTprintf(" enecal_cycle: %d\n", enecal_cycle);
-            //UARTprintf(" enecal_timeperiod: %d\n", enecal_timeperiod);
-            time_old = time_new;
-            l_nSamples = 0;
+            if (l_nSamples == N_CAL * 4)
+            {
+                time_new = osal_GetSystemClock();
 
-            E_CAL = MAG_V1 * MAG_I1 * T_CAL;           
-            T_EFF = enecal_timeperiod * 1000;
-            zclSmartMeter_calWriteParam();
-            // send the calibration value over the air to Coordinator
-            zclSmartMeter_SendCalibrate();
+                //sprintf((char *)lcdString, "timeGEN1: %d", (time_new - time_old) );
+                //HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+                time_old = time_new;
+                for(uint8 i = 0; i < 8; i++)
+                {
+                    MAG_GEN_INPUT1[i] = (uint16)((uint32)INPUT_1_CAL * 100 * l_nSamples / accu_GEN_INPUT1[i]);
+                    accu_GEN_INPUT1[i] = 0;
+                }
 
-            CAL_OPT = 0;
+                l_nSamples = 0;
+                zclSmartMeter_calWriteParam();
+                // send the calibration value over the air to Coordinator
+                zclSmartMeter_SendCalibrate();
+                CAL_OPT = 0;
+            }
+            else
+            {
+                //l_nSamples++;
+                for(uint8 i = 0; i < 8; i++)
+                {
+                    REAL_GEN_INPUT1[i] = senValue[i];
+                    accu_GEN_INPUT1[i] += REAL_GEN_INPUT1[i];
+                }
+            }
         }
-        else
-            time_new = osal_GetSystemClock();
-        
-        l_nSamples += 1;
+
+        else if(CAL_OPT == CAL_GEN_2)
+        {
+            sprintf((char *)lcdString, "samplegen2: %d", l_nSamples );
+            HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+
+            if (l_nSamples == N_CAL * 4)
+            {
+                time_new = osal_GetSystemClock();
+
+                //sprintf((char *)lcdString, "timeGEN2: %d", (time_new - time_old) );
+                //HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+                time_old = time_new;
+                for(uint8 i = 0; i < 8; i++)
+                {
+                    MAG_GEN_INPUT2[i] = (uint16)((uint32)INPUT_2_CAL * 100 * l_nSamples / accu_GEN_INPUT2[i]);
+                    accu_GEN_INPUT2[i] = 0;
+                }
+
+                l_nSamples = 0;
+                zclSmartMeter_calWriteParam();
+                // send the calibration value over the air to Coordinator
+                zclSmartMeter_SendCalibrate();
+                CAL_OPT = 0;
+            }
+            else
+            {
+                //l_nSamples++;
+                for(uint8 i = 0; i < 8; i++)
+                {
+                    REAL_GEN_INPUT2[i] = senValue[i];
+                    accu_GEN_INPUT2[i] += REAL_GEN_INPUT2[i];
+                }
+            }
+        }
+
+        //else
+        //    time_new = osal_GetSystemClock();
+
     }
     else
     {
+        sprintf((char *)lcdString, "s: %d %d %d %d %d", Num_phase[0], Num_phase[1], Num_phase[2], Num_phase[3], len_DataReg );
+        HalLcdWriteString( lcdString, HAL_LCD_LINE_4 );
+
+        for(uint8 i = 0; i < 8; i++)
+            phase_dec_flag[i] = 1;
+
+        enecal_timenew = osal_GetSystemClock();
+        enecal_timeperiod = enecal_timenew - enecal_timeold;
+        enecal_timeold = enecal_timenew;
+
         flaginc = 0;
-        //calculate the power and energy
-        RMS_V1 = (uint16)((sqrt(VrmsTemp[0] / l_nSamples) * MAG_V1) / 100); //get RMS voltage
-        RMS_I1 = (uint16)((sqrt(IrmsTemp[0] / l_nSamples) * MAG_I1) / 100); //get RMS current
-        powerVal[0] = RMS_V1 * RMS_I1;                     //get power
-        energyVal[0] += (int32)(( powerVal[0] * enecal_timeperiod * TIMEINDEX ) * MAG_E1 / 100);  //energy in W.s  * 100000
-        //Energy[0] = (double)((double)energyVal[0] / 1000 / 3600 / 100000); //energy magnified in kWh
-        Energy[0] = (double)((double)energy_display[0] / 1000 / 3600 / 100000); //energy magnified in kWh
-        
-        //zclSmartMeter_UpdateDataReg();
-        
-        CurDisplay[0] = (float)((float)(RMS_I1 )/ 100);
-        PowerDisplay[0] = (float)((float)(powerVal[0]) / 100);
-        
-        ////UARTprintf("powerVal[0] %d\n", powerVal[0]);
-        ////UARTprintf("energyVal[0] %d\n", energyVal[0]);
-        ////UARTprintf("MAG_V1 %d\n", MAG_V1);
-        ////UARTprintf("MAG_I1 %d\n", MAG_I1);
-        ////UARTprintf("MAG_E1 %d\n", MAG_E1);
-        ////UARTprintf(" l_nSamples: %d\n", l_nSamples);
-        VrmsTemp[0] = 0;
-        IrmsTemp[0] = 0;
+
+        uint8 j = 0;
+        uint8 k = 0;  //data Reg count
+        uint8 count_MAG = 0;  //count MAG_V and MAG_I
+        if(Num_phase[1])
+        {
+            RMS_V1 = (uint16)((sqrt(rmsTemp_V1 / l_nSamples + (SUM_SQUR_LIMIT / l_nSamples) * overflow_num_V1) * MAG_V[count_MAG++]) / 100); //get RMS voltage
+            VIT_dataReg[k++] = RMS_V1;
+            rmsTemp_V1 = 0;
+            overflow_num_V1 = 0;
+            for(uint8 i = 0; i < Num_phase[1]; i++)
+            {
+                RMS_I1[i] = (uint16)((sqrt(rmsTemp_I1[i] / l_nSamples + (SUM_SQUR_LIMIT / l_nSamples) * overflow_num_I1[i]) * MAG_I[count_MAG++]) / 100); //get RMS current
+                if(power_flag == 1)
+                    VIT_dataReg[k++] = RMS_I1[i];
+                else
+                    VIT_dataReg[k++] = 0;
+                VIT_dataReg[k++] = Theta1[i];
+
+                powerVal[j] = RMS_V1 * RMS_I1[i];                     //get power
+                energyVal[j] += (uint64)(( powerVal[j] * enecal_timeperiod * TIMEINDEX ));  //energy in W.s  * 100000
+
+                Energy[j] = (double)((double)energyVal[j] / 1000 / 3600 / 100000); //energy magnified in kWh
+                CurDisplay[j] = (float)((float)(RMS_I1[i] ) / 100);
+                PowerDisplay[j] = (float)((float)(powerVal[j]) / 100);
+                j++;
+
+                rmsTemp_I1[i] = 0;
+                overflow_num_I1[i] = 0;
+            }
+        }
+
+        if(Num_phase[2])
+        {
+            RMS_V2 = (uint16)((sqrt(rmsTemp_V2 / l_nSamples + SUM_SQUR_LIMIT / l_nSamples * overflow_num_V2) * MAG_V[count_MAG++]) / 100); //get RMS voltage
+            VIT_dataReg[k++] = RMS_V2;
+            rmsTemp_V2 = 0;
+            overflow_num_V2 = 0;
+
+            for(uint8 i = 0; i < Num_phase[2]; i++)
+            {
+                RMS_I2[i] = (uint16)((sqrt(rmsTemp_I2[i] / l_nSamples + SUM_SQUR_LIMIT / l_nSamples * overflow_num_I2[i]) * MAG_I[count_MAG++]) / 100); //get RMS current
+                if(power_flag == 1)
+                    VIT_dataReg[k++] = RMS_I2[i];
+                else
+                    VIT_dataReg[k++] = 0;
+                VIT_dataReg[k++] = Theta2[i];
+
+                powerVal[j] = RMS_V2 * RMS_I2[i];                     //get power
+                energyVal[j] += (uint64)(( powerVal[j] * enecal_timeperiod * TIMEINDEX ));  //energy in W.s  * 100000
+                Energy[j] = (double)((double)energyVal[j] / 1000 / 3600 / 100000); //energy magnified in kWh
+                CurDisplay[j] = (float)((float)(RMS_I2[i] ) / 100);
+                PowerDisplay[j] = (float)((float)(powerVal[j]) / 100);
+                j++;
+
+                rmsTemp_I2[i] = 0;
+                overflow_num_I2[i] = 0;
+            }
+        }
+
+        if(Num_phase[3])
+        {
+            RMS_V3 = (uint16)((sqrt(rmsTemp_V3 / l_nSamples + SUM_SQUR_LIMIT / l_nSamples * overflow_num_V3) * MAG_V[count_MAG++]) / 100); //get RMS voltage
+            VIT_dataReg[k++] = RMS_V3;
+            rmsTemp_V3 = 0;
+            overflow_num_V3 = 0;
+
+            for(uint8 i = 0; i < Num_phase[3]; i++)
+            {
+                RMS_I3[i] = (uint16)((sqrt(rmsTemp_I3[i] / l_nSamples + SUM_SQUR_LIMIT / l_nSamples * overflow_num_I3[i]) * MAG_I[count_MAG++]) / 100); //get RMS current
+                if(power_flag == 1)
+                    VIT_dataReg[k++] = RMS_I3[i];
+                else
+                    VIT_dataReg[k++] = 0;
+                VIT_dataReg[k++] = Theta3[i];
+
+                powerVal[j] = RMS_V3 * RMS_I3[i];                     //get power
+                energyVal[j] += (uint64)(( powerVal[j] * enecal_timeperiod * TIMEINDEX ));  //energy in W.s  * 100000
+                Energy[j] = (double)((double)energyVal[j] / 1000 / 3600 / 100000); //energy magnified in kWh
+                CurDisplay[j] = (float)((float)(RMS_I3[i] ) / 100);
+                PowerDisplay[j] = (float)((float)(powerVal[j]) / 100);
+                j++;
+
+                rmsTemp_I3[i] = 0;
+                overflow_num_I3[i] = 0;
+            }
+        }
+
+        if(Num_phase[0])
+        {
+            for (uint8 i = 0;  i < Num_phase[0]; i++)
+            {
+                double Temp;
+                uint16 RawADC = 0;
+                
+                
+                
+                //RawADC = (uint16)(accu_GEN_INPUT1[i] * MAG_GEN_INPUT1[count_MAG++] / (l_nSamples * 100));
+                RawADC = (uint16)(accu_GEN_INPUT1[i]  / l_nSamples);
+                uint8 uart0show[6] = {0};
+                uart0show[0] = 0x11;
+                uart0show[1] = (uint8)((RawADC & 0xff00) >> 8);
+                uart0show[2] = (uint8)(RawADC & 0x00ff);
+                uart0show[3] = (uint8)((senValue[7] & 0xff00) >> 8);
+                uart0show[4] = (uint8)(senValue[7] & 0x00ff);
+                uart0show[5] = 0x88;    
+                HalUART0Write ( HAL_UART_PORT_0, uart0show, 6);
+                
+                Temp = log(10000.0*((1024.0/RawADC-1)));
+                Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp ))* Temp );
+                Temp = Temp - 273.15;                 
+                VIT_dataReg[k++] = (uint16)Temp;
+                accu_GEN_INPUT1[i] = 0;
+            }
+
+        }
+
+        if(Num_phase[4])
+        {
+            for (uint8 i = 0;  i < Num_phase[4]; i++)
+            {
+                VIT_dataReg[k++] = (uint16)(accu_GEN_INPUT2[i] * MAG_GEN_INPUT2[count_MAG++] / (l_nSamples * 100));
+                accu_GEN_INPUT2[i] = 0;
+            }
+
+        }
+
+        //len_DataReg = k;
         l_nSamples = 0;
+        enecal_timeperiod = 0;
+
     }
 
 
@@ -2548,6 +3452,7 @@ int32 zclSmartMeter_map(int16 senValue, int16 MIN_ADC, int16 MAX_ADC, int16 MIN_
 *
 * @return  none
 */
+/*
 static void zclSmartMeter_UpdateDataReg( void )
 {
     uint16 sm_ADD3 = (sm_ADD >> 48) & 0xFFFF;
@@ -2575,6 +3480,7 @@ static void zclSmartMeter_UpdateDataReg( void )
     dataReg[22] = STATUS;
 
 }
+*/
 /*********************************************************************
 * @fn      zclSmartMeter_ADC_init
 *
@@ -2607,7 +3513,8 @@ void zclSmartMeter_ADC_init(void)
 
     GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_5);
     GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_6);
-    //GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_7);
+    GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_7);
+
 }
 
 /*****************************************************************************
@@ -2722,19 +3629,19 @@ void zclSmartMeter_LcdPowerDisplayUpdate(void)
     lcdBufferInvertPage(0, 0, 127, eLcdPage0);
     //Write RMS_V to default buffer
     lcdBufferPrintStringAligned(0, "Voltage:", eLcdAlignLeft, eLcdPage2);
-    lcdBufferPrintIntAligned(0, RMS_V1, eLcdAlignCenter, eLcdPage2);
+    lcdBufferPrintIntAligned(0, RMS_V2, eLcdAlignCenter, eLcdPage2);
     lcdBufferPrintStringAligned(0, "V", eLcdAlignRight, eLcdPage2);
     //Write RMS_I to default buffer
     lcdBufferPrintStringAligned(0, "Current:", eLcdAlignLeft, eLcdPage3);
-    lcdBufferPrintFloatAligned(0, CurDisplay[0], 2, eLcdAlignCenter, eLcdPage3);
+    lcdBufferPrintFloatAligned(0, CurDisplay[4], 2, eLcdAlignCenter, eLcdPage3);
     lcdBufferPrintStringAligned(0, "A", eLcdAlignRight, eLcdPage3);
     //Write powerVal to default buffer
     lcdBufferPrintStringAligned(0, "Power:", eLcdAlignLeft, eLcdPage4);
-    lcdBufferPrintFloatAligned(0, PowerDisplay[0], 2, eLcdAlignCenter, eLcdPage4);
+    lcdBufferPrintFloatAligned(0, PowerDisplay[4], 2, eLcdAlignCenter, eLcdPage4);
     lcdBufferPrintStringAligned(0, "W", eLcdAlignRight, eLcdPage4);
     //Write EnergyVal to default buffer
     lcdBufferPrintStringAligned(0, "Energy:", eLcdAlignLeft, eLcdPage5);
-    lcdBufferPrintFloatAligned(0, Energy[0], 6, eLcdAlignCenter, eLcdPage5);
+    lcdBufferPrintFloatAligned(0, Energy[4], 6, eLcdAlignCenter, eLcdPage5);
     lcdBufferPrintStringAligned(0, "kWh", eLcdAlignRight, eLcdPage5);
     //Write school name
     lcdBufferPrintStringAligned(0, "ITU", eLcdAlignCenter, eLcdPage7);
@@ -3003,7 +3910,7 @@ static uint8 recognise_sm_id(void)
         return 0x02;
     else if(ADD_3 == 0x0012 && ADD_2 == 0x4B00 && ADD_1 == 0x040F && ADD_0 == 0x05B3)
         return 0x03;
-    
+
     else
         return 0xff;
 }

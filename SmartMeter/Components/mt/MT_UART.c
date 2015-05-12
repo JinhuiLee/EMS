@@ -296,25 +296,25 @@ void MT_UartProcessZToolData ( uint8 port, uint8 event )
             {
                 HalUARTRead (port, &pMsg->msg[MT_RPC_FRAME_HDR_SZI + tempDataLen], bytesInRxBuffer);
                 tempDataLen += bytesInRxBuffer;
-                HalLcdWriteString( "FAILi", HAL_LCD_LINE_7 );//5
+                //HalLcdWriteString( "FAILi", HAL_LCD_LINE_7 );//5
             }
             else
             {
                 HalUARTRead (port, &pMsg->msg[MT_RPC_FRAME_HDR_SZI + tempDataLen], LEN_Token - tempDataLen );
                 tempDataLen += (LEN_Token - tempDataLen);
-                HalLcdWriteString( "FAILii", HAL_LCD_LINE_7 );//5
+                //HalLcdWriteString( "FAILii", HAL_LCD_LINE_7 );//5
             }
 
             if ( tempDataLen == LEN_Token )
             {
                 state = CHS_STATE;
                 firstloo = 0;
-                HalLcdWriteString( "FAILiii", HAL_LCD_LINE_7 );
+                //HalLcdWriteString( "FAILiii", HAL_LCD_LINE_7 );
             }
             else
             {
                 state = DATA_STATE;
-                HalLcdWriteString( "FAILiiii", HAL_LCD_LINE_7 );
+                //HalLcdWriteString( "FAILiiii", HAL_LCD_LINE_7 );
             }
 
             //HalLcdWriteString( "send successfully3", HAL_LCD_LINE_7 );
@@ -339,7 +339,7 @@ void MT_UartProcessZToolData ( uint8 port, uint8 event )
            {
               pMsg->msg[MT_RPC_FRAME_HDR_SZI + LEN_Token + 2 + coor_index] = A0A7_Arr[coor_index];
            }
-            //HalLcdWriteString( "send successfully4", HAL_LCD_LINE_7 );
+            HalLcdWriteString( "RECEIVE UART0 successfully", HAL_LCD_LINE_7 );
             osal_msg_send(App_TaskID, (byte *)pMsg );
 
             /* Reset the state, send or discard the buffers at this point */
@@ -437,25 +437,25 @@ void MT_UartProcessZToolData ( uint8 port, uint8 event )
             {
                 HalUARTRead (port, &pMsg->msg[MT_RPC_FRAME_HDR_SZI + tempDataLen], bytesInRxBuffer);
                 tempDataLen += bytesInRxBuffer;
-                HalLcdWriteString( "FAILi", HAL_LCD_LINE_7 );//5
+                //HalLcdWriteString( "FAILi", HAL_LCD_LINE_7 );//5
             }
             else
             {
                 HalUARTRead (port, &pMsg->msg[MT_RPC_FRAME_HDR_SZI + tempDataLen], LEN_Token - tempDataLen );
                 tempDataLen += (LEN_Token - tempDataLen);
-                HalLcdWriteString( "FAILii", HAL_LCD_LINE_7 );//5
+                //HalLcdWriteString( "FAILii", HAL_LCD_LINE_7 );//5
             }
 
             if ( tempDataLen == LEN_Token )
             {
                 state = CHS_STATE;
                 firstloo = 0;
-                HalLcdWriteString( "FAILiii", HAL_LCD_LINE_7 );
+                //HalLcdWriteString( "FAILiii", HAL_LCD_LINE_7 );
             }
             else
             {
                 state = DATA_STATE;
-                HalLcdWriteString( "FAILiiii", HAL_LCD_LINE_7 );
+                //HalLcdWriteString( "FAILiiii", HAL_LCD_LINE_7 );
             }
 
             //HalLcdWriteString( "send successfully3", HAL_LCD_LINE_7 );
@@ -481,7 +481,7 @@ void MT_UartProcessZToolData ( uint8 port, uint8 event )
            {
               pMsg->msg[MT_RPC_FRAME_HDR_SZI + LEN_Token + 2 + coor_index] = A0A7_Arr[coor_index];
            }
-            HalLcdWriteString( "send successfully4", HAL_LCD_LINE_7 );
+            HalLcdWriteString( "RECEIVE UART1 successfully", HAL_LCD_LINE_7 );
             osal_msg_send(App_TaskID, (byte *)pMsg );
 
             /* Reset the state, send or discard the buffers at this point */

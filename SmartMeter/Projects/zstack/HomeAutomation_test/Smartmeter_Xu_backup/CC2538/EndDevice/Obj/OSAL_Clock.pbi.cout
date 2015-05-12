@@ -1,114 +1,114 @@
-"C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\osal\common\OSAL_Clock.c"
+"C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\osal\common\OSAL_Clock.c"
 -std=c99
 -ferror-limit=100
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\Source
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\Source
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\Zmain\TI2538DB
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\Zmain\TI2538DB
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\hal\include
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\hal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\hal\target\CC2538
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\hal\target\CC2538
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\driverlib\cc2538\inc
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\driverlib\cc2538\inc
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\driverlib\cc2538\source
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\driverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\sdriverlib\cc2538\source
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\sdriverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\include
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\high_level
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\high_level
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\low_level\srf05\single_chip
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\low_level\srf05\single_chip
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\low_level\srf05
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\low_level\srf05
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mt
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mt
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\osal\include
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\osal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\services\sdata
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\services\sdata
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\services\saddr
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\services\saddr
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\af
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\af
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\nwk
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\nwk
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sapi
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sapi
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sec
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sec
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sys
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sys
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\zcl
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\zcl
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\zdo
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\zdo
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\zmac
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\zmac
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\zmac\f8w
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\zmac\f8w
 -I
 E:\PRO\IAR72\arm\inc
 -I
 E:\PRO\IAR72\arm\inc\c
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\Source
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation_test\Source
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Projects\zstack\Zmain\TI2538DB
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\Zmain\TI2538DB
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\hal\include
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\hal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\hal\target\CC2538
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\hal\target\CC2538
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\driverlib\cc2538\inc
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\driverlib\cc2538\inc
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\driverlib\cc2538\source
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\driverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\sdriverlib\cc2538\source
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\sdriverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\bsp\srf06eb_cc2538\drivers\source
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\bsp\srf06eb_cc2538\drivers\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\mac\include
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\mac\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\mac\high_level
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\mac\high_level
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\mac\low_level\srf05\single_chip
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\mac\low_level\srf05\single_chip
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\mac\low_level\srf05
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\mac\low_level\srf05
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\mt
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\mt
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\osal\include
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\osal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\services\sdata
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\services\sdata
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\services\saddr
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\services\saddr
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\stack\af
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\af
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\stack\nwk
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\nwk
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\stack\sapi
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\sapi
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\stack\sec
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\sec
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\stack\sys
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\sys
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\stack\zcl
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\zcl
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\stack\zdo
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\zdo
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\zmac
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\zmac
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless\Z-Stack Home 1.2.0\Components\zmac\f8w
+C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\zmac\f8w
 -Dewarm=1
 -DCC2538_USE_ALTERNATE_INTERRUPT_MAP=1
 -DFEATURE_RESET_MACRO=1
@@ -323,8 +323,8 @@ C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartwireless
 -D__HAS_LOCATED_DECLARATION__=1
 -D__HAS_LOCATED_WITH_INIT__=1
 -D__IAR_COMPILERBASE__=593926
--D__DATE__="Mar  5 2015"
--D__TIME__="12:07:51"
+-D__DATE__="Apr 27 2015"
+-D__TIME__="19:14:02"
 -D__STDC__=1
 -D__STDC_VERSION__=199901L
 -D__STDC_HOSTED__=1

@@ -9,7 +9,7 @@ TriggerName=main
 LimitSize=0
 ByteLimit=50
 [DebugChecksum]
-Checksum=-1212210985
+Checksum=1679459569
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -34,7 +34,7 @@ UnspecRange=1
 ActionState=1
 [xds100]
 xds100serialNo=06EB122013BA
-xds100foundProbes=06EB12100866:06EB122013BA:
+xds100foundProbes=
 xdsResetStyle=0
 xdsResetStrategy=0
 [InterruptLog]
@@ -66,6 +66,10 @@ ShowSource=1
 [Simulator]
 Freq=10000000
 MultiCoreRunAll=1
+[Disassemble mode]
+mode=0
+[Breakpoints]
+Count=0
 [Log file]
 LoggingEnabled=_ 0
 LogFile=_ ""
@@ -73,10 +77,6 @@ Category=_ 0
 [TermIOLog]
 LoggingEnabled=_ 0
 LogFile=_ ""
-[Disassemble mode]
-mode=0
-[Breakpoints]
-Count=0
 [Aliases]
 A0=_ "C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coor\Z-Stack Home 1.2.0\Components\mt\MT_UTIL.c" ""
 A1=_ "C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coor\Z-Stack Home 1.2.0\Projects\zstack\ZMain\TI2538DB\ZMain.c" ""

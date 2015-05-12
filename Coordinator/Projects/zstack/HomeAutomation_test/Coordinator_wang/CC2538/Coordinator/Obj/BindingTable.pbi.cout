@@ -355,8 +355,8 @@ C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART
 -D__HAS_LOCATED_DECLARATION__=1
 -D__HAS_LOCATED_WITH_INIT__=1
 -D__IAR_COMPILERBASE__=593926
--D__DATE__="Mar 13 2015"
--D__TIME__="12:51:11"
+-D__DATE__="Apr 27 2015"
+-D__TIME__="19:12:45"
 -D__STDC__=1
 -D__STDC_VERSION__=199901L
 -D__STDC_HOSTED__=1
