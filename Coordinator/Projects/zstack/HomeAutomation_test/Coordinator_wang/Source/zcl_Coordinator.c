@@ -807,12 +807,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         return ( events ^ TIME_RUNNING_EVT );
     }
 
-///////////////////////////////////////////////////////////////RS485 test
-    uint8 buffer[12] = {0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c
-                       };
 
-    HalUART1Write ( HAL_UART_PORT_1, buffer, 12);
-///////////////////////////////////////////////////////////////RS485 test
+
 
     if (events & Coordinator_USB_EVT )
     {
