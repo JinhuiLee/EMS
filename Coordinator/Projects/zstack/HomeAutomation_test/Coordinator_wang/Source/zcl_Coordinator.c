@@ -114,6 +114,7 @@
 #define TIME_SET     0xD0
 #define COM_CAL      0xD1
 #define COM_CONFIG   0xD2
+#define TEMP_STOP    0xD5
 
 #define FLASH_PARAM  0x1000
 
@@ -202,6 +203,7 @@ uint64 RM_ADD;
 uint16 flagreset = 0;
 uint16 flagrelay = 2;
 uint16 flaginc;
+uint16 start = 2; //for the power calculation control. added by xu.
 uint16 datain_complete = 0; //read of smart meter data completed
 uint16 SmartMeter_flagreset; //smart meter response to RESET
 uint16 SmartMeter_relay = 0;  //smart meter response to RELAY
@@ -210,6 +212,12 @@ uint16 len_DataReg = 0;
 uint8 Round_end_flag = 0;
 uint8 flag_config_reg = 0;
 uint8 routing_index = 0;
+uint8 setpower_index = 0;
+uint8 routing_all_flag = 0;
+
+uint8 SmartMeter_start = 2;
+uint8 start_receive_flag = 0;
+uint8 write_energy_index = 0;
 
 uint16 MIN_ADC;
 uint16 MAX_ADC;
@@ -363,6 +371,7 @@ static void zclCoordinator_ProcessFoundationMsg( afAddrType_t *dstAddr, uint16 c
 
 static void zclscoordinator_startEZmode( void );
 static void zclCoordinator_NetDiscov( void );
+static void zclCoordinator_SetPowerCalculation( void );
 
 // app display functions
 void zclCoordinator_LCDDisplayUpdate(void);
@@ -819,10 +828,67 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
         uint16 checksum = 0;
 
-        if((ADD_3 == (uint16)(((uint16)USB_Msg_in[1] << 8) + (uint16)USB_Msg_in[2])) && (ADD_2 == (uint16)(((uint16)USB_Msg_in[3] << 8) + (uint16)USB_Msg_in[4]))
+        if(USB_Msg_in[1] == 0xff && USB_Msg_in[8] == 0xff)
+        {
+          
+            HalLcdWriteString( "coordinator reset", HAL_LCD_LINE_3 );
+          
+            
+          
+            uint8 i;
+            uint8 pack_out[20] = {0};
+            pack_out[0] = 0x68;
+
+            pack_out[1] = (uint8)((ADD_3 & 0xff00) >> 8);
+            pack_out[2] = (uint8)(ADD_3 & 0x00ff);
+            pack_out[3] = (uint8)((ADD_2 & 0xff00) >> 8);
+            pack_out[4] = (uint8)(ADD_2 & 0x00ff);
+            pack_out[5] = (uint8)((ADD_1 & 0xff00) >> 8);
+            pack_out[6] = (uint8)(ADD_1 & 0x00ff);
+            pack_out[7] = (uint8)((ADD_0 & 0xff00) >> 8);
+            pack_out[8] = (uint8)(ADD_0 & 0x00ff);
+            
+            
+            pack_out[9] = 0x68;
+            pack_out[10] = 0x04;
+
+            pack_out[11] = 0x08;
+            pack_out[12] = 0x03;
+            pack_out[13] = 0x00;
+            pack_out[14] = 0x00;
+
+            for(i = 0; i < 15; i++)
+                pack_out[15] += pack_out[i];
+
+            pack_out[16] = 0x16;
+            /*
+            UARTEnable(UART0_BASE );
+            for (i = 0; i < 16; i++)
+            {
+                UARTCharPut(UART0_BASE, pack_out[i]);
+            }
+            UARTDisable(UART0_BASE);
+            */
+            usbibufPush(&usbCdcInBufferData, pack_out, 17);
+            
+            write_energy_index = 0;
+            setpower_index = 0;
+            sm_index = 0;
+            ack_index = 0;
+            routing_index = 0;
+
+                        
+            controlReg[0] = 0x08;
+            controlReg[1] = 0x03;
+            controlReg[2] = 0x00;
+            controlReg[3] = 0x00;
+            for(i = 4; i < 45; i++)
+               controlReg[i] = 0x00;
+        }
+        
+        else if((ADD_3 == (uint16)(((uint16)USB_Msg_in[1] << 8) + (uint16)USB_Msg_in[2])) && (ADD_2 == (uint16)(((uint16)USB_Msg_in[3] << 8) + (uint16)USB_Msg_in[4]))
                 && (ADD_1 == (uint16)(((uint16)USB_Msg_in[5] << 8) + (uint16)USB_Msg_in[6])) && (ADD_0 == (uint16)(((uint16)USB_Msg_in[7] << 8) + (uint16)USB_Msg_in[8])))
         {
-
 
             if(USB_Msg_in[0] && usb_end_flag)   //if there is message in
             {
@@ -891,7 +957,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         }
                     }
 
-                    else if ((USB_Msg_in[13] & 0x01) == 1)             //ROUTING table write
+                    else if ((USB_Msg_in[13] & 0x01) == 1 && (USB_Msg_in[19] == 0x00 || USB_Msg_in[19] == 0xFF)
+                             && (USB_Msg_in[20] == 0x00 || USB_Msg_in[20] == 0xFF) && (USB_Msg_in[21] == 0x00 || USB_Msg_in[21] == 0xFF))             //ROUTING table write
                     {
 
                         checksum = 0;
@@ -919,6 +986,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                                 sm_ADD[i] = BUILD_UINT64_8(USB_Msg_in[64 + i * 8], USB_Msg_in[65 + i * 8], USB_Msg_in[66 + i * 8], USB_Msg_in[67 + i * 8],
                                                            USB_Msg_in[68 + i * 8], USB_Msg_in[69 + i * 8], USB_Msg_in[70 + i * 8], USB_Msg_in[71 + i * 8]);
                             }
+                            
+                            routing_all_flag = 1;
 
                         }
                     }
@@ -1049,8 +1118,6 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                     time_old = osal_GetSystemClock();
                     time_new = time_old;
-
-
                 }
 
 
@@ -1063,17 +1130,42 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     for(i = 0; i < 8; i++)
                         zclCoordinator_DstAddr.addr.extAddr[i] = controlReg[15 - i];
 
-                    flagreset = 1;
+                    if (controlReg[8] == 0 && controlReg[9] == 0 &&controlReg[10] == 0 &&controlReg[11] == 0) //Particular C reset
+                    {  
+                        HalLcdWriteString( "ONE coordinator reset", HAL_LCD_LINE_3 );
+                        write_energy_index = 0;
+                        setpower_index = 0;
+                        sm_index = 0;
+                        ack_index = 0;
+                        routing_index = 0;
+                        
+                        zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                        
+                        controlReg[0] = 0x08;
+                        controlReg[1] = 0x03;
+                        controlReg[2] = 0x00;
+                        controlReg[3] = 0x00;
+                        for(i = 4; i < 45; i++)
+                           controlReg[i] = 0x00;
+                        
+                        
+                    }
+                    else
+                    {                      
+                        if(((controlReg[3] >> 3) & 0x01) == 0)
+                            write_energy_index = 0;                     
+                      
+                        flagreset = 1;
 
-                    ENERGY_RESET_VALUE = BUILD_UINT32(controlReg[7], controlReg[6], controlReg[5], controlReg[4]);
+                        ENERGY_RESET_VALUE = BUILD_UINT32(controlReg[7], controlReg[6], controlReg[5], controlReg[4]);
 
-                    zclCoordinator_SendReset();
+                        zclCoordinator_SendReset();
 
-                    WAIT_EVT_INDEX = Coordinator_EnergyResetWait;
-                    osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
-                    time_old = osal_GetSystemClock();
-                    time_new = time_old;
-
+                        WAIT_EVT_INDEX = Coordinator_EnergyResetWait;
+                        osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
+                        time_old = osal_GetSystemClock();
+                        time_new = time_old;
+                    }
 
                 }
 
@@ -1081,8 +1173,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 // command: relay control
                 // Switch smart meter power condition if bit 3 is set to 0  *
                 // Reset this bit to its default value when operation is finished
-                //else if (((controlReg[0] >> 3) & 0x01) == 0)  // power relay control
-                else if ((controlReg[0] & 0xF7) == 0 && controlReg[1] == 0x02 && controlReg[2] == 0x00 && controlReg[3] == 0x00)  // except bit3, other bits are all 0, and controlReg[3] is 0x00
+                else if (((controlReg[0] >> 3) & 0x01) == 0)  // power relay control
+                //else if ((controlReg[0] & 0xF7) == 0 && controlReg[1] == 0x02 && controlReg[2] == 0x00 && controlReg[3] == 0x00)  // except bit3, other bits are all 0, and controlReg[3] is 0x00
                 {
                     //HalLcdWriteString( "relay0", HAL_LCD_LINE_6 );
                     int i;
@@ -1090,16 +1182,13 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     for(i = 0; i < 8; i++)
                         zclCoordinator_DstAddr.addr.extAddr[i] = controlReg[15 - i];
 
-                    if (((controlReg[0] >> 3) & 0x01) == 0)  // power relay off (disconnect line power)
-                    {
-                        flagrelay = 0;
-                        zclCoordinator_SendRelay();
+                    //flagrelay = 0;
+                    zclCoordinator_SendRelay();
 
-                        WAIT_EVT_INDEX = Coordinator_RelaySet;
-                        osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
-
-                    }
-
+                    WAIT_EVT_INDEX = Coordinator_RelaySet;
+                    osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
+                   
+/*
                     else // power relay on (connect to line power)
                     {
                         flagrelay = 1;
@@ -1108,7 +1197,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         WAIT_EVT_INDEX = Coordinator_RelaySet;
                         osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
                     }
-
+*/
                     time_old = osal_GetSystemClock();
                     time_new = time_old;
                 }
@@ -1129,7 +1218,24 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     time_old = osal_GetSystemClock();
                     time_new = time_old;
 
+                }
+                
+                // command: power calculation control: start/stop power calculation on one or many smartmeters.
+                // Perform power calculation control depends on the value of if controlReg[1] bit[1].           *
+                //else if (controlReg[0] == 0x08 &&((controlReg[1] >> 1) & 0x01) == 0)  //defult value of power calculation bit is 1:power calculation start.
+                else if (((controlReg[0] >> 7) & 0x01) == 0 && ((controlReg[1] >> 1) & 0x01) == 0)
+                {
 
+                    if(((controlReg[3] >> 3) & 0x01) == 0)
+                        setpower_index = 0;
+                  
+                    start = 0;
+                    zclCoordinator_SetPowerCalculation();
+
+                    WAIT_EVT_INDEX = setPowerCalculation_WAIT;
+                    osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
+                    time_old = osal_GetSystemClock();
+                    time_new = time_old;
                 }
 
 
@@ -1208,8 +1314,22 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 // command: routing table write
                 else if ((controlReg[2] & 0x01) == 1)
                 {
-                    for(uint8 i = 0; i < 20; i++)
-                        sm_ADD_status[i] = 1;
+                    
+                    if(routing_all_flag == 1)
+                    {
+                        for(uint8 i = 0; i < 20; i++)
+                            sm_ADD_status[i] = 1;
+                    }
+                    routing_all_flag = 0;
+                    
+                    if(controlReg[8] == 0x00 && controlReg[9] == 0x12 && controlReg[10] == 0x4B)
+                    {
+                        sm_max++;
+                        sm_ADD[sm_max - 1] = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11],
+                                                            controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
+                    }
+                    
+                    
                     zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
                 }
 
@@ -1335,8 +1455,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 //Send request for smart meter data using round robin method
                 //Specify which smart meter to request data
                 //&zclCoordinator_DstAddr = &sm_ADD[sm_index];
-                else if (((controlReg[0] >> 7) & 0x01) == 1 && Drr_flag == 1 && (((controlReg[3] >> 3) & 0x01) == 0))
-
+                //else if (((controlReg[0] >> 7) & 0x01) == 1 && Drr_flag == 1 && (((controlReg[3] >> 3) & 0x01) == 0))
+                else if (((controlReg[0] >> 7) & 0x01) == 1 && dataLen != 4 && (((controlReg[3] >> 3) & 0x01) == 0))              
                 {
                     //HalLcdWriteString( "DRREVT", HAL_LCD_LINE_7 );
                     ack_index = 0;
@@ -1375,7 +1495,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 }
 
                 //ACKcommand
-                else if((((controlReg[3] >> 3) & 0x01) == 1) && (((controlReg[0] >> 7) & 0x01) == 1) && ACK_flag == 1)
+                //else if((((controlReg[3] >> 3) & 0x01) == 1) && (((controlReg[0] >> 7) & 0x01) == 1) && ACK_flag == 1)
+                else if((((controlReg[3] >> 3) & 0x01) == 1) && (((controlReg[0] >> 7) & 0x01) == 1) && (dataLen == 4 || controlReg[1] == 0x00))                   
                 {
                     if((controlReg[3] & 0x01) == 1)//check is retry or not!
                     {
@@ -1387,8 +1508,9 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         if(((controlReg[1] >> 1) & 0x01) == 0)
                         {
                             PowSpCal = 1;
+                            zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
                         }
-
+                        else
                         osal_set_event(task_id, ACK_WAIT_EVT);
 
                     }
@@ -1732,7 +1854,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 int index;
                 time_new = osal_GetSystemClock();
 
-                if((time_new - time_old) > 0x00000FA0)
+                if((time_new - time_old) > 0x000007D0)
                 {
                     for(index = 0; index < sm_max; index++)
                     {
@@ -1750,6 +1872,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     time_new = 0;
                     time_old = 0;
                     WAIT_EVT_INDEX = 0x0000;
+  
                 }
 
                 else
@@ -1791,7 +1914,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 int index;
                 time_new = osal_GetSystemClock();
 
-                if((time_new - time_old) > 0x00000FA0)
+                if((time_new - time_old) > 0x000007D0)
                 {
                     sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                     for(index = 0; index < sm_max; index++)
@@ -1836,7 +1959,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             int index;
             time_new = osal_GetSystemClock();
 
-            if((time_new - time_old) > 0x00000FA0)
+            if((time_new - time_old) > 0x000007D0)
             {
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
@@ -1847,7 +1970,25 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 sm_ADD_reg = 0;
                 flagreset = 0;
 
-                zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
+                if(controlReg[8] != 0xFF)
+                {
+                    zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);
+                }
+                else
+                {
+                    if(write_energy_index < sm_max - 1)
+                    {
+                            zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
+                            write_energy_index++;
+                    }
+
+                    else if(write_energy_index == sm_max - 1)
+                    {
+                            zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
+                            write_energy_index = 0;
+                    }
+                }
+                
 
                 ENERGY_RESET_VALUE = 0xffffffff;
                 SmartMeter_ENERGY_RESET_VALUE = 0xfffffffe;
@@ -1859,7 +2000,24 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             {
                 if (SmartMeter_ENERGY_RESET_VALUE == ENERGY_RESET_VALUE)
                 {
-                    zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                    if (controlReg[8] != 0xFF)
+                    {                                                    
+                        zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                    }
+                    else
+                    {
+                        if(write_energy_index < sm_max - 1)
+                        {
+                                zclCoordinator_sendACK(0x0C, 0x03, 0x00, 0x00);
+                                write_energy_index++;
+                        }
+                        else if(write_energy_index == sm_max - 1)
+                        {
+                                zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                                write_energy_index = 0;
+                        }
+                    }
+                    
 
                     ENERGY_RESET_VALUE = 0xffffffff;
                     SmartMeter_ENERGY_RESET_VALUE = 0xfffffffe;
@@ -1880,7 +2038,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         {
             int index;
             time_new = osal_GetSystemClock();
-            if((time_new - time_old) > 0x00000FA0)
+            if((time_new - time_old) > 0x000007D0)
             {
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
@@ -1901,13 +2059,14 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             else
             {
                 if (relay_receive_flag)
-
-
                 {
+                  zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                  /*
                     if(SmartMeter_relay == 1)
                         zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
                     else if (SmartMeter_relay == 0)
                         zclCoordinator_sendACK(0x00, 0x03, 0x00, 0x00);
+                  */
                     relay_receive_flag = 0;
                     time_new = 0;
                     time_old = 0;
@@ -1921,12 +2080,113 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             }
         }
 
+        else if ( WAIT_EVT_INDEX == setPowerCalculation_WAIT )
+        {
+            int index;
+            time_new = osal_GetSystemClock();
+            if((time_new - time_old) > 0x000007D0)
+            {
+                if(controlReg[8] != 0xFF)
+                    sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
+                else
+                    sm_ADD_reg = sm_ADD[setpower_index];
+                
+                for(index = 0; index < sm_max; index++)
+                {
+                    if(sm_ADD_reg == sm_ADD[index])
+                        sm_ADD_status[index] = 0;  //The address is invalid
+                }
+                sm_ADD_reg = 0;
+
+                if(controlReg[8] != 0xFF)
+                {
+                    zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);
+                }
+                else
+                {
+                    if(setpower_index < sm_max - 1)
+                    {
+                            zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
+                            setpower_index++;
+                    }
+
+                    else if(setpower_index == sm_max - 1)
+                    {
+                            zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
+                            setpower_index = 0;
+                    }
+                }
+
+                start_receive_flag = 0;
+
+                time_new = 0;
+                time_old = 0;
+                WAIT_EVT_INDEX = 0x0000;
+            }
+            else
+            {
+                if (start_receive_flag)
+                {
+                  /*
+                    if(SmartMeter_start == 0)
+                    {
+                        if (controlReg[8] != 0xFF)
+                        {                                                    
+                            zclCoordinator_sendACK(0x08, 0x01, 0x00, 0x00);
+                        }
+                        else
+                        {
+                            if(setpower_index < sm_max - 1)
+                            {
+                                    zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                                    setpower_index++;
+                            }
+                            else if(setpower_index == sm_max - 1)
+                            {
+                                    zclCoordinator_sendACK(0x08, 0x01, 0x00, 0x00);
+                                    setpower_index = 0;
+                            }
+                        }
+                    }
+                  */
+                    
+                    if (controlReg[8] != 0xFF)
+                    {                                                    
+                        zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                    }
+                    else
+                    {
+                        if(setpower_index < sm_max - 1)
+                        {
+                                zclCoordinator_sendACK(0x08, 0x01, 0x00, 0x00);
+                                setpower_index++;
+                        }
+                        else if(setpower_index == sm_max - 1)
+                        {
+                                zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                                setpower_index = 0;
+                        }
+                    }
+                    
+                    start_receive_flag = 0;
+                    time_new = 0;
+                    time_old = 0;
+                    WAIT_EVT_INDEX = 0x0000;
+                }
+                else
+                {
+                    WAIT_EVT_INDEX = setPowerCalculation_WAIT;
+                    osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
+                }
+            }
+        }
+        
         else if ( WAIT_EVT_INDEX == Calibration_WAIT )
         {
             ////HalLcdWriteString( "cali", HAL_LCD_LINE_6 );
             int index;
             time_new = osal_GetSystemClock();
-            if((time_new - time_old) > 0x00001F40)   ///8000ms
+            if((time_new - time_old) > 0x00000FA0)   ///4000ms
             {
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
@@ -1968,7 +2228,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             if( Connect_Mode == WIRELESS_CONNECTION)
             {
                 time_new = osal_GetSystemClock();
-                if((time_new - time_old) > 0x00000FA0) //4000ms
+                if((time_new - time_old) > 0x000007D0) //500ms
                 {
                     //zclCoordinator_sendACK(0x08, 0x03, 0x00 ,0x02);//time out
                     int i;
@@ -2015,7 +2275,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             {
                 int index;
                 time_new = osal_GetSystemClock();
-                if((time_new - time_old) > 0x00000FA0)
+                if((time_new - time_old) > 0x000007D0)
                 {
                     if(controlReg[8] != 0xFF)
                         sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
@@ -2060,7 +2320,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         if(controlReg[8] != 0xFF)
                         {
                             zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
-                            sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
+                            sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11],
+                                                       controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                         }
                         else
                         {
@@ -2087,7 +2348,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         time_new = 0;
                         time_old = 0;
                         WAIT_EVT_INDEX = 0x0000;
-                    }
+                     }
                     else
                     {
                         WAIT_EVT_INDEX = Network_WAIT;
@@ -2103,7 +2364,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             //HalLcdWriteString( "datawait1", HAL_LCD_LINE_6 );
             time_new = osal_GetSystemClock();
 
-            if((time_new - time_old) > 0x00000FA0)//1300ms
+            if((time_new - time_old) > 0x000002BC)//700ms
             {
                 HalLcdWriteString( "timeout", HAL_LCD_LINE_1 );
                 sys_timenew = osal_GetSystemClock();
@@ -2132,7 +2393,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 else
                 {
                     WAIT_EVT_INDEX = 0x0000;
-                    sm_ADD_status[ack_index] = 0;
+                    //sm_ADD_status[ack_index] = 0;
                     try_count = 0;
 
                     Timeout_bit = 1;
@@ -2240,6 +2501,12 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                                 }
                             }
 
+                            /*
+                            uint32 wait_timenew = osal_GetSystemClock();
+                            while (osal_GetSystemClock() - wait_timenew < 100)
+                            {
+                            };
+                            */
                             osal_set_event(task_id, ACK_CS_EVT);
                             datain_complete = 0;
                         }
@@ -2288,7 +2555,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         {
             int index;
             time_new = osal_GetSystemClock();
-            if((time_new - time_old) > 0x00000FA0)
+            if((time_new - time_old) > 0x000007D0)
             {
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
@@ -2328,7 +2595,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         {
             int index;
             time_new = osal_GetSystemClock();
-            if((time_new - time_old) > 0x00000FA0)
+            if((time_new - time_old) > 0x000007D0)
             {
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
@@ -3342,7 +3609,7 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     }
 
     // Process incomming restart report from smart meter in response to RESTART command *
-    if ((OPERATION == START) && (RESULT == SUCCESS)  &&
+    if ((OPERATION == TEMP_STOP) && (RESULT == SUCCESS)  &&
             (pInParameterReport->attrList[0].attrID == ATTRID_MS_COM_MEASURED_VALUE))
     {
         SmartMeter_flaginc = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
@@ -3596,6 +3863,9 @@ static void Process_Wired_Cmd(void)
     if ((OPERATION == RELAY) && (RESULT == SUCCESS))
     {
         SmartMeter_relay = UINT8_TO_16(USB_Msg_in[15], USB_Msg_in[16]);
+        relay_receive_flag = 1;
+        
+        /*
         if (SmartMeter_relay == flagrelay)
         {
             relay_receive_flag = 1;
@@ -3615,6 +3885,7 @@ static void Process_Wired_Cmd(void)
                 relay_retry_times--;
             }
         }
+*/        
     }
 
     if ((OPERATION == CALIBRATE) && (RESULT == SUCCESS))
@@ -3622,7 +3893,7 @@ static void Process_Wired_Cmd(void)
         cal_receive_flag = 1;
     }
 
-    if ((OPERATION == START) && (RESULT == SUCCESS))
+    if ((OPERATION == TEMP_STOP) && (RESULT == SUCCESS))
     {
         //HalLcdWriteString( "start2", HAL_LCD_LINE_5 );
 
@@ -3634,6 +3905,14 @@ static void Process_Wired_Cmd(void)
         */
         SmartMeter_flaginc = UINT8_TO_16(USB_Msg_in[15], USB_Msg_in[16]);
         zclCoordinator_SendData();   //send request to get data
+    }
+    
+    if ((OPERATION == START) && (RESULT == SUCCESS))
+    {
+        SmartMeter_start = UINT8_TO_16(USB_Msg_in[15], USB_Msg_in[16]);
+        
+        //if(SmartMeter_start == start)
+        start_receive_flag = 1;
     }
 
     if ((OPERATION == COM_CONFIG) && (RESULT == SUCCESS))
@@ -4195,10 +4474,28 @@ static void zclCoordinator_SendReset( void )
 
 
         send_buffer[0] = 0x68;
-        for(i = 1; i < 9; i++)
+        if(controlReg[8] != 0xFF)
         {
-            send_buffer[i] = controlReg[i + 7];
+            for(i = 1; i < 9; i++)
+            {
+                send_buffer[i] = controlReg[i + 7];
+            }
         }
+        else
+        {
+            if(write_energy_index < sm_max)
+            {
+                send_buffer[1] = (uint8)(((sm_ADD[write_energy_index]) >> 56) & 0x00000000000000FF);
+                send_buffer[2] = (uint8)(((sm_ADD[write_energy_index]) >> 48) & 0x00000000000000FF);
+                send_buffer[3] = (uint8)(((sm_ADD[write_energy_index]) >> 40) & 0x00000000000000FF);
+                send_buffer[4] = (uint8)(((sm_ADD[write_energy_index]) >> 32) & 0x00000000000000FF);
+                send_buffer[5] = (uint8)(((sm_ADD[write_energy_index]) >> 24) & 0x00000000000000FF);
+                send_buffer[6] = (uint8)(((sm_ADD[write_energy_index]) >> 16) & 0x00000000000000FF);
+                send_buffer[7] = (uint8)(((sm_ADD[write_energy_index]) >> 8) & 0x00000000000000FF);
+                send_buffer[8] = (uint8)((sm_ADD[write_energy_index]) & 0x00000000000000FF);
+            }
+        }
+      
         send_buffer[9] = 0x68;
         send_buffer[10] = (uint8)sizeof(packet);
 
@@ -4306,6 +4603,91 @@ static void zclCoordinator_SendRelay( void )
     }
 }
 
+/*********************************************************************
+ * @fn      zclCoordinator_SetPowerCalculation *
+
+ *
+ * @brief   Called to send command to set relay in smart meter
+
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void zclCoordinator_SetPowerCalculation( void )
+{
+    if( Connect_Mode == WIRELESS_CONNECTION)
+    {
+#ifdef ZCL_REPORT
+        zclReportCmd_t *pReportCmd;
+        uint16 packet[] = {START, start};
+
+        pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
+        if ( pReportCmd != NULL )
+        {
+            pReportCmd->numAttr = 1;
+            pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT32; //zcl.c
+            pReportCmd->attrList[0].attrData = (void *)(packet);
+
+            zcl_SendReportCmd( Coordinator_ENDPOINT, &zclCoordinator_DstAddr,
+                               ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
+                               pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclCoordinatorSeqNum++ );
+        }
+
+        osal_mem_free( pReportCmd );
+#endif  // ZCL_REPORT
+    }
+    else if( Connect_Mode == WIRED_CONNECTION)
+    {
+        uint8 i = 0;
+        uint8 send_buffer[30] = {0};
+        //uint16 coor_index = 0xffff;
+        uint16 packet[] = {START, start}; //sizeof(packet) = 4
+
+        send_buffer[0] = 0x68;
+        
+        if(controlReg[8] != 0xFF)
+        {
+            for(i = 1; i < 9; i++)
+            {
+                send_buffer[i] = controlReg[i + 7];
+            }
+        }
+        else
+        {
+            if(setpower_index < sm_max)
+            {
+                send_buffer[1] = (uint8)(((sm_ADD[setpower_index]) >> 56) & 0x00000000000000FF);
+                send_buffer[2] = (uint8)(((sm_ADD[setpower_index]) >> 48) & 0x00000000000000FF);
+                send_buffer[3] = (uint8)(((sm_ADD[setpower_index]) >> 40) & 0x00000000000000FF);
+                send_buffer[4] = (uint8)(((sm_ADD[setpower_index]) >> 32) & 0x00000000000000FF);
+                send_buffer[5] = (uint8)(((sm_ADD[setpower_index]) >> 24) & 0x00000000000000FF);
+                send_buffer[6] = (uint8)(((sm_ADD[setpower_index]) >> 16) & 0x00000000000000FF);
+                send_buffer[7] = (uint8)(((sm_ADD[setpower_index]) >> 8) & 0x00000000000000FF);
+                send_buffer[8] = (uint8)((sm_ADD[setpower_index]) & 0x00000000000000FF);
+            }
+        }
+        send_buffer[9] = 0x68;
+        send_buffer[10] = (uint8)sizeof(packet);
+
+        for(i = 0; i < sizeof(packet) / 2; i++)
+        {
+            send_buffer[11 + i * 2] = (uint8_t) ((packet[i] & 0xFF00) >> 8);
+            send_buffer[12 + i * 2] = (uint8_t) (packet[i] & 0x00FF);
+        }
+
+        send_buffer[11 + sizeof(packet)] = 0x00;
+        for(i = 0; i < 11 + sizeof(packet); i++)
+            send_buffer[11 + sizeof(packet)] += send_buffer[i];
+
+        send_buffer[12 + sizeof(packet)] = 0x16;
+
+        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        //HalLcdWriteString( "datasend", HAL_LCD_LINE_4 );
+
+    }
+}
 
 /*********************************************************************
  * @fn      zclCoordinator_SendVolCalibrate *
@@ -4403,8 +4785,8 @@ static void zclCoordinator_SendRestart( void )
 #ifdef ZCL_REPORT
         zclReportCmd_t *pReportCmd;
 
-        uint16 packet[] = {START, flaginc};
-
+        //uint16 packet[] = {START, flaginc};
+        uint16 packet[] = {TEMP_STOP, flaginc};
         pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
         if ( pReportCmd != NULL )
         {
@@ -4427,8 +4809,8 @@ static void zclCoordinator_SendRestart( void )
         uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
 
-        uint16 packet[] = {START, flaginc};
-
+        //uint16 packet[] = {START, flaginc};
+        uint16 packet[] = {TEMP_STOP, flaginc};
         send_buffer[0] = 0x68;
         for(i = 1; i < 9; i++)
         {

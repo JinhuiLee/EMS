@@ -43,7 +43,8 @@ extern "C"
 #define Calibration_WAIT                                 0x0045
 #define Coordinator_EnergyResetWait                      0x0046
 #define GETCAL_WAIT                                      0x0047
-#define SETCONFIG_WAIT                                   0X0048
+#define SETCONFIG_WAIT                                   0x0048
+#define setPowerCalculation_WAIT                         0x0049
 
 // Application Display Modes
 #define THERMOSTAT_MAINMODE         0x00
