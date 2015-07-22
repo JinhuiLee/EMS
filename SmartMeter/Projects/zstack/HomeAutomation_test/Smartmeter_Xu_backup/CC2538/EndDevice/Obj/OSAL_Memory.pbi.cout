@@ -1,114 +1,114 @@
-"C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\osal\common\OSAL_Memory.c"
+"E:\github\jay\Energy-Management-System\SmartMeter\Components\osal\common\OSAL_Memory.c"
 -std=c99
 -ferror-limit=100
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\Source
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\Source
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\Zmain\TI2538DB
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\Zmain\TI2538DB
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\hal\include
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\hal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\hal\target\CC2538
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\hal\target\CC2538
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\driverlib\cc2538\inc
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\driverlib\cc2538\inc
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\driverlib\cc2538\source
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\driverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\sdriverlib\cc2538\source
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\sdriverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\include
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\high_level
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\high_level
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\low_level\srf05\single_chip
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\low_level\srf05\single_chip
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\low_level\srf05
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mac\low_level\srf05
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mt
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\mt
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\osal\include
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\osal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\services\sdata
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\services\sdata
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\services\saddr
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\services\saddr
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\af
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\af
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\nwk
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\nwk
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sapi
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sapi
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sec
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sec
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sys
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\sys
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\zcl
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\zcl
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\zdo
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\stack\zdo
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\zmac
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\zmac
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\zmac\f8w
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\..\..\..\..\..\Components\zmac\f8w
 -I
 E:\PRO\IAR72\arm\inc
 -I
 E:\PRO\IAR72\arm\inc\c
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\Source
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\HomeAutomation_test\Source
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\HomeAutomation_test\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Projects\zstack\Zmain\TI2538DB
+E:\github\jay\Energy-Management-System\SmartMeter\Projects\zstack\Zmain\TI2538DB
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\hal\include
+E:\github\jay\Energy-Management-System\SmartMeter\Components\hal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\hal\target\CC2538
+E:\github\jay\Energy-Management-System\SmartMeter\Components\hal\target\CC2538
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\driverlib\cc2538\inc
+E:\github\jay\Energy-Management-System\SmartMeter\Components\driverlib\cc2538\inc
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\driverlib\cc2538\source
+E:\github\jay\Energy-Management-System\SmartMeter\Components\driverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\sdriverlib\cc2538\source
+E:\github\jay\Energy-Management-System\SmartMeter\Components\sdriverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\bsp\srf06eb_cc2538\drivers\source
+E:\github\jay\Energy-Management-System\SmartMeter\Components\bsp\srf06eb_cc2538\drivers\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\mac\include
+E:\github\jay\Energy-Management-System\SmartMeter\Components\mac\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\mac\high_level
+E:\github\jay\Energy-Management-System\SmartMeter\Components\mac\high_level
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\mac\low_level\srf05\single_chip
+E:\github\jay\Energy-Management-System\SmartMeter\Components\mac\low_level\srf05\single_chip
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\mac\low_level\srf05
+E:\github\jay\Energy-Management-System\SmartMeter\Components\mac\low_level\srf05
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\mt
+E:\github\jay\Energy-Management-System\SmartMeter\Components\mt
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\osal\include
+E:\github\jay\Energy-Management-System\SmartMeter\Components\osal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\services\sdata
+E:\github\jay\Energy-Management-System\SmartMeter\Components\services\sdata
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\services\saddr
+E:\github\jay\Energy-Management-System\SmartMeter\Components\services\saddr
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\af
+E:\github\jay\Energy-Management-System\SmartMeter\Components\stack\af
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\nwk
+E:\github\jay\Energy-Management-System\SmartMeter\Components\stack\nwk
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\sapi
+E:\github\jay\Energy-Management-System\SmartMeter\Components\stack\sapi
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\sec
+E:\github\jay\Energy-Management-System\SmartMeter\Components\stack\sec
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\sys
+E:\github\jay\Energy-Management-System\SmartMeter\Components\stack\sys
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\zcl
+E:\github\jay\Energy-Management-System\SmartMeter\Components\stack\zcl
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\stack\zdo
+E:\github\jay\Energy-Management-System\SmartMeter\Components\stack\zdo
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\zmac
+E:\github\jay\Energy-Management-System\SmartMeter\Components\zmac
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Components\zmac\f8w
+E:\github\jay\Energy-Management-System\SmartMeter\Components\zmac\f8w
 -Dewarm=1
 -DCC2538_USE_ALTERNATE_INTERRUPT_MAP=1
 -DFEATURE_RESET_MACRO=1
@@ -323,8 +323,8 @@ C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smartWIRE\Com
 -D__HAS_LOCATED_DECLARATION__=1
 -D__HAS_LOCATED_WITH_INIT__=1
 -D__IAR_COMPILERBASE__=593926
--D__DATE__="Jul  1 2015"
--D__TIME__="15:37:17"
+-D__DATE__="Jul 14 2015"
+-D__TIME__="15:53:12"
 -D__STDC__=1
 -D__STDC_VERSION__=199901L
 -D__STDC_HOSTED__=1

@@ -9,12 +9,12 @@ TriggerName=main
 LimitSize=0
 ByteLimit=50
 [xds100]
-xds100serialNo=06EB121009C9
-xds100foundProbes=06EB1210098A:06EB121009C9:
+xds100serialNo=06EB122013BB
+xds100foundProbes=06EB12201109:06EB122013BB:06EB122013D4:
 xdsResetStyle=0
 xdsResetStrategy=0
 [DebugChecksum]
-Checksum=1450509134
+Checksum=985874717
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -66,13 +66,6 @@ ShowSource=1
 [Simulator]
 Freq=10000000
 MultiCoreRunAll=1
-[Disassemble mode]
-mode=0
-[Breakpoints]
-Bp0=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation\Smartmeter\Source\zcl_SmartMeter.c}.230.1" 0 0 0 0 "" 0 "" 0
-Bp1=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation\Smartmeter\Source\zcl_SmartMeter.c}.229.1" 0 0 0 0 "" 0 "" 0
-Bp2=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation\Smartmeter\Source\zcl_SmartMeter.c}.1139.1" 0 0 0 0 "" 0 "" 0
-Count=3
 [Log file]
 LoggingEnabled=_ 0
 LogFile=_ ""
@@ -80,6 +73,13 @@ Category=_ 0
 [TermIOLog]
 LoggingEnabled=_ 0
 LogFile=_ ""
+[Disassemble mode]
+mode=0
+[Breakpoints]
+Bp0=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation\Smartmeter\Source\zcl_SmartMeter.c}.230.1" 0 0 0 0 "" 0 "" 0
+Bp1=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation\Smartmeter\Source\zcl_SmartMeter.c}.229.1" 0 0 0 0 "" 0 "" 0
+Bp2=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeAutomation\Smartmeter\Source\zcl_SmartMeter.c}.1139.1" 0 0 0 0 "" 0 "" 0
+Count=3
 [Aliases]
 Count=0
 SuppressDialog=0

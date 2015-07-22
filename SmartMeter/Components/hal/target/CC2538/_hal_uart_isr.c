@@ -535,7 +535,7 @@ uint16 HalUART1WriteIsr(uint8 port, uint8 *pBuffer, uint16 length)
 {
   GPIOPinWrite(GPIO_D_BASE, GPIO_PIN_1, 0x02);
   uint32 switch_timenew = osal_GetSystemClock();
-  while (osal_GetSystemClock() - switch_timenew < 500)
+  while (osal_GetSystemClock() - switch_timenew < 112)
   {
   };
   
@@ -588,7 +588,7 @@ uint16 HalUART1WriteIsr(uint8 port, uint8 *pBuffer, uint16 length)
   HAL_EXIT_CRITICAL_SECTION(intState);
   
    switch_timenew = osal_GetSystemClock();
-    while (osal_GetSystemClock() - switch_timenew < 400)
+    while (osal_GetSystemClock() - switch_timenew < 82)
     {
     };
     GPIOPinWrite(GPIO_D_BASE, GPIO_PIN_1, 0x00);  

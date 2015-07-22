@@ -1,142 +1,142 @@
-"C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\services\saddr\saddr.c"
+"E:\github\jay\Energy-Management-System\Coordinator\Components\services\saddr\saddr.c"
 -std=c99
 -ferror-limit=100
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\Source
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\Source
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\Zmain\TI2538DB
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\Zmain\TI2538DB
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\hal\include
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\hal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\hal\target\CC2538
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\hal\target\CC2538
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\driverlib\cc2538\inc
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\driverlib\cc2538\inc
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\driverlib\cc2538\source
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\driverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\sdriverlib\cc2538\source
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\sdriverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\mac\include
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\mac\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\mac\high_level
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\mac\high_level
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\mac\low_level\srf05\single_chip
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\mac\low_level\srf05\single_chip
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\mac\low_level\srf05
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\mac\low_level\srf05
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\mt
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\mt
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\osal\include
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\osal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\services\sdata
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\services\sdata
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\services\saddr
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\services\saddr
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\af
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\af
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\nwk
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\nwk
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\sapi
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\sapi
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\sec
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\sec
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\sys
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\sys
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\zcl
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\zcl
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\zdo
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\stack\zdo
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\zmac
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\zmac
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\zmac\f8w
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\zmac\f8w
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\driverlib\cc2538\source
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\driverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\driverlib\cc2538\inc
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\driverlib\cc2538\inc
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\usblib\cc2538\source\class_cdc
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\usblib\cc2538\source\class_cdc
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\usblib\cc2538\source\library
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\usblib\cc2538\source\library
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\usblib\cc2538\source\library\cc2538
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\usblib\cc2538\source\library\cc2538
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\usblib\cc2538\examples\startup_files
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\..\..\..\..\..\Components\usblib\cc2538\examples\startup_files
 -I
 E:\PRO\IAR72\arm\inc
 -I
 E:\PRO\IAR72\arm\inc\c
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Coordinator_wang\Source
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\HomeAutomation_test\Source
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\HomeAutomation_test\Source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Projects\zstack\Zmain\TI2538DB
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\Zmain\TI2538DB
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\hal\include
+E:\github\jay\Energy-Management-System\Coordinator\Components\hal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\hal\target\CC2538
+E:\github\jay\Energy-Management-System\Coordinator\Components\hal\target\CC2538
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\driverlib\cc2538\inc
+E:\github\jay\Energy-Management-System\Coordinator\Components\driverlib\cc2538\inc
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\driverlib\cc2538\source
+E:\github\jay\Energy-Management-System\Coordinator\Components\driverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\sdriverlib\cc2538\source
+E:\github\jay\Energy-Management-System\Coordinator\Components\sdriverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\bsp\srf06eb_cc2538\drivers\source
+E:\github\jay\Energy-Management-System\Coordinator\Components\bsp\srf06eb_cc2538\drivers\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\mac\include
+E:\github\jay\Energy-Management-System\Coordinator\Components\mac\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\mac\high_level
+E:\github\jay\Energy-Management-System\Coordinator\Components\mac\high_level
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\mac\low_level\srf05\single_chip
+E:\github\jay\Energy-Management-System\Coordinator\Components\mac\low_level\srf05\single_chip
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\mac\low_level\srf05
+E:\github\jay\Energy-Management-System\Coordinator\Components\mac\low_level\srf05
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\mt
+E:\github\jay\Energy-Management-System\Coordinator\Components\mt
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\osal\include
+E:\github\jay\Energy-Management-System\Coordinator\Components\osal\include
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\services\sdata
+E:\github\jay\Energy-Management-System\Coordinator\Components\services\sdata
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\services\saddr
+E:\github\jay\Energy-Management-System\Coordinator\Components\services\saddr
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\stack\af
+E:\github\jay\Energy-Management-System\Coordinator\Components\stack\af
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\stack\nwk
+E:\github\jay\Energy-Management-System\Coordinator\Components\stack\nwk
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\stack\sapi
+E:\github\jay\Energy-Management-System\Coordinator\Components\stack\sapi
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\stack\sec
+E:\github\jay\Energy-Management-System\Coordinator\Components\stack\sec
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\stack\sys
+E:\github\jay\Energy-Management-System\Coordinator\Components\stack\sys
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\stack\zcl
+E:\github\jay\Energy-Management-System\Coordinator\Components\stack\zcl
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\stack\zdo
+E:\github\jay\Energy-Management-System\Coordinator\Components\stack\zdo
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\zmac
+E:\github\jay\Energy-Management-System\Coordinator\Components\zmac
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\zmac\f8w
+E:\github\jay\Energy-Management-System\Coordinator\Components\zmac\f8w
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\bsp\srf06eb_cc2538\drivers\source
+E:\github\jay\Energy-Management-System\Coordinator\Components\bsp\srf06eb_cc2538\drivers\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\driverlib\cc2538\source
+E:\github\jay\Energy-Management-System\Coordinator\Components\driverlib\cc2538\source
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\driverlib\cc2538\inc
+E:\github\jay\Energy-Management-System\Coordinator\Components\driverlib\cc2538\inc
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\usblib\cc2538\source\class_cdc
+E:\github\jay\Energy-Management-System\Coordinator\Components\usblib\cc2538\source\class_cdc
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\usblib\cc2538\source\library
+E:\github\jay\Energy-Management-System\Coordinator\Components\usblib\cc2538\source\library
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\usblib\cc2538\source\library\cc2538
+E:\github\jay\Energy-Management-System\Coordinator\Components\usblib\cc2538\source\library\cc2538
 -I
-C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART\Components\usblib\cc2538\examples\startup_files
+E:\github\jay\Energy-Management-System\Coordinator\Components\usblib\cc2538\examples\startup_files
 -Dewarm=1
 -DCC2538_USE_ALTERNATE_INTERRUPT_MAP=1
 -DFEATURE_RESET_MACRO=1
@@ -355,8 +355,8 @@ C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coorUSB_2UART
 -D__HAS_LOCATED_DECLARATION__=1
 -D__HAS_LOCATED_WITH_INIT__=1
 -D__IAR_COMPILERBASE__=593926
--D__DATE__="Jul 13 2015"
--D__TIME__="15:37:17"
+-D__DATE__="Jul 14 2015"
+-D__TIME__="15:51:09"
 -D__STDC__=1
 -D__STDC_VERSION__=199901L
 -D__STDC_HOSTED__=1

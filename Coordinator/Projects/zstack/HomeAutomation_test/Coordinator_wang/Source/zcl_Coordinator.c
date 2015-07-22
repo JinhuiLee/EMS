@@ -138,7 +138,7 @@ uint16 WAIT_EVT_INDEX = 0x0000;
 uint8 USB_Msg_in[110] = {0};
 uint16 paramReg[25] = {0};
 uint8 sm_address_buffer[8] = {0};
-
+uint8 send_buffer[70] = {0};
 extern uint8 usb_end_flag;
 
 uint16 SmartMeterparamReg[25]; //parameters send by SmartMeter
@@ -214,7 +214,7 @@ uint8 flag_config_reg = 0;
 uint8 routing_index = 0;
 uint8 setpower_index = 0;
 uint8 routing_all_flag = 0;
-
+uint8 len_uart1 = 0;
 uint8 SmartMeter_start = 2;
 uint8 start_receive_flag = 0;
 uint8 write_energy_index = 0;
@@ -292,6 +292,10 @@ uint32 time_old = 0;
 uint32 time_new = 0;
 uint8 cmd_right_flag = 1;
 uint8 process_uart_index = 0;
+
+uint32 switch_timenew = 0;
+uint8 first_time_in = 1;
+uint8 second_time_in = 0;
 
 ////////////////////////////////////////////////////usb
 USB_EPIN_RINGBUFFER_DATA usbCdcInBufferData;
@@ -599,7 +603,7 @@ void zclCoordinator_Init( byte task_id )
     controlReg[1] = 0x03;
     controlReg[2] = 0x00;
     controlReg[3] = 0x00;
-    //osal_start_timerEx( zclCoordinator_TaskID, TIME_RUNNING_EVT, 1 );
+    osal_start_timerEx( zclCoordinator_TaskID, TIME_RUNNING_EVT, 1 );
 }
 
 /********************************************************
@@ -813,6 +817,49 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 //osal_set_event(task_id, TIME_RUNNING_EVT);
                 //osal_start_timerEx( zclCoordinator_TaskID, TIME_RUNNING_EVT, 300 );
         */
+        
+        char  lcdString[10];
+        if(len_uart1) //package is assembled
+        {
+           if(first_time_in) //ori 1
+           {
+              first_time_in = 0;
+              switch_timenew = osal_GetSystemClock();
+              GPIOPinWrite(GPIO_D_BASE, GPIO_PIN_1, 0x02);
+              HalLcdWriteString( "uartstep1", HAL_LCD_LINE_3 );
+           }
+           else if (!second_time_in)
+           {          
+              if (osal_GetSystemClock() - switch_timenew >= 110 )
+              {
+                  HalUART1Write ( HAL_UART_PORT_1, send_buffer, len_uart1);  
+                  //HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_uart1);    
+                  for( uint8 i = 0; i < 70; i++)
+                       send_buffer[i] = 0;
+                  second_time_in = 1;
+                  
+                  
+                  sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
+                  switch_timenew = osal_GetSystemClock();
+                  HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+              }
+           }         
+           else if (second_time_in)
+           {
+              if (osal_GetSystemClock() - switch_timenew >= 80 )
+              {
+                  first_time_in = 1;
+                  GPIOPinWrite(GPIO_D_BASE, GPIO_PIN_1, 0x00); 
+                  len_uart1 = 0;
+                  second_time_in = 0;
+                  sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
+                  HalLcdWriteString( lcdString, HAL_LCD_LINE_4 );
+              }
+           }          
+        }
+      
+        osal_start_timerEx( zclCoordinator_TaskID, TIME_RUNNING_EVT, 10 );
+      
         return ( events ^ TIME_RUNNING_EVT );
     }
 
@@ -1688,13 +1735,15 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             //HalLcdWriteString( "datareg1", HAL_LCD_LINE_7 );
             if(Timeout_Pong == 1)
             {
-                controlReg[3] = 0x02;
+                //controlReg[3] = 0x02;
                 Timeout_Pong = 0;
             }
+            /*
             else
             {
                 controlReg[3] = 0x00;
             }
+            */
             for (index = 0; index < 14 + len_DataReg; index++)
             {
                 value = dataReg_Pong[index];
@@ -1708,20 +1757,21 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             }
         }
 
-        if (dataRegSel == 1)
+        else if (dataRegSel == 1)
         {
             //HalLcdWriteString( "datareg0", HAL_LCD_LINE_7 );
             //pdataReg_Ping=&dataReg_Ping[0];    //initialize pointer
             if(Timeout_Ping == 1)
             {
-                controlReg[3] = 0x02;
+                //controlReg[3] = 0x02;
                 Timeout_Ping = 0;
             }
+            /*
             else
             {
                 controlReg[3] = 0x00;
             }
-
+*/
             for (index = 0; index < 14 + len_DataReg; index++)
             {
                 value = dataReg_Ping[index];
@@ -1771,7 +1821,10 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         }
 
         Timeout_bit = 0;
-
+        if(len_DataReg == 0)
+            controlReg[3] = 0x02;
+        else
+            controlReg[3] = 0x00;
         pack_out[39 + len_DataReg * 2] = controlReg[0];
         pack_out[40 + len_DataReg * 2] = controlReg[1];
         pack_out[41 + len_DataReg * 2] = controlReg[2];
@@ -1792,7 +1845,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         usbibufPush(&usbCdcInBufferData, pack_out, 45 + len_DataReg * 2);
 
         controlReg[1] = 0x03;
-        dataRegSel = dataRegSel ^ 0x01;
+        //dataRegSel = dataRegSel ^ 0x01;
         first_complete = 0;
 
         char lcdString[10];
@@ -2364,7 +2417,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             //HalLcdWriteString( "datawait1", HAL_LCD_LINE_6 );
             time_new = osal_GetSystemClock();
 
-            if((time_new - time_old) > 0x000002BC)//700ms
+            if((time_new - time_old) > 0x000005DC)//1500ms
             {
                 HalLcdWriteString( "timeout", HAL_LCD_LINE_1 );
                 sys_timenew = osal_GetSystemClock();
@@ -2399,55 +2452,58 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     Timeout_bit = 1;
                     if (dataRegSel == 1)
                     {
-                        Timeout_Ping = 1;
-                        dataReg_Ping[0] = (uint16)(((sm_ADD[ack_index]) >> 48) & 0x000000000000FFFF); //ADD_3
-                        dataReg_Ping[1] = (uint16)(((sm_ADD[ack_index]) >> 32) & 0x000000000000FFFF); //ADD_2
-                        dataReg_Ping[2] = (uint16)(((sm_ADD[ack_index]) >> 16) & 0x000000000000FFFF); //ADD_1
-                        dataReg_Ping[3] = (uint16)((sm_ADD[ack_index]) & 0x000000000000FFFF); //ADD_0
-                        dataReg_Ping[4] = 0;
-                        dataReg_Ping[5] = 0;
-                        dataReg_Ping[6] = 0;
-                        len_DataReg = 0;
-                        /*
-                        uint8 i = 0;
-                        for(i = 0; i < len_DataReg; i++)
-                            dataReg_Ping[7 + i] = 0;
-                        */
-                        dataReg_Ping[7 + len_DataReg] = 0;   //STATUS
-                        dataReg_Ping[8 + len_DataReg] = (uint16)TimeStruct.year;;
-                        dataReg_Ping[9 + len_DataReg] = (uint16)TimeStruct.month;
-                        dataReg_Ping[10 + len_DataReg] = (uint16)TimeStruct.day;
-                        dataReg_Ping[11 + len_DataReg] = (uint16)TimeStruct.hour;
-                        dataReg_Ping[12 + len_DataReg] = (uint16)TimeStruct.minutes;
-                        dataReg_Ping[13 + len_DataReg] = (uint16)TimeStruct.seconds;
+                        Timeout_Ping = 1;                      
                     }
                     else
                     {
                         Timeout_Pong = 1;
-                        dataReg_Pong[0] = (uint16)(((sm_ADD[ack_index]) >> 48) & 0x000000000000FFFF); //ADD_3
-                        dataReg_Pong[1] = (uint16)(((sm_ADD[ack_index]) >> 32) & 0x000000000000FFFF); //ADD_2
-                        dataReg_Pong[2] = (uint16)(((sm_ADD[ack_index]) >> 16) & 0x000000000000FFFF); //ADD_1
-                        dataReg_Pong[3] = (uint16)((sm_ADD[ack_index]) & 0x000000000000FFFF); //ADD_0
-                        dataReg_Pong[4] = 0;
-                        dataReg_Pong[5] = 0;
-                        dataReg_Pong[6] = 0;
-                        len_DataReg = 0;
-                        /*
-                        uint8 i = 0;
-                        for(i = 0; i < len_DataReg; i++)
-                            dataReg_Pong[7 + i] = 0;
-                        */
-                        dataReg_Pong[7 + len_DataReg] = 0;   //STATUS
-                        dataReg_Pong[8 + len_DataReg] = (uint16)TimeStruct.year;;
-                        dataReg_Pong[9 + len_DataReg] = (uint16)TimeStruct.month;
-                        dataReg_Pong[10 + len_DataReg] = (uint16)TimeStruct.day;
-                        dataReg_Pong[11 + len_DataReg] = (uint16)TimeStruct.hour;
-                        dataReg_Pong[12 + len_DataReg] = (uint16)TimeStruct.minutes;
-                        dataReg_Pong[13 + len_DataReg] = (uint16)TimeStruct.seconds;
-
                     }
+                    dataReg_Ping[0] = (uint16)(((sm_ADD[ack_index]) >> 48) & 0x000000000000FFFF); //ADD_3
+                    dataReg_Ping[1] = (uint16)(((sm_ADD[ack_index]) >> 32) & 0x000000000000FFFF); //ADD_2
+                    dataReg_Ping[2] = (uint16)(((sm_ADD[ack_index]) >> 16) & 0x000000000000FFFF); //ADD_1
+                    dataReg_Ping[3] = (uint16)((sm_ADD[ack_index]) & 0x000000000000FFFF); //ADD_0
+                    dataReg_Ping[4] = 0;
+                    dataReg_Ping[5] = 0;
+                    dataReg_Ping[6] = 0;
+                    len_DataReg = 0;
+                    /*
+                    uint8 i = 0;
+                    for(i = 0; i < len_DataReg; i++)
+                        dataReg_Ping[7 + i] = 0;
+                    */
+                    dataReg_Ping[7 + len_DataReg] = 0;   //STATUS
+                    dataReg_Ping[8 + len_DataReg] = (uint16)TimeStruct.year;
+                    dataReg_Ping[9 + len_DataReg] = (uint16)TimeStruct.month;
+                    dataReg_Ping[10 + len_DataReg] = (uint16)TimeStruct.day;
+                    dataReg_Ping[11 + len_DataReg] = (uint16)TimeStruct.hour;
+                    dataReg_Ping[12 + len_DataReg] = (uint16)TimeStruct.minutes;
+                    dataReg_Ping[13 + len_DataReg] = (uint16)TimeStruct.seconds;
+                        
+                    dataReg_Pong[0] = (uint16)(((sm_ADD[ack_index]) >> 48) & 0x000000000000FFFF); //ADD_3
+                    dataReg_Pong[1] = (uint16)(((sm_ADD[ack_index]) >> 32) & 0x000000000000FFFF); //ADD_2
+                    dataReg_Pong[2] = (uint16)(((sm_ADD[ack_index]) >> 16) & 0x000000000000FFFF); //ADD_1
+                    dataReg_Pong[3] = (uint16)((sm_ADD[ack_index]) & 0x000000000000FFFF); //ADD_0
+                    dataReg_Pong[4] = 0;
+                    dataReg_Pong[5] = 0;
+                    dataReg_Pong[6] = 0;
+                    len_DataReg = 0;
+                    /*
+                    uint8 i = 0;
+                    for(i = 0; i < len_DataReg; i++)
+                        dataReg_Pong[7 + i] = 0;
+                    */
+                    dataReg_Pong[7 + len_DataReg] = 0;   //STATUS
+                    dataReg_Pong[8 + len_DataReg] = (uint16)TimeStruct.year;
+                    dataReg_Pong[9 + len_DataReg] = (uint16)TimeStruct.month;
+                    dataReg_Pong[10 + len_DataReg] = (uint16)TimeStruct.day;
+                    dataReg_Pong[11 + len_DataReg] = (uint16)TimeStruct.hour;
+                    dataReg_Pong[12 + len_DataReg] = (uint16)TimeStruct.minutes;
+                    dataReg_Pong[13 + len_DataReg] = (uint16)TimeStruct.seconds;
+                    
+                    dataRegSel = dataRegSel ^ 0x01;
                     if(first_complete == 1)
-                    {
+                    {         
+                      /*
                         if(ack_index < (sm_max - 1))
                         {
                             ack_index++;                                 //at first, the DRR command actually will send request to two Smart Meter, so the Smart Meter address need update.
@@ -2475,6 +2531,38 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                             osal_set_event(task_id, DATA_CL_EVT);
                         }
                         first_complete = 0;
+                      */
+                       if(ack_index < (sm_max - 1))
+                        {
+                            ack_index++;                                 //at first, the DRR command actually will send request to two Smart Meter, so the Smart Meter address need update.
+                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                            {
+                                ack_index++;
+                            }
+                            if((sm_ADD_status[ack_index] == 0) && ack_index == (sm_max - 1))
+                            {
+                                ack_index = 0;
+                                while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                                {
+                                    ack_index++;
+                                }
+                            }
+
+                            osal_set_event(task_id, ACK_CS_EVT);
+                            
+                        }
+                        else
+                        {
+                            ack_index = 0;
+                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                            {
+                                ack_index++;
+                            }
+                            osal_set_event(task_id, ACK_CS_EVT);
+                            
+                        }
+                        first_complete = 0;
+                       
                     }
                 }
             }
@@ -3446,7 +3534,7 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
             */
             //usbibufPush(&usbCdcInBufferData, dataReg_Pong, 23);
         }
-
+        dataRegSel = dataRegSel ^ 0x01;
         //set flag to indicate all data have been received
         if(first_write_flag == 1)
         {
@@ -3898,11 +3986,11 @@ static void Process_Wired_Cmd(void)
         //HalLcdWriteString( "start2", HAL_LCD_LINE_5 );
 
         uint32 wait_timenew = osal_GetSystemClock();
-        /*
-        while (osal_GetSystemClock() - wait_timenew < 50)
+        
+        while (osal_GetSystemClock() - wait_timenew < 30)
         {
         };
-        */
+        
         SmartMeter_flaginc = UINT8_TO_16(USB_Msg_in[15], USB_Msg_in[16]);
         zclCoordinator_SendData();   //send request to get data
     }
@@ -4025,7 +4113,7 @@ static void zclCoordinator_SetParam( void ) //verified
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[70] = {0};
+        //uint8 send_buffer[70] = {0};
         //uint16 coor_index = 0xffff;
         MIN_ADC = paramReg[0];
         MAX_ADC = paramReg[1];
@@ -4084,7 +4172,8 @@ static void zclCoordinator_SetParam( void ) //verified
 
         send_buffer[12 + sizeof(packet)] = 0x16;
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        len_uart1 = 13 + sizeof(packet);
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
     }
 }
 
@@ -4127,7 +4216,7 @@ static void zclCoordinator_getcalParam( void )
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[30] = {0};
+        //uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
         //coor_index = zclCoordinator_recognise_coor_id();
         uint16 packet[] = {USR_RX_GET, COM_CAL};
@@ -4161,7 +4250,8 @@ static void zclCoordinator_getcalParam( void )
 
         send_buffer[12 + sizeof(packet)] = 0x16;
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        len_uart1 = 13 + sizeof(packet);
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
     }
 }
 
@@ -4203,7 +4293,7 @@ static void zclCoordinator_setconfigReg( void )
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[30] = {0};
+        //uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
         //coor_index = zclCoordinator_recognise_coor_id();
         uint16 packet[] = {COM_CONFIG, SM_CONFIG_2, SM_CONFIG_1, SM_CONFIG_0};
@@ -4237,7 +4327,8 @@ static void zclCoordinator_setconfigReg( void )
 
         send_buffer[12 + sizeof(packet)] = 0x16;
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        len_uart1 = 13 + sizeof(packet);
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
     }
 }
 
@@ -4295,7 +4386,7 @@ static void zclCoordinator_SetTime( void ) //verified
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[50] = {0};
+        //uint8 send_buffer[50] = {0};
         //uint16 coor_index = 0xffff;
         YEAR = timeReg[0];
         MONTH = timeReg[1];
@@ -4328,7 +4419,8 @@ static void zclCoordinator_SetTime( void ) //verified
 
         send_buffer[12 + sizeof(packet)] = 0x16;
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        len_uart1 = 13 + sizeof(packet);
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
     }
 }
 
@@ -4378,7 +4470,7 @@ static void zclCoordinator_SendData( void )
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[30] = {0};
+        //uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
         uint16 packet[] = {USR_RX_GET, COM_DATA};
 
@@ -4404,8 +4496,10 @@ static void zclCoordinator_SendData( void )
             send_buffer[11 + sizeof(packet)] += send_buffer[i];
 
         send_buffer[12 + sizeof(packet)] = 0x16;
+        
+        len_uart1 = 13 + sizeof(packet);
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
         //HalUART0Write ( HAL_UART_PORT_0, send_buffer, 13 + sizeof(packet));
 
         char  lcdString[10];
@@ -4463,7 +4557,7 @@ static void zclCoordinator_SendReset( void )
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[30] = {0};
+        //uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
         uint16 energy_reset_value_1 = 0;
         uint16 energy_reset_value_0 = 0;
@@ -4510,8 +4604,9 @@ static void zclCoordinator_SendReset( void )
             send_buffer[11 + sizeof(packet)] += send_buffer[i];
 
         send_buffer[12 + sizeof(packet)] = 0x16;
+        len_uart1 = 13 + sizeof(packet);
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
     }
 }
 
@@ -4554,7 +4649,7 @@ static void zclCoordinator_SendRelay( void )
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[30] = {0};
+        //uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
         uint16 packet[] = {RELAY, flagrelay}; //sizeof(packet) = 4
 
@@ -4577,8 +4672,9 @@ static void zclCoordinator_SendRelay( void )
             send_buffer[11 + sizeof(packet)] += send_buffer[i];
 
         send_buffer[12 + sizeof(packet)] = 0x16;
+        len_uart1 = 13 + sizeof(packet);
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
         //HalLcdWriteString( "datasend", HAL_LCD_LINE_4 );
 
         /*
@@ -4641,7 +4737,7 @@ static void zclCoordinator_SetPowerCalculation( void )
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[30] = {0};
+        //uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
         uint16 packet[] = {START, start}; //sizeof(packet) = 4
 
@@ -4682,8 +4778,9 @@ static void zclCoordinator_SetPowerCalculation( void )
             send_buffer[11 + sizeof(packet)] += send_buffer[i];
 
         send_buffer[12 + sizeof(packet)] = 0x16;
+        len_uart1 = 13 + sizeof(packet);
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
         //HalLcdWriteString( "datasend", HAL_LCD_LINE_4 );
 
     }
@@ -4732,7 +4829,7 @@ static void zclCoordinator_SendCalibrate( void )
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[40] = {0};
+        //uint8 send_buffer[40] = {0};
         //uint16 coor_index = 0xffff;
         V_CAL = controlReg[28];
         I_CAL = controlReg[29];
@@ -4762,8 +4859,9 @@ static void zclCoordinator_SendCalibrate( void )
             send_buffer[11 + sizeof(packet)] += send_buffer[i];
 
         send_buffer[12 + sizeof(packet)] = 0x16;
+        len_uart1 = 13 + sizeof(packet);
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
         //HalUART0Write ( HAL_UART_PORT_0, send_buffer, 13 + sizeof(packet));
     }
 }
@@ -4806,7 +4904,7 @@ static void zclCoordinator_SendRestart( void )
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[30] = {0};
+        //uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
 
         //uint16 packet[] = {START, flaginc};
@@ -4831,9 +4929,11 @@ static void zclCoordinator_SendRestart( void )
             send_buffer[11 + sizeof(packet)] += send_buffer[i];
 
         send_buffer[12 + sizeof(packet)] = 0x16;
+        len_uart1 = 13 + sizeof(packet);
 
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        //HalUART0Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
     }
 }
 
@@ -4886,7 +4986,7 @@ static void zclCoordinator_NetDiscov( void ) //verified
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[30] = {0};
+        //uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
 
         uint16 packet[] = {USR_RX_GET, COM_ADD, ADD_3, ADD_2, ADD_1, ADD_0};
@@ -4928,8 +5028,9 @@ static void zclCoordinator_NetDiscov( void ) //verified
             send_buffer[11 + sizeof(packet)] += send_buffer[i];
 
         send_buffer[12 + sizeof(packet)] = 0x16;
+        len_uart1 = 13 + sizeof(packet);
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        //HalUART0Write ( HAL_UART_PORT_0, send_buffer, 13 + sizeof(packet));
     }
 
 }
@@ -4977,7 +5078,7 @@ static void zclCoordinator_SendAck( void )  //verified
     else if( Connect_Mode == WIRED_CONNECTION)
     {
         uint8 i = 0;
-        uint8 send_buffer[30] = {0};
+        //uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
 
         uint16 packet[] = {COM_ADD, ACK_SUCCESS, (uint16)(((sm_ADD[sm_index]) >> 48) & 0x000000000000FFFF), (uint16)(((sm_ADD[sm_index]) >> 32) & 0x000000000000FFFF),
@@ -5003,8 +5104,9 @@ static void zclCoordinator_SendAck( void )  //verified
             send_buffer[11 + sizeof(packet)] += send_buffer[i];
 
         send_buffer[12 + sizeof(packet)] = 0x16;
+        len_uart1 = 13 + sizeof(packet);
 
-        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
     }
 #endif  // ZCL_REPORT
 

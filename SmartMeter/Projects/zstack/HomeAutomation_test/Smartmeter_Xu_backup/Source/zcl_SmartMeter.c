@@ -117,7 +117,8 @@
 
 #define Connect_Mode WIRED_CONNECTION
 //#define Connect_Mode WIRELESS_CONNECTION
-#define TIMEINDEX 0.1
+//#define TIMEINDEX 0.1
+#define TIMEINDEX 1            
 //#defien TIMEINDEX 3.125
 
 #define PI 3.1416

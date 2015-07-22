@@ -53,8 +53,8 @@
  *                                          Macros
  * ------------------------------------------------------------------------------------------------
  */
-//#define SYSTICK 1000 /* 1 millisecond = 1/SYSTICK */
-#define SYSTICK 10000 /* 1/10 millisecond = 1/SYSTICK */
+#define SYSTICK 1000 /* 1 millisecond = 1/SYSTICK */
+//#define SYSTICK 10000 /* 1/10 millisecond = 1/SYSTICK */
 #define TICK_IN_MS 1 /* 1 millisecond */ 
 
 void SysTickIntHandler(void);

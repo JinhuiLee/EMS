@@ -116,7 +116,7 @@ void MT_UartInit ()
 
     /* UART Configuration */
     uartConfig.configured           = TRUE;
-    uartConfig.baudRate             = HAL_UART_BR_115200;
+    uartConfig.baudRate             = HAL_UART_BR_19200;
     uartConfig.flowControl          = FALSE;
     uartConfig.flowControlThreshold = MT_UART_DEFAULT_THRESHOLD;
     uartConfig.rx.maxBufSize        = MT_UART_DEFAULT_MAX_RX_BUFF;

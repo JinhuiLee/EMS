@@ -116,7 +116,7 @@ void MT_UartInit ()
 
     /* UART Configuration */
     uartConfig.configured           = TRUE;
-    uartConfig.baudRate             = HAL_UART_BR_115200;
+    uartConfig.baudRate             = HAL_UART_BR_19200;
     uartConfig.flowControl          = FALSE;
     uartConfig.flowControlThreshold = MT_UART_DEFAULT_THRESHOLD;
     uartConfig.rx.maxBufSize        = MT_UART_DEFAULT_MAX_RX_BUFF;
@@ -481,7 +481,8 @@ void MT_UartProcessZToolData ( uint8 port, uint8 event )
            {
               pMsg->msg[MT_RPC_FRAME_HDR_SZI + LEN_Token + 2 + coor_index] = A0A7_Arr[coor_index];
            }
-            HalLcdWriteString( "receive UART1", HAL_LCD_LINE_4 );
+            HalLcdWriteString( "receive UART1", HAL_LCD_LINE_7 );
+            
             osal_msg_send(App_TaskID, (byte *)pMsg );
 
             /* Reset the state, send or discard the buffers at this point */
