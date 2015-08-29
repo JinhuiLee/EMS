@@ -71,6 +71,11 @@ void USB_Poll(void)
             TimeStruct.month = 12;
             TimeStruct.year--;
         }
+        if(TimeStruct.day == 0)
+        {
+            TimeStruct.day = 31;
+            TimeStruct.month --;
+        }
         uint8 newseconds = TimeStruct.seconds;
         
         if(oldseconds != newseconds)

@@ -533,12 +533,13 @@ uint16 HalUART0ReadIsr ( uint8 port, uint8 *pBuffer, uint16 length )
  *************************************************************************************************/
 uint16 HalUART1WriteIsr(uint8 port, uint8 *pBuffer, uint16 length)
 {
+  /*
   GPIOPinWrite(GPIO_D_BASE, GPIO_PIN_1, 0x02);
   uint32 switch_timenew = osal_GetSystemClock();
   while (osal_GetSystemClock() - switch_timenew < 112)
   {
   };
-  
+  */
   (void)port;
 
   if (!uartRecord.configured)
@@ -586,12 +587,13 @@ uint16 HalUART1WriteIsr(uint8 port, uint8 *pBuffer, uint16 length)
   uartRecord.tx.bufferTail = idx;
   procTx();
   HAL_EXIT_CRITICAL_SECTION(intState);
-  
+  /*
    switch_timenew = osal_GetSystemClock();
     while (osal_GetSystemClock() - switch_timenew < 82)
     {
     };
     GPIOPinWrite(GPIO_D_BASE, GPIO_PIN_1, 0x00);  
+  */
   /* Return the number of bytes actually put into the buffer. */
   return length;  
 }
