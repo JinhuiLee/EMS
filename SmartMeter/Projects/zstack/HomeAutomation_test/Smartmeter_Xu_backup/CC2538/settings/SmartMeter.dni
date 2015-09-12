@@ -10,11 +10,11 @@ LimitSize=0
 ByteLimit=50
 [xds100]
 xds100serialNo=06EB122013BB
-xds100foundProbes=
+xds100foundProbes=06EB122013BB:06EB122013D5:
 xdsResetStyle=0
 xdsResetStrategy=0
 [DebugChecksum]
-Checksum=778052805
+Checksum=712391646
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0

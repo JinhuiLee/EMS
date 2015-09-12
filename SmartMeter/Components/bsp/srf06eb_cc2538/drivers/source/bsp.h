@@ -71,9 +71,9 @@ extern "C"
 #define BSP_SPI_SSI_BASE        SSI0_BASE
 //! Bitmask to enable SSI module.
 #define BSP_SPI_SSI_ENABLE_BM   SYS_CTRL_PERIPH_SSI0
-#define BSP_SPI_BUS_BASE        GPIO_A_BASE
-#define BSP_SPI_SCK             GPIO_PIN_2      //!< PA2
-#define BSP_SPI_MOSI            GPIO_PIN_4      //!< PA4
+//#define BSP_SPI_BUS_BASE        GPIO_A_BASE
+//#define BSP_SPI_SCK             GPIO_PIN_2      //!< PA2
+//#define BSP_SPI_MOSI            GPIO_PIN_4      //!< PA4
 #define BSP_SPI_MISO            GPIO_PIN_5      //!< PA5
 
 // 3.3-V domain defines
@@ -93,12 +93,16 @@ extern "C"
 
 // Board key defines
 #define BSP_KEY_DIR_BASE        GPIO_C_BASE     //!< Base for left/right/up/down
-#define BSP_KEY_SEL_BASE        GPIO_A_BASE     //!< Base for Select
+//#define BSP_KEY_SEL_BASE        GPIO_A_BASE     //!< Base for Select
+#define BSP_KEY_SEL_BASE        GPIO_B_BASE     //!< Base for Select
+                                   
 #define BSP_KEY_1               GPIO_PIN_4      //!< PC4
 #define BSP_KEY_2               GPIO_PIN_5      //!< PC5
 #define BSP_KEY_3               GPIO_PIN_6      //!< PC6
 #define BSP_KEY_4               GPIO_PIN_7      //!< PC7
-#define BSP_KEY_5               GPIO_PIN_3      //!< PA3
+//#define BSP_KEY_5               GPIO_PIN_3      //!< PA3
+#define BSP_KEY_5               GPIO_PIN_6      //!< PB6
+                                   
 #define BSP_KEY_ALL             (BSP_KEY_1| \
                                  BSP_KEY_2| \
                                  BSP_KEY_3| \
@@ -121,10 +125,12 @@ extern "C"
 #define BSP_LCD_RST             GPIO_PIN_3      //!< PB3
 #define BSP_LCD_CS_BASE         GPIO_B_BASE
 #define BSP_LCD_CS              GPIO_PIN_5      //!< PB5
+/*
 #define BSP_LCD_SCK_BASE        BSP_SPI_BUS_BASE
 #define BSP_LCD_SCK             BSP_SPI_SCK     //!< PA2
 #define BSP_LCD_MOSI_BASE       BSP_SPI_BUS_BASE
 #define BSP_LCD_MOSI            BSP_SPI_MOSI    //!< PA4
+*/
 #define BSP_LCD_MISO_BASE       BSP_SPI_BUS_BASE
 #define BSP_LCD_MISO            BSP_SPI_MISO    //!< PA5
 
@@ -139,20 +145,24 @@ extern "C"
 #define BSP_ACC_INT2            GPIO_PIN_2      //!< PD1
 #define BSP_ACC_CS_BASE         GPIO_D_BASE
 #define BSP_ACC_CS              GPIO_PIN_5      //!< PD5
+/*
 #define BSP_ACC_SCK_BASE        BSP_SPI_BUS_BASE
 #define BSP_ACC_SCK             BSP_SPI_SCK     //!< PA2
 #define BSP_ACC_MOSI_BASE       BSP_SPI_BUS_BASE
 #define BSP_ACC_MOSI            BSP_SPI_MOSI    //!< PA4
+*/
 #define BSP_ACC_MISO_BASE       BSP_SPI_BUS_BASE
 #define BSP_ACC_MISO            BSP_SPI_MISO    //!< PA5
 
 // SD reader defines
 #define BSP_SDCARD_CS_BASE      GPIO_D_BASE
 #define BSP_SDCARD_CS           GPIO_PIN_0      //!< PD0
+/*
 #define BSP_SDCARD_SCK_BASE     BSP_SPI_BUS_BASE
 #define BSP_SDCARD_SCK          BSP_SPI_SCK     //!< PA2
 #define BSP_SDCARD_MOSI_BASE    BSP_SPI_BUS_BASE
 #define BSP_SDCARD_MOSI         BSP_SPI_MOSI    //!< PA4
+*/
 #define BSP_SDCARD_MISO_BASE    BSP_SPI_BUS_BASE
 #define BSP_SDCARD_MISO         BSP_SPI_MISO    //!< PA5
 

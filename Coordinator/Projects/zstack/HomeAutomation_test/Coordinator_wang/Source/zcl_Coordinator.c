@@ -1440,6 +1440,16 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     {
                         timeReg[i] = (controlReg[i * 2 + 16] << 8) + controlReg[i * 2 + 17];
                     }
+                    
+                    sys_timeold = osal_GetSystemClock();
+                    sys_timenew = sys_timeold;
+                    TimeStruct.seconds = (uint8)timeReg[5];
+                    TimeStruct.minutes = (uint8)timeReg[4];
+                    TimeStruct.hour = (uint8)timeReg[3];
+                    TimeStruct.day = (uint8)(--timeReg[2]);
+                    TimeStruct.month = (uint8)(--timeReg[1]);
+                    TimeStruct.year = (uint16)timeReg[0];
+                    sys_secold = osal_ConvertUTCSecs( &TimeStruct );
 
                     if( Connect_Mode == WIRELESS_CONNECTION)
                     {
@@ -1462,15 +1472,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         zclCoordinator_SetTime();
                     }
 
-                    sys_timeold = osal_GetSystemClock();
-                    sys_timenew = sys_timeold;
-                    TimeStruct.seconds = (uint8)timeReg[5];
-                    TimeStruct.minutes = (uint8)timeReg[4];
-                    TimeStruct.hour = (uint8)timeReg[3];
-                    TimeStruct.day = (uint8)timeReg[2];
-                    TimeStruct.month = (uint8)timeReg[1];
-                    TimeStruct.year = (uint16)timeReg[0];
-                    sys_secold = osal_ConvertUTCSecs( &TimeStruct );
+                    
                     WAIT_EVT_INDEX = Coordinator_ProcessParaSet;
                     osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
                     time_old = osal_GetSystemClock();
@@ -2441,17 +2443,6 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 sys_timenew = osal_GetSystemClock();
                 sys_secnew = sys_secold + (uint32)((float)(sys_timenew - sys_timeold) / 1000);
                 osal_ConvertUTCTime(&TimeStruct , sys_secnew);
-                if(TimeStruct.month == 0)
-                {
-                    TimeStruct.month = 12;
-                    TimeStruct.year--;
-                }
-
-                if(TimeStruct.day == 0)
-                {
-                    TimeStruct.day = 31;
-                    TimeStruct.month --;
-                }
 
                 time_new = 0;
                 time_old = 0;
@@ -2496,9 +2487,9 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         dataReg_Ping[7 + i] = 0;
                     */
                     dataReg_Ping[7 + len_DataReg] = 0;   //STATUS
-                    dataReg_Ping[8 + len_DataReg] = (uint16)TimeStruct.year;
-                    dataReg_Ping[9 + len_DataReg] = (uint16)TimeStruct.month;
-                    dataReg_Ping[10 + len_DataReg] = (uint16)TimeStruct.day;
+                    dataReg_Ping[8 + len_DataReg] = (uint16)((TimeStruct.month == 12)? (TimeStruct.year + 1) : TimeStruct.year); //YEAR
+                    dataReg_Ping[9 + len_DataReg] = (uint16)((TimeStruct.month == 12)? 1: (TimeStruct.month + 1)); //MONTH
+                    dataReg_Ping[10 + len_DataReg] = (uint16)TimeStruct.day + 1;
                     dataReg_Ping[11 + len_DataReg] = (uint16)TimeStruct.hour;
                     dataReg_Ping[12 + len_DataReg] = (uint16)TimeStruct.minutes;
                     dataReg_Ping[13 + len_DataReg] = (uint16)TimeStruct.seconds;

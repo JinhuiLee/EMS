@@ -66,23 +66,16 @@ void USB_Poll(void)
         sys_secnew = sys_secold + (uint32)((float)(sys_timenew - sys_timeold) / 1000);
         uint8 oldseconds = TimeStruct.seconds;
         osal_ConvertUTCTime(&TimeStruct , sys_secnew);
-        if(TimeStruct.month == 0)
-        {
-            TimeStruct.month = 12;
-            TimeStruct.year--;
-        }
-        if(TimeStruct.day == 0)
-        {
-            TimeStruct.day = 31;
-            TimeStruct.month --;
-        }
+        
         uint8 newseconds = TimeStruct.seconds;
         
         if(oldseconds != newseconds)
         {
 #ifdef LCD_SUPPORTED
-            sprintf((char *)Display_lcdString, "%d %d %d %d %d %d", TimeStruct.year, TimeStruct.month,
-                    TimeStruct.day, TimeStruct.hour, TimeStruct.minutes, TimeStruct.seconds);
+            sprintf((char *)Display_lcdString, "%d %d %d %d %d %d", 
+                    ((TimeStruct.month == 12)? (TimeStruct.year + 1) : TimeStruct.year), 
+                    ((TimeStruct.month == 12)? 1: (TimeStruct.month + 1)),
+                    TimeStruct.day + 1, TimeStruct.hour, TimeStruct.minutes, TimeStruct.seconds);
             HalLcdWriteString( Display_lcdString, HAL_LCD_LINE_7 );
 #endif
         }

@@ -603,7 +603,7 @@ void zclSmartMeter_Init( byte task_id )
 #ifdef LCD_SUPPORTED
     // display the device name
     //HalLcdWriteString( (char *)sDeviceName, HAL_LCD_LINE_3 );
-    HalLcdWriteString( (char *)sDeviceName, HAL_LCD_LINE_5 );
+    //HalLcdWriteString( (char *)sDeviceName, HAL_LCD_LINE_5 );
 #endif
     if( Connect_Mode == WIRELESS_CONNECTION)
         zclsmartmeter_startEZmode();
@@ -839,23 +839,15 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
 
         uint8 old_sec_print = TimeStruct.seconds;
         osal_ConvertUTCTime(&TimeStruct , sys_secnew);
-        if(TimeStruct.month == 0)
-        {
-            TimeStruct.month = 12;
-            TimeStruct.year--;
-        }
-        
-        if(TimeStruct.day == 0)
-        {
-            TimeStruct.day = 31;
-            TimeStruct.month --;
-        }
+
 
         if(old_sec_print != TimeStruct.seconds)
         {
 #ifdef LCD_SUPPORTED
-            sprintf((char *)lcdString, "%d %d %d %d %d %d", TimeStruct.year, TimeStruct.month,
-                    TimeStruct.day, TimeStruct.hour, TimeStruct.minutes, TimeStruct.seconds);
+            sprintf((char *)lcdString, "%d %d %d %d %d %d", 
+            ((TimeStruct.month == 12)? (TimeStruct.year + 1) : TimeStruct.year), 
+            ((TimeStruct.month == 12)? 1: (TimeStruct.month + 1)),
+            TimeStruct.day + 1, TimeStruct.hour, TimeStruct.minutes, TimeStruct.seconds);
             HalLcdWriteString( lcdString, HAL_LCD_LINE_7 );
 #endif
 
@@ -1459,7 +1451,7 @@ static void zclSmartMeter_SendData( void )
         packet[9] = (uint16)len_DataReg;
         uint8 i = 0;
         for(i = 0; i < len_DataReg; i++)
-            packet[10 + i] = (uint16)(VIT_dataReg[i] * start); // if start = 0, return all 0
+            packet[10 + i] = (uint16)(VIT_dataReg[i] * start * power_flag); // if start = 0, return all 0
         packet[10 + len_DataReg] = STATUS;
         packet[11 + len_DataReg] = YEAR;
         packet[12 + len_DataReg] = MONTH;
@@ -2319,24 +2311,14 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         sys_timenew = osal_GetSystemClock();
         sys_secnew = sys_secold + (uint32)((float)((sys_timenew - sys_timeold) * TIMEINDEX) / 1000);
         osal_ConvertUTCTime(&TimeStruct , sys_secnew);
-        if(TimeStruct.month == 0)
-        {
-            TimeStruct.month = 12;
-            TimeStruct.year--;
-        }
-        
-        if(TimeStruct.day == 0)
-        {
-            TimeStruct.day = 31;
-            TimeStruct.month --;
-        }
 
-        SECOND = (uint16)TimeStruct.seconds;
-        MINUTE = (uint16)TimeStruct.minutes;
+
+        YEAR = (uint16)((TimeStruct.month == 12)? (TimeStruct.year + 1) : TimeStruct.year); //YEAR
+        MONTH = (uint16)((TimeStruct.month == 12)? 1: (TimeStruct.month + 1)); //MONTH
+        DAY = (uint16)TimeStruct.day + 1;
         HOUR = (uint16)TimeStruct.hour;
-        DAY = (uint16)TimeStruct.day;
-        MONTH = (uint16)TimeStruct.month;
-        YEAR = (uint16)TimeStruct.year;
+        MINUTE = (uint16)TimeStruct.minutes;
+        SECOND = (uint16)TimeStruct.seconds;
 
         STATUS = 0;
         STATUS = STATUS | (uint16)(flagreset << 3);
@@ -2738,24 +2720,14 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             sys_timenew = osal_GetSystemClock();
             sys_secnew = sys_secold + (uint32)((float)((sys_timenew - sys_timeold) * TIMEINDEX) / 1000);
             osal_ConvertUTCTime(&TimeStruct , sys_secnew);
-            if(TimeStruct.month == 0)
-            {
-                TimeStruct.month = 12;
-                TimeStruct.year--;
-            }
-            
-            if(TimeStruct.day == 0)
-            {
-                TimeStruct.day = 31;
-                TimeStruct.month --;
-            }
 
-            SECOND = (uint16)TimeStruct.seconds;
-            MINUTE = (uint16)TimeStruct.minutes;
+            
+            YEAR = (uint16)((TimeStruct.month == 12)? (TimeStruct.year + 1) : TimeStruct.year); //YEAR
+            MONTH = (uint16)((TimeStruct.month == 12)? 1: (TimeStruct.month + 1)); //MONTH
+            DAY = (uint16)TimeStruct.day + 1;
             HOUR = (uint16)TimeStruct.hour;
-            DAY = (uint16)TimeStruct.day;
-            MONTH = (uint16)TimeStruct.month;
-            YEAR = (uint16)TimeStruct.year;
+            MINUTE = (uint16)TimeStruct.minutes;
+            SECOND = (uint16)TimeStruct.seconds;
 
             STATUS = 0;
             STATUS = STATUS | (uint16)(flagreset << 3);
@@ -2801,6 +2773,8 @@ void zclSmartMeter_ProcessUART_Pkt(void)
 
             //Update flash memory
             zclSmartMeter_nvWriteParam();
+            
+            zclSmartMeter_parameterInit();
             // send the current parameter value to send over the air to Coordinator
             zclSmartMeter_SendParam();
         }
@@ -4153,6 +4127,10 @@ void zclSmartMeter_ADC_init(void)
     GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_5);
     GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_6);
     GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_7);
+    
+    //GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_2);
+    GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_3);
+    //GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_4);
 
 }
 
