@@ -173,6 +173,7 @@ uint16 sm_id;
 uint16 sm_index = 0;  //index for sm_Add[index]
 uint16 index;  //general purpose index
 uint16 sm_max = 0; //total number of smart meter
+uint16 num_prio_sm_max = 0;
 uint8 controlReg[45] = {0};
 
 uint8 try_count = 0;
@@ -181,7 +182,7 @@ uint8 sm_receive_flag[20] = {0};
 uint8 sm_retry_times[20] = {3};
 uint8 relay_receive_flag = 0;
 uint8 relay_retry_times = 3;
-uint16 ack_index = 0;
+uint8 ack_index = 0;
 uint8 NetDiscov_flag = 0;
 uint8 Routingtable_flag = 0;
 uint16 Drr_retry_cnt = 0;
@@ -297,6 +298,8 @@ uint32 switch_timenew = 0;
 uint8 first_time_in = 1;
 uint8 second_time_in = 0;
 
+uint8 sm_routing_prio_table[50] = {0};
+uint64 sm_ADD_prio = 0;
 ////////////////////////////////////////////////////usb
 USB_EPIN_RINGBUFFER_DATA usbCdcInBufferData;
 USB_EPOUT_RINGBUFFER_DATA usbCdcOutBufferData;
@@ -418,8 +421,8 @@ void zclCoordinator_ReadRoutingTable(uint8 sm_i);
 static void zclCoordinator_getcalParam(void);
 static void zclCoordinator_calregtimeout(void);
 
-static uint16 zclCoordinator_recognise_sm_id(void);
-static uint16 zclCoordinator_recognise_coor_id(void);
+static uint8 zclCoordinator_smIEEE_to_id(uint64 sm_ADD_64);
+static void zclCoordinator_id_to_smIEEE(uint8 sm_id_8);
 
 uint32 BUILD_UINT32_16 (uint16 num1, uint16 numb2);
 uint64 BUILD_UINT64_8 (uint8 numb1, uint8 numb2, uint8 numb3, uint8 numb4, uint8 numb5, uint8 numb6, uint8 numb7, uint8 numb8);
@@ -1039,14 +1042,53 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                         else   //if no problem with the package
                         {
-                            sm_max = len_addr / 8;
-                            for(uint8 i = 0; i < sm_max; i++)
+                            uint8 i;
+                            for(i = 0; i < 50; i++)
+                                sm_routing_prio_table[i] = 0;
+                            
+                            sm_max = len_addr / 9;
+                            uint8 num_high_prio = 0; //uint8
+                            uint8 val_high_prio = 0;
+                            uint8 sm_routing_id_table[20] = {0};
+
+                            val_high_prio = USB_Msg_in[72];
+                            
+
+                            for(i = 0; i < sm_max; i++)
                             {
-                                sm_ADD[i] = BUILD_UINT64_8(USB_Msg_in[64 + i * 8], USB_Msg_in[65 + i * 8], USB_Msg_in[66 + i * 8], USB_Msg_in[67 + i * 8],
-                                                           USB_Msg_in[68 + i * 8], USB_Msg_in[69 + i * 8], USB_Msg_in[70 + i * 8], USB_Msg_in[71 + i * 8]);
+                                sm_ADD[i] = BUILD_UINT64_8(USB_Msg_in[64 + i * 9], USB_Msg_in[65 + i * 9], USB_Msg_in[66 + i * 9], USB_Msg_in[67 + i * 9],
+                                                           USB_Msg_in[68 + i * 9], USB_Msg_in[69 + i * 9], USB_Msg_in[70 + i * 9], USB_Msg_in[71 + i * 9]);
+
+                                sm_routing_id_table[i] = zclCoordinator_smIEEE_to_id(sm_ADD[i]); //uint8
+                                if(USB_Msg_in[72 + i * 9] == USB_Msg_in[72] && val_high_prio != 1)
+                                {
+                                    num_high_prio ++;
+                                }
+                            }
+                            
+
+                            uint8 j, l;
+                            uint8 k = 0;
+                            uint8 num_low_prio = 0;
+                            num_low_prio = sm_max - num_high_prio;
+                            for(i = 0; i < num_low_prio; i++) // number of low priority
+                            {
+                                for(j = 0; j < val_high_prio / num_low_prio; j++)
+                                {
+                                    for(l = 0; l < num_high_prio; l++)
+                                    {
+                                        sm_routing_prio_table[k++] = sm_routing_id_table[l];
+                                    }
+                                }
+                                sm_routing_prio_table[k++] = sm_routing_id_table[i + num_high_prio];
                             }
 
+                            num_prio_sm_max = k;
                             routing_all_flag = 1;
+                            
+                            //test
+                            sm_routing_prio_table[49] = (uint8)num_prio_sm_max;
+                            HalUART0Write ( HAL_UART_PORT_0, sm_routing_prio_table, 50);
 
                         }
                     }
@@ -1440,7 +1482,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     {
                         timeReg[i] = (controlReg[i * 2 + 16] << 8) + controlReg[i * 2 + 17];
                     }
-                    
+
                     sys_timeold = osal_GetSystemClock();
                     sys_timenew = sys_timeold;
                     TimeStruct.seconds = (uint8)timeReg[5];
@@ -1472,7 +1514,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         zclCoordinator_SetTime();
                     }
 
-                    
+
                     WAIT_EVT_INDEX = Coordinator_ProcessParaSet;
                     osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
                     time_old = osal_GetSystemClock();
@@ -1530,19 +1572,22 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     datain_complete = 0;
                     first_write_flag = 1;
                     // &zclCoordinator_DstAdfdr = psm_ADD;
-                    while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                    /*
+                    while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                     {
                         ack_index++;
                     }
+                    */
 
-                    zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[ack_index]) >> 56) & 0x00000000000000FF); //AF.h; highest
-                    zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[ack_index]) >> 48) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[ack_index]) >> 40) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[ack_index]) >> 32) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[ack_index]) >> 24) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[ack_index]) >> 16) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[ack_index]) >> 8) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[ack_index]) & 0x00000000000000FF);
+                    zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
+                    zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD_prio) >> 56) & 0x00000000000000FF); //AF.h; highest
+                    zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD_prio) >> 48) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD_prio) >> 40) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD_prio) >> 32) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD_prio) >> 24) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD_prio) >> 16) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD_prio) >> 8) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD_prio) & 0x00000000000000FF);
 
                     //Stop power calculation
                     flaginc = 0;
@@ -1662,7 +1707,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
         if(PowSpCal == 1)
         {
-            if(ack_index < (sm_max - 1))
+            if(ack_index < (num_prio_sm_max - 1))
             {
                 uint16 i;
                 for(i = ack_index + 1; i < sm_max; i++)
@@ -1678,10 +1723,12 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 else
                 {
                     ack_index++;
+                    /*
                     while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
                     {
                         ack_index++;
                     }
+                    */
                     osal_set_event(task_id, ACK_CS_EVT);
                 }
             }
@@ -1708,9 +1755,10 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             }
             else
             {
-                if(ack_index < (sm_max - 1))
+                if(ack_index < (num_prio_sm_max - 1))
                 {
                     ack_index++;                                  ////prepare the next Smart Meter address.
+                    /*
                     while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
                     {
                         ack_index++;
@@ -1723,12 +1771,13 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                             ack_index++;
                         }
                     }
+                    */
                     osal_set_event(task_id, ACK_CS_EVT);
                 }
                 else
                 {
                     ack_index = 0;                                //check there is no stop it, so the round robin will continue from the beginning.
-                    while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                    while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                     {
                         ack_index++;
                     }
@@ -1879,14 +1928,15 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
     if ( events & ACK_CS_EVT )
     {
         //HalLcdWriteString( "datawait3", HAL_LCD_LINE_6 );
-        zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[ack_index]) >> 56) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[ack_index]) >> 48) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[ack_index]) >> 40) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[ack_index]) >> 32) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[ack_index]) >> 24) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[ack_index]) >> 16) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[ack_index]) >> 8) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[ack_index]) & 0x00000000000000FF);
+        zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
+        zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD_prio) >> 56) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD_prio) >> 48) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD_prio) >> 40) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD_prio) >> 32) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD_prio) >> 24) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD_prio) >> 16) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD_prio) >> 8) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD_prio) & 0x00000000000000FF);
         if(sm_ADD_status[ack_index] == 1)
         {
             //Stop power calculation
@@ -1935,11 +1985,13 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                         {
                             sm_receive_flag[index] = 3; //Change status to ignore status
-                            sm_ADD_status[index] = 0;   //The address is invalid
+                            //sm_ADD_status[index] = 0;   //The address is invalid
+                            ;
 
                         }
                         if(sm_receive_flag[index] == 1 || sm_receive_flag[index] == 2)
-                            sm_receive_flag[index] = 0;
+                            //sm_receive_flag[index] = 0;
+                            ;
                     }
                     zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
                     time_new = 0;
@@ -1993,7 +2045,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     for(index = 0; index < sm_max; index++)
                     {
                         if(sm_ADD_reg == sm_ADD[index])
-                            sm_ADD_status[index] = 0;  //The address is invalid
+                            //sm_ADD_status[index] = 0;  //The address is invalid
+                            ;
                     }
                     sm_ADD_reg = 0;
                     flagreset = 0;
@@ -2038,7 +2091,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 for(index = 0; index < sm_max; index++)
                 {
                     if(sm_ADD_reg == sm_ADD[index])
-                        sm_ADD_status[index] = 0;  //The address is invalid
+                        //sm_ADD_status[index] = 0;  //The address is invalid
+                        ;
                 }
                 sm_ADD_reg = 0;
                 flagreset = 0;
@@ -2117,7 +2171,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 for(index = 0; index < sm_max; index++)
                 {
                     if(sm_ADD_reg == sm_ADD[index])
-                        sm_ADD_status[index] = 0;  //The address is invalid
+                        //sm_ADD_status[index] = 0;  //The address is invalid
+                        ;
                 }
                 sm_ADD_reg = 0;
 
@@ -2167,7 +2222,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 for(index = 0; index < sm_max; index++)
                 {
                     if(sm_ADD_reg == sm_ADD[index])
-                        sm_ADD_status[index] = 0;  //The address is invalid
+                        //sm_ADD_status[index] = 0;  //The address is invalid
+                        ;
                 }
                 sm_ADD_reg = 0;
 
@@ -2265,7 +2321,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 for(index = 0; index < sm_max; index++)
                 {
                     if(sm_ADD_reg == sm_ADD[index])
-                        sm_ADD_status[index] = 0;  //The address is invalid
+                        //sm_ADD_status[index] = 0;  //The address is invalid
+                        ;
                 }
                 sm_ADD_reg = 0;
 
@@ -2473,10 +2530,11 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     {
                         Timeout_Pong = 1;
                     }
-                    dataReg_Ping[0] = (uint16)(((sm_ADD[ack_index]) >> 48) & 0x000000000000FFFF); //ADD_3
-                    dataReg_Ping[1] = (uint16)(((sm_ADD[ack_index]) >> 32) & 0x000000000000FFFF); //ADD_2
-                    dataReg_Ping[2] = (uint16)(((sm_ADD[ack_index]) >> 16) & 0x000000000000FFFF); //ADD_1
-                    dataReg_Ping[3] = (uint16)((sm_ADD[ack_index]) & 0x000000000000FFFF); //ADD_0
+                    zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
+                    dataReg_Ping[0] = (uint16)(((sm_ADD_prio) >> 48) & 0x000000000000FFFF); //ADD_3
+                    dataReg_Ping[1] = (uint16)(((sm_ADD_prio) >> 32) & 0x000000000000FFFF); //ADD_2
+                    dataReg_Ping[2] = (uint16)(((sm_ADD_prio) >> 16) & 0x000000000000FFFF); //ADD_1
+                    dataReg_Ping[3] = (uint16)((sm_ADD_prio) & 0x000000000000FFFF); //ADD_0
                     dataReg_Ping[4] = 0;
                     dataReg_Ping[5] = 0;
                     dataReg_Ping[6] = 0;
@@ -2487,17 +2545,18 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         dataReg_Ping[7 + i] = 0;
                     */
                     dataReg_Ping[7 + len_DataReg] = 0;   //STATUS
-                    dataReg_Ping[8 + len_DataReg] = (uint16)((TimeStruct.month == 12)? (TimeStruct.year + 1) : TimeStruct.year); //YEAR
-                    dataReg_Ping[9 + len_DataReg] = (uint16)((TimeStruct.month == 12)? 1: (TimeStruct.month + 1)); //MONTH
+                    dataReg_Ping[8 + len_DataReg] = (uint16)((TimeStruct.month == 12) ? (TimeStruct.year + 1) : TimeStruct.year); //YEAR
+                    dataReg_Ping[9 + len_DataReg] = (uint16)((TimeStruct.month == 12) ? 1 : (TimeStruct.month + 1)); //MONTH
                     dataReg_Ping[10 + len_DataReg] = (uint16)TimeStruct.day + 1;
                     dataReg_Ping[11 + len_DataReg] = (uint16)TimeStruct.hour;
                     dataReg_Ping[12 + len_DataReg] = (uint16)TimeStruct.minutes;
                     dataReg_Ping[13 + len_DataReg] = (uint16)TimeStruct.seconds;
 
-                    dataReg_Pong[0] = (uint16)(((sm_ADD[ack_index]) >> 48) & 0x000000000000FFFF); //ADD_3
-                    dataReg_Pong[1] = (uint16)(((sm_ADD[ack_index]) >> 32) & 0x000000000000FFFF); //ADD_2
-                    dataReg_Pong[2] = (uint16)(((sm_ADD[ack_index]) >> 16) & 0x000000000000FFFF); //ADD_1
-                    dataReg_Pong[3] = (uint16)((sm_ADD[ack_index]) & 0x000000000000FFFF); //ADD_0
+                    zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
+                    dataReg_Pong[0] = (uint16)(((sm_ADD_prio) >> 48) & 0x000000000000FFFF); //ADD_3
+                    dataReg_Pong[1] = (uint16)(((sm_ADD_prio) >> 32) & 0x000000000000FFFF); //ADD_2
+                    dataReg_Pong[2] = (uint16)(((sm_ADD_prio) >> 16) & 0x000000000000FFFF); //ADD_1
+                    dataReg_Pong[3] = (uint16)((sm_ADD_prio) & 0x000000000000FFFF); //ADD_0
                     dataReg_Pong[4] = 0;
                     dataReg_Pong[5] = 0;
                     dataReg_Pong[6] = 0;
@@ -2547,17 +2606,17 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                           }
                           first_complete = 0;
                         */
-                        if(ack_index < (sm_max - 1))
+                        if(ack_index < (num_prio_sm_max - 1))
                         {
                             ack_index++;                                 //at first, the DRR command actually will send request to two Smart Meter, so the Smart Meter address need update.
-                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                             {
                                 ack_index++;
                             }
                             if((sm_ADD_status[ack_index] == 0) && ack_index == (sm_max - 1))
                             {
                                 ack_index = 0;
-                                while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                                while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                                 {
                                     ack_index++;
                                 }
@@ -2569,7 +2628,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         else
                         {
                             ack_index = 0;
-                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                             {
                                 ack_index++;
                             }
@@ -2588,17 +2647,17 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     if(first_complete == 1)
                     {
                         //HalLcdWriteString( "datawait2", HAL_LCD_LINE_6 );
-                        if(ack_index < (sm_max - 1))
+                        if(ack_index < (num_prio_sm_max - 1))
                         {
                             ack_index++;                                 //at first, the DRR command actually will send request to two Smart Meter, so the Smart Meter address need update.
-                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                             {
                                 ack_index++;
                             }
                             if((sm_ADD_status[ack_index] == 0) && ack_index == (sm_max - 1))
                             {
                                 ack_index = 0;
-                                while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                                while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                                 {
                                     ack_index++;
                                 }
@@ -2616,7 +2675,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         else
                         {
                             ack_index = 0;
-                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
+                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                             {
                                 ack_index++;
                             }
@@ -2664,7 +2723,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 for(index = 0; index < sm_max; index++)
                 {
                     if(sm_ADD_reg == sm_ADD[index])
-                        sm_ADD_status[index] = 0;  //The address is invalid
+                        //sm_ADD_status[index] = 0;  //The address is invalid
+                        ;
                 }
                 sm_ADD_reg = 0;
 
@@ -2704,7 +2764,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 for(index = 0; index < sm_max; index++)
                 {
                     if(sm_ADD_reg == sm_ADD[index])
-                        sm_ADD_status[index] = 0;  //The address is invalid
+                        //sm_ADD_status[index] = 0;  //The address is invalid
+                        ;
                 }
                 sm_ADD_reg = 0;
 
@@ -4001,11 +4062,11 @@ static void Process_Wired_Cmd(void)
         //HalLcdWriteString( "start2", HAL_LCD_LINE_5 );
 
         uint32 wait_timenew = osal_GetSystemClock();
-/*
-        while (osal_GetSystemClock() - wait_timenew < 30)
-        {
-        };
-*/
+        /*
+                while (osal_GetSystemClock() - wait_timenew < 30)
+                {
+                };
+        */
         SmartMeter_flaginc = UINT8_TO_16(USB_Msg_in[15], USB_Msg_in[16]);
         zclCoordinator_SendData();   //send request to get data
     }
@@ -5635,37 +5696,54 @@ static void zclCoordinator_ReadRoutingTable(uint8 sm_i)
     usbibufPush(&usbCdcInBufferData, pack_out, 26);
 }
 
-static uint16 zclCoordinator_recognise_sm_id(void)
+
+static uint8 zclCoordinator_smIEEE_to_id(uint64 sm_ADD_64)
 {
-    uint16 sm_add_id[4] = {0};
-    uint8 i = 0;
-    for(i = 0; i < 4; i++)
-    {
-        sm_add_id[i] = ((uint16)(controlReg[i * 2 + 7]) << 8) + controlReg[i * 2 + 8];
-    }
-    if(sm_add_id[0] == 0x0012 && sm_add_id[1] == 0x4B00 && sm_add_id[2] == 0x040F && sm_add_id[3] == 0x1A3C)
-        return 0x0000;
-    else if(sm_add_id[0] == 0x0012 && sm_add_id[1] == 0x4B00 && sm_add_id[2] == 0x040F && sm_add_id[3] == 0x1C77)
-        return 0x0001;
-    else if(sm_add_id[0] == 0x0012 && sm_add_id[1] == 0x4B00 && sm_add_id[2] == 0x040E && sm_add_id[3] == 0xF19E)
-        return 0x0002;
-    else if(sm_add_id[0] == 0x0012 && sm_add_id[1] == 0x4B00 && sm_add_id[2] == 0x040F && sm_add_id[3] == 0x05B3)
-        return 0x0003;
+
+    if(sm_ADD_64 == 0x00124B00040F1A3C)
+        return 0x00;
+    else if(sm_ADD_64 == 0x00124B00040F1C77)
+        return 0x01;
+    else if(sm_ADD_64 == 0x00124B00040EF19E)
+        return 0x02;
+    else if(sm_ADD_64 == 0x00124B000413318E)
+        return 0x03;
+    else if(sm_ADD_64 == 0x00124B000413328A)
+        return 0x04;
+    else if(sm_ADD_64 == 0x00124B00040EF391)
+        return 0x05;
+    else if(sm_ADD_64 == 0x00124B00041331BF)
+        return 0x06;
+    else if(sm_ADD_64 == 0x00124B0004133698)
+        return 0x07;
 
     else
-        return 0xffff;
+        return 0xff;
 }
 
-static uint16 zclCoordinator_recognise_coor_id(void)
+static void zclCoordinator_id_to_smIEEE(uint8 sm_id_8)
 {
-    if(ADD_3 == 0x0012 && ADD_2 == 0x4B00 && ADD_1 == 0x040E  && ADD_0 == 0xF191)
-        return 0x0000;
-    else if(ADD_3 == 0x0012 && ADD_2 == 0x4B00 && ADD_1 == 0x040F && ADD_0 == 0x05B3)
-        return 0x0001;
-    else if(ADD_3 == 0x0012 && ADD_2 == 0x4B00 && ADD_1 == 0x040E && ADD_0 == 0xEEED)
-        return 0x0002;
+
+    if(sm_id_8 == 0x00)
+        sm_ADD_prio =  0x00124B00040F1A3C;
+    else if(sm_id_8 == 0x01)
+        sm_ADD_prio = 0x00124B00040F1C77;
+    else if(sm_id_8 == 0x02)
+        sm_ADD_prio = 0x00124B00040EF19E;
+    else if(sm_id_8 == 0x03)
+        sm_ADD_prio = 0x00124B000413318E;
+    else if(sm_id_8 == 0x04)
+        sm_ADD_prio = 0x00124B000413328A;
+    else if(sm_id_8 == 0x05)
+        sm_ADD_prio = 0x00124B00040EF391;
+    else if(sm_id_8 == 0x06)
+        sm_ADD_prio = 0x00124B00041331BF;
+    else if(sm_id_8 == 0x07)
+        sm_ADD_prio = 0x00124B0004133698;
+    
+
     else
-        return 0xffff;
+        sm_ADD_prio = 0xffffffffffffffff;
 }
 
 //sent calibration register package to local server

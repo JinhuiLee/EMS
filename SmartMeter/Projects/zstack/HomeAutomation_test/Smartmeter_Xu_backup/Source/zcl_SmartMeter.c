@@ -1451,7 +1451,7 @@ static void zclSmartMeter_SendData( void )
         packet[9] = (uint16)len_DataReg;
         uint8 i = 0;
         for(i = 0; i < len_DataReg; i++)
-            packet[10 + i] = (uint16)(VIT_dataReg[i] * start * power_flag); // if start = 0, return all 0
+            packet[10 + i] = (uint16)(VIT_dataReg[i] * start); // if start = 0, return all 0
         packet[10 + len_DataReg] = STATUS;
         packet[11 + len_DataReg] = YEAR;
         packet[12 + len_DataReg] = MONTH;
@@ -3828,16 +3828,9 @@ static void zclSmartMeter_calibrateInc(void)
             
             RMS_V2 = (uint16)((sqrt(rmsTemp_V2 / l_nSamples + SUM_SQUR_LIMIT / l_nSamples * overflow_num_V2) * MAG_V[count_MAG++]) / 100); //get RMS voltage
             
+           
             
-            if(RMS_V2 < (uint8)((float)MAX_V * 0.8))
-                power_flag = 0;
-            else
-                power_flag = 1;
-            
-            if(power_flag == 1)
-                VIT_dataReg[k++] = RMS_V2;
-            else
-                VIT_dataReg[k++] = 0;
+            VIT_dataReg[k++] = RMS_V2;
             
             char lcdString[10];
             sprintf((char *)lcdString, "%d %d %d", (uint8)RMS_V2 , (uint8)MAX_V, power_flag);
@@ -3899,11 +3892,15 @@ static void zclSmartMeter_calibrateInc(void)
                 /////////////////////////////////////////////////  
               
                 RMS_I2[i] = (uint16)((sqrt(rmsTemp_I2[i] / l_nSamples + SUM_SQUR_LIMIT / l_nSamples * overflow_num_I2[i]) * MAG_I[count_MAG++]) / 100); //get RMS current
-                if(power_flag == 1)
-                    VIT_dataReg[k++] = RMS_I2[i];
+
+                if(RMS_I2[i] < 15)////////////////////////////////////////////////////////
+                    power_flag = 0;
                 else
-                    VIT_dataReg[k++] = 0;
-                VIT_dataReg[k++] = Theta2[i];
+                    power_flag = 1;
+                
+                VIT_dataReg[k++] = RMS_I2[i] * power_flag;
+
+                VIT_dataReg[k++] = Theta2[i] * power_flag;
 
                 powerVal[j] = RMS_V2 * RMS_I2[i];                     //get power
                 energyVal[j] += (uint64)(( powerVal[j] * enecal_timeperiod * TIMEINDEX ));  //energy in W.s  * 100000
