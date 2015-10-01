@@ -196,7 +196,7 @@ uint16 first_complete = 1;
 uint8  Timeout_bit = 0;
 uint8 all_invaild_flag = 1;
 uint8 com_add_rcv_flag = 0;
-uint8 cal_receive_flag = 0;
+bool cal_receive_flag = 0;
 uint8 para_set_rcv_flag = 0;
 uint32 ENERGY_RESET_VALUE = 0xffffffff;
 uint32 SmartMeter_ENERGY_RESET_VALUE = 0xfffffffe; //smart meter response to RESET
@@ -1088,7 +1088,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                             
                             //test
                             sm_routing_prio_table[49] = (uint8)num_prio_sm_max;
-                            HalUART0Write ( HAL_UART_PORT_0, sm_routing_prio_table, 50);
+                            //HalUART0Write ( HAL_UART_PORT_0, sm_routing_prio_table, 50);
 
                         }
                     }
@@ -2312,11 +2312,12 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
         else if ( WAIT_EVT_INDEX == Calibration_WAIT )
         {
-            ////HalLcdWriteString( "cali", HAL_LCD_LINE_6 );
-            int index;
+            
+            //int index;
             time_new = osal_GetSystemClock();
             if((time_new - time_old) > 0x00000FA0)   ///4000ms
             {
+                /*
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
                 {
@@ -2325,19 +2326,20 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         ;
                 }
                 sm_ADD_reg = 0;
-
-                zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
+                */
+                
 
                 cal_receive_flag = 0;
+                zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
                 time_new = 0;
                 time_old = 0;
                 WAIT_EVT_INDEX = 0x0000;
             }
             else
             {
-                if ( cal_receive_flag )
-
+                if (cal_receive_flag == 1)
                 {
+                    
                     zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
                     cal_receive_flag = 0;
                     time_new = 0;
@@ -4054,6 +4056,7 @@ static void Process_Wired_Cmd(void)
 
     if ((OPERATION == CALIBRATE) && (RESULT == SUCCESS))
     {
+        HalLcdWriteString( "cali", HAL_LCD_LINE_7 );
         cal_receive_flag = 1;
     }
 
