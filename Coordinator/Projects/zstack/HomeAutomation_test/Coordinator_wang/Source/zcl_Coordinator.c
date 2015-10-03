@@ -1709,6 +1709,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         {
             if(ack_index < (num_prio_sm_max - 1))
             {
+                /*
                 uint16 i;
                 for(i = ack_index + 1; i < sm_max; i++)
                     smvalid_flag = smvalid_flag || sm_ADD_status[i];
@@ -1723,14 +1724,17 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 else
                 {
                     ack_index++;
-                    /*
-                    while((sm_ADD_status[ack_index] == 0) && (ack_index < (sm_max - 1)))
-                    {
-                        ack_index++;
-                    }
-                    */
+
                     osal_set_event(task_id, ACK_CS_EVT);
+                    
+                    uint8 test[4] = {0};
+                    test[0] = ack_index;
+                    test[1] = (uint8)num_prio_sm_max;
+                    HalUART0Write ( HAL_UART_PORT_0, test, 4);
                 }
+                */
+                ack_index++;
+                osal_set_event(task_id, ACK_CS_EVT);
             }
             else
             {
