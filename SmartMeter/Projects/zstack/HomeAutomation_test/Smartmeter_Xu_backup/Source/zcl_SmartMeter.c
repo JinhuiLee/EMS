@@ -664,6 +664,11 @@ void Configuration_Reg_Process()  //once
 
     uint8 i = 0;
     len_DataReg = 0;
+    Num_phase[0] = 0;
+    Num_phase[1] = 0;
+    Num_phase[2] = 0;
+    Num_phase[3] = 0;
+    Num_phase[4] = 0;
 
     for(i = 0; i < 8; i++)
     {
@@ -914,7 +919,7 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
                   len_uart1 = 0;
                   second_time_in = 0;
                   sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
-                  HalLcdWriteString( lcdString, HAL_LCD_LINE_4 );
+                  //HalLcdWriteString( lcdString, HAL_LCD_LINE_4 );
               }
            }          
         }
@@ -1343,7 +1348,7 @@ static void zclSmartMeter_SendConfigAck( void )                                 
     }
     else if( Connect_Mode == WIRED_CONNECTION)
     {
-        uint16 packet[] = {COM_CONFIG, SUCCESS, SM_CONFIG_2, SM_CONFIG_1, SM_CONFIG_0};
+        uint16 packet[] = {COM_CONFIG, SUCCESS};
 
         pack_out[0] = 0x68;
         uint8 i;
@@ -2226,8 +2231,8 @@ static void zclSmartMeter_calWriteParam( void )
         SM_ADD16 = 0x0002;
 
     calReg[4] = UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4);
-    calReg[5] = UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4);
-    calReg[6] = UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4);
+    calReg[5] = UINT8_TO_16(SM_CONFIG_3, SM_CONFIG_2);
+    calReg[6] = UINT8_TO_16(SM_CONFIG_1, SM_CONFIG_0);
 
     uint8 i = 0;
     for(i = 0; i < 8; i++)
@@ -2619,8 +2624,8 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             && ADD_1 == ((uint16)((((Msg_in[5]) & 0x00FF) << 8) + (Msg_in[6] & 0x00FF))) && ADD_0 == ((uint16)((((Msg_in[7]) & 0x00FF) << 8) + (Msg_in[8] & 0x00FF))))
     {
 
-        //sprintf((char *)lcdString, "%x %x", (uint8)COMMAND, (uint8)OPERATION );
-        //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+        sprintf((char *)lcdString, "%x %x", (uint8)COMMAND, (uint8)OPERATION );
+        HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
 
         //prosecc relay control command
         if (COMMAND == RELAY)
@@ -2912,7 +2917,7 @@ void zclSmartMeter_ProcessUART_Pkt(void)
 
         else if ((COMMAND == CALIBRATE))
         {
-            HalLcdWriteString( "cali0", HAL_LCD_LINE_4 );
+            //HalLcdWriteString( "cali0", HAL_LCD_LINE_4 );
             V_CAL = UINT8_TO_16(Msg_in[13], Msg_in[14]);
             I_CAL = UINT8_TO_16(Msg_in[15], Msg_in[16]);
             T_CAL = UINT8_TO_16(Msg_in[17], Msg_in[18]);
@@ -2961,16 +2966,31 @@ void zclSmartMeter_ProcessUART_Pkt(void)
 
         else if (COMMAND == COM_CONFIG)
         {
+          
             SM_CONFIG_5 = Msg_in[13];
             SM_CONFIG_4 = Msg_in[14];
             SM_CONFIG_3 = Msg_in[15];
             SM_CONFIG_2 = Msg_in[16];
             SM_CONFIG_1 = Msg_in[17];
             SM_CONFIG_0 = Msg_in[18];
-            Configuration_Reg_Process();
+            
             //Update flash memory
-            zclSmartMeter_WriteConfigReg();
             zclSmartMeter_SendConfigAck();
+          
+            zclSmartMeter_WriteConfigReg();
+                
+            for (uint8 i = 0; i < 3; i++)
+                ConfigReg[i] = 0;
+            zclSmartMeter_ReadConfigReg();
+
+            SM_CONFIG_5 = (uint8)((ConfigReg[0] & 0xff00) >> 8);
+            SM_CONFIG_4 = (uint8)((ConfigReg[0] & 0x00ff));
+            SM_CONFIG_3 = (uint8)((ConfigReg[1] & 0xff00) >> 8);
+            SM_CONFIG_2 = (uint8)((ConfigReg[1] & 0x00ff));
+            SM_CONFIG_1 = (uint8)((ConfigReg[2] & 0xff00) >> 8);
+            SM_CONFIG_0 = (uint8)((ConfigReg[2] & 0x00ff));
+            
+            Configuration_Reg_Process();
 
         }
 
@@ -3357,8 +3377,8 @@ static void zclSmartMeter_calibrateInc(void)
         else if(CAL_OPT == CAL_VOL)
         {
 
-            sprintf((char *)lcdString, "sample: %d", l_nSamples );
-            HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+            //sprintf((char *)lcdString, "sample: %d", l_nSamples );
+            //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
 
             if (l_nSamples == N_CAL * 2)
             {
@@ -3400,8 +3420,8 @@ static void zclSmartMeter_calibrateInc(void)
 
         else if(CAL_OPT == CAL_CUR)
         {
-            sprintf((char *)lcdString, "sample: %d", l_nSamples );
-            HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+            //sprintf((char *)lcdString, "sample: %d", l_nSamples );
+            //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
 
             if (l_nSamples == N_CAL * 2)
             {
@@ -3516,8 +3536,8 @@ static void zclSmartMeter_calibrateInc(void)
 */
         else if(CAL_OPT == CAL_GEN_1)
         {
-            sprintf((char *)lcdString, "samplegen1: %d", l_nSamples );
-            HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+            //sprintf((char *)lcdString, "samplegen1: %d", l_nSamples );
+            //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
 
             if (l_nSamples == N_CAL * 4)
             {
@@ -3551,8 +3571,8 @@ static void zclSmartMeter_calibrateInc(void)
 
         else if(CAL_OPT == CAL_GEN_2)
         {
-            sprintf((char *)lcdString, "samplegen2: %d", l_nSamples );
-            HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+            //sprintf((char *)lcdString, "samplegen2: %d", l_nSamples );
+            //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
 
             if (l_nSamples == N_CAL * 4)
             {

@@ -1424,6 +1424,15 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                     if(routing_all_flag == 1)
                     {
+                      /*
+                        ack_index = 0;   //To make it stop current round robin immediately, and start a new one
+                        datain_complete = 0;
+                        first_write_flag = 1;
+                        Drr_flag = 0;
+                        ACK_flag = 1;
+                        PowSpCal = 0;
+                        Round_end_flag = 0;
+                      */
                         for(uint8 i = 0; i < 20; i++)
                             sm_ADD_status[i] = 1;
                     }
