@@ -15,6 +15,7 @@
 #include "ZDProfile.h"
 #include "MT_SYS.h"
 #include "zcl.h"
+#include "aes.h"
 #include "zcl_general.h"
 #include "zcl_ha.h"
 #include "zcl_ezmode.h"
@@ -375,10 +376,10 @@ uint16 paramReg[18] = {0};
 uint16 calReg[40] = {0};
 
 uint16 dataReg[30];
-uint16 coordinator_Addr_3;
-uint16 coordinator_Addr_2;
-uint16 coordinator_Addr_1;
-uint16 coordinator_Addr_0;
+uint16 coordinator_Addr_3 = 0x0000;
+uint16 coordinator_Addr_2 = 0x0000;
+uint16 coordinator_Addr_1 = 0x0000;
+uint16 coordinator_Addr_0 = 0x0000;
 uint16 ADD_3;
 uint16 ADD_2;
 uint16 ADD_1;
@@ -404,6 +405,8 @@ uint32 switch_timenew = 0;
 uint8 first_time_in = 1;
 uint8 second_time_in = 0;
 uint8 len_uart1 = 0;
+
+uint8_t ui8AESKey[16] = {0};
 /*********************************************************************
  * GLOBAL FUNCTIONS
  */
@@ -460,7 +463,7 @@ static void mul(complex , complex , complex *);
 static void sub(complex , complex , complex *);
 static void divi(complex , complex , complex *);
 
-
+static uint8_t AesEncryptDecrypt(uint8_t *pui8Key, uint8_t *pui8Buf, uint8_t ui8KeyLocation, uint8_t ui8Encrypt);
 // app SmartMeter functions
 static void zclSmartMeter_SendParam(void);
 static void zclSmartMeter_SendTime(void);
@@ -641,6 +644,12 @@ void zclSmartMeter_Init( byte task_id )
     MT_UartInit();
     MT_UartRegisterTaskID(zclSmartMeter_TaskID);
     initUART();
+    
+    //
+    // Enable AES peripheral
+    //
+    SysCtrlPeripheralReset(SYS_CTRL_PERIPH_AES);
+    SysCtrlPeripheralEnable(SYS_CTRL_PERIPH_AES);
     enecal_timeold = osal_GetSystemClock();
     enecal_timenew = enecal_timeold;
     Configuration_Reg_Process();
@@ -895,11 +904,69 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
               //HalLcdWriteString( "uartstep1", HAL_LCD_LINE_3 );
            }
            else if (!second_time_in)
-           {          
+           {   
+              /*
+              uint8_t ui8AESKey[16] =  { 0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00,
+        0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00 };
+              
+              uint8 len_data = len_uart1 - 13;
+        
+              for(uint8 i = 0; i < ((len_data%16)? (len_data / 16 + 1) : (len_data / 16)) ; i++)
+                  AesEncryptDecrypt(ui8AESKey, pack_out+ 11 + 16 * i, 0, ENCRYPT_AES);
+             
+              pack_out[len_uart1 - 2] = 0;
+              for (uint8 i = 0; i < len_uart1 - 2; i++ )
+                  pack_out[len_uart1 - 2] +=  pack_out[i];
+              */
               if (osal_GetSystemClock() - switch_timenew >= 37 )
               {
-                  HalUART1Write ( HAL_UART_PORT_1, pack_out, len_uart1);  
-                  //HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_uart1);    
+                  
+                    
+                  for(uint8 i = 0; i < 8; i++)                  
+                      ui8AESKey[i] = pack_out[i + 1];
+
+                  /*
+                  ui8AESKey[8] = (uint8)((coordinator_Addr_3 & 0xff00) >> 8);
+                  ui8AESKey[9] = (uint8)(coordinator_Addr_3 & 0x00ff);
+                  ui8AESKey[10] = (uint8)((coordinator_Addr_2 & 0xff00) >> 8);
+                  ui8AESKey[11] = (uint8)(coordinator_Addr_2 & 0x00ff);
+                  ui8AESKey[12] = (uint8)((coordinator_Addr_1 & 0xff00) >> 8);
+                  ui8AESKey[13] = (uint8)(coordinator_Addr_1 & 0x00ff);
+                  ui8AESKey[14] = (uint8)((coordinator_Addr_0 & 0xff00) >> 8);
+                  ui8AESKey[15] = (uint8)(coordinator_Addr_0 & 0x00ff);
+                    */
+                  HalUART0Write ( HAL_UART_PORT_0, ui8AESKey, 16);
+                  uint8 len_data = 0;
+                  len_data = len_uart1 - 13;
+                  
+                  
+                  
+                  uint8 encry_data[70] = {0};
+                  
+                  for (uint8 i = 0; i < len_data; i++)
+                      encry_data[i] = pack_out[i + 11];
+                  
+                  // change data length to make encryption package stay the same
+                  len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+                  
+                  //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+                  for(uint8 i = 0; i < (len_data / 16) ; i++)
+                      AesEncryptDecrypt(ui8AESKey, encry_data + 16 * i, 0, ENCRYPT_AES);
+                 
+                  //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+                  for (uint8 i = 0; i < len_data; i++)
+                      pack_out[i + 11] = encry_data[i];
+                  
+                  pack_out[len_data + 11] = 0x00;
+                  for (uint8 i = 0; i < len_data + 11; i++ )
+                      pack_out[len_data + 11] +=  pack_out[i];
+                  
+                  pack_out[len_data + 12] = 0x16;
+                  pack_out[10] = len_data;
+                  
+                    
+                  HalUART1Write ( HAL_UART_PORT_1, pack_out, len_data + 13);  
+                  HalUART0Write ( HAL_UART_PORT_0, pack_out, len_data + 13);    
                   for( uint8 i = 0; i < 120; i++)
                        pack_out[i] = 0;
                   second_time_in = 1;
@@ -1050,7 +1117,38 @@ static void zclSmartMeter_HandleKeys( byte shift, byte keys )
     if ( keys & HAL_KEY_SW_1 )
     {
         zclSmartMeter_LcdPowerDisplayUpdate();
-        start = 1;
+        //start = 1;
+       /*
+       uint8_t ui8AESKey[16] =  { 0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00,
+        0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00 };
+       uint8 buffer[37] = { 0x5a, 0x5f, 0x57, 0x58, 0x55, 0x53, 0x06, 0x0f, 
+         0x6c, 0x5f, 0x51, 0x74, 0x53, 0x53, 0x77, 0x5a,    
+        0x6c, 0x5c, 0x51, 0x74, 0x53, 0x53, 0x77, 0x5a,
+        0x5a, 0x5f, 0x57, 0x58, 0x56, 0x53, 0x06, 0x0f, 
+        0x41, 0x32, 0x5a, 0x6c, 0xaa };
+
+        char  lcdString[10];
+        switch_timenew = osal_GetSystemClock();
+
+        
+        AesEncryptDecrypt(ui8AESKey, buffer, 1, ENCRYPT_AES);
+        //HalUART0Write ( HAL_UART_PORT_0, buffer, 16);
+        AesEncryptDecrypt(ui8AESKey, buffer+16, 1, ENCRYPT_AES);
+        //HalUART0Write ( HAL_UART_PORT_0, buffer+16, 16);
+        AesEncryptDecrypt(ui8AESKey, buffer+32, 1, ENCRYPT_AES);
+        HalUART0Write ( HAL_UART_PORT_0, buffer, 37);
+        
+        AesEncryptDecrypt(ui8AESKey, buffer, 1, DECRYPT_AES);
+        //HalUART0Write ( HAL_UART_PORT_0, buffer, 16);
+        AesEncryptDecrypt(ui8AESKey, buffer+16, 1, DECRYPT_AES);
+        //HalUART0Write ( HAL_UART_PORT_0, buffer+16, 16);
+        AesEncryptDecrypt(ui8AESKey, buffer+32, 1, DECRYPT_AES);
+        HalUART0Write ( HAL_UART_PORT_0, buffer, 37);       
+       
+
+        sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
+        HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+        */
     }
     if ( keys & HAL_KEY_SW_2 )
     {
@@ -2615,7 +2713,36 @@ void zclSmartMeter_ProcessUART_Pkt(void)
         sprintf((char *)lcdString, "%d %d %d %d", (int) ((uint16)((((Msg_in[1]) & 0x00FF) << 8) + (Msg_in[2] & 0x00FF))) , (int)ADD_3, (int)Msg_in[1], (int)Msg_in[2]);
         HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
     #endif
-    */
+    */   
+    
+    uint8 len_data = Msg_in[10];
+
+    ui8AESKey[0] = (uint8)((ADD_3 & 0xff00) >> 8);
+    ui8AESKey[1] = (uint8)(ADD_3 & 0x00ff);
+    ui8AESKey[2] = (uint8)((ADD_2 & 0xff00) >> 8);
+    ui8AESKey[3] = (uint8)(ADD_2 & 0x00ff);
+    ui8AESKey[4] = (uint8)((ADD_1 & 0xff00) >> 8);
+    ui8AESKey[5] = (uint8)(ADD_1 & 0x00ff);
+    ui8AESKey[6] = (uint8)((ADD_0 & 0xff00) >> 8);
+    ui8AESKey[7] = (uint8)(ADD_0 & 0x00ff);
+    
+    uint8 encry_data[70] = {0};
+    
+    
+    
+    for (uint8 i = 0; i < len_data; i++)
+        encry_data[i] = Msg_in[i + 11];
+    
+    //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+    for(uint8 i = 0; i < ((len_data%16)? (len_data / 16 + 1) : (len_data / 16)) ; i++)
+        AesEncryptDecrypt(ui8AESKey, encry_data + 16 * i, 0, DECRYPT_AES);
+    
+    //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+    for (uint8 i = 0; i < len_data; i++)
+        Msg_in[i + 11] = encry_data[i];
+    
+    
+    
     uint16 COMMAND = UINT8_TO_16(Msg_in[11], Msg_in[12]);
     uint16 OPERATION = UINT8_TO_16(Msg_in[13], Msg_in[14]);
 
@@ -3184,22 +3311,23 @@ static void zclSmartMeter_calibrateInc(void)
 
         uint32 ana_time_new = osal_GetSystemClock();
 
-        uint8 uart0show[3] = {0};
-        uart0show[0] = 0xee;
-        uart0show[1] = (uint8)(ana_time_new - ana_time_old);
-        uart0show[2] = 0xfe;
+        //uint8 uart0show[3] = {0};
+        //uart0show[0] = 0xee;
+        //uart0show[1] = (uint8)(ana_time_new - ana_time_old);
+        //uart0show[2] = 0xfe;
         //HalUART0Write ( HAL_UART_PORT_0, uart0show, 3);
-        /*
+        
         uint8 uart0show[6] = {0};
         uart0show[0] = 0xee;
-        uart0show[1] = (uint8)((senValue[5] & 0xff00) >> 8);
-        uart0show[2] = (uint8)(senValue[5] & 0x00ff);
-        uart0show[3] = (uint8)((senValue[6] & 0xff00) >> 8);
-        uart0show[4] = (uint8)(senValue[6]);
+        uart0show[1] = (uint8)((senValue[0] & 0xff00) >> 8);
+        uart0show[2] = (uint8)(senValue[0] & 0x00ff);
+        uart0show[3] = (uint8)((senValue[1] & 0xff00) >> 8);
+        uart0show[4] = (uint8)(senValue[1]);
         uart0show[5] = 0xff;
-        */
+        
         //HalUART0Write ( HAL_UART_PORT_0, uart0show, 6);
-
+        sprintf((char *)lcdString, "%d %d %d %d", uart0show[1], uart0show[2], uart0show[3], uart0show[4] );
+        HalLcdWriteString( lcdString, HAL_LCD_LINE_5 );
 
 
         l_nSamples ++;
@@ -4025,6 +4153,9 @@ void zclSmartMeter_ADC_init(void)
     // Set pins AIN6 and AIN7 as GPIO input for ADC input using, SW controlled.
 
 
+    GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_0);
+    GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_1);
+    
     GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_5);
     GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_6);
     GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_7);
@@ -4523,5 +4654,51 @@ static void zclSmartMeter_EZModeCB( zlcEZMode_State_t state, zclEZMode_CBData_t 
     }
 }
 #endif // ZCL_EZMODE
+
+//*****************************************************************************
+//
+// AesEncryptDecrypt
+//
+// param   pui8Key            Pointer to buffer containing the key
+// param   ui8KeyLocation     location of Key in the Key RAM. Must be one of
+//                            the following:
+//                            KEY_AREA_0
+//                            KEY_AREA_1
+//                            KEY_AREA_2
+//                            KEY_AREA_3
+//                            KEY_AREA_4
+//                            KEY_AREA_5
+//                            KEY_AREA_6
+//                            KEY_AREA_7
+// param   pui8Buf            pointer to input Buffer
+// param   ui8Encrypt is set 'true' to ui8Encrypt or set 'false' to decrypt.
+// return  AES_SUCCESS if successful
+//
+//*****************************************************************************
+uint8_t AesEncryptDecrypt(uint8_t *pui8Key,
+                          uint8_t *pui8Buf,
+                          uint8_t ui8KeyLocation,                         
+                          uint8_t ui8Encrypt)
+{
+
+    //
+    // example using polling
+    //
+
+    AESLoadKey((uint8_t*)pui8Key, ui8KeyLocation);
+    AESECBStart(pui8Buf, pui8Buf, ui8KeyLocation, ui8Encrypt, false);
+    
+    //
+    // wait for completion of the operation
+    //
+    do
+    {
+        ASM_NOP;
+    }while(!(AESECBCheckResult()));
+    
+    AESECBGetResult();
+
+    return (AES_SUCCESS);
+}
 /****************************************************************************
 ****************************************************************************/

@@ -17,6 +17,8 @@ extern "C"
 /*********************************************************************
  * CONSTANTS
  */
+#define ENCRYPT_AES            1
+#define DECRYPT_AES            0  
 #define SmartMeter_ENDPOINT            8
 #define SmartMeter_MAX_ATTRIBUTES      17
 #define WIRELESS_CONNECTION             0x0001

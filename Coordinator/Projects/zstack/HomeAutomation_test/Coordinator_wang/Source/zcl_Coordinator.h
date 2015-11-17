@@ -17,6 +17,9 @@ extern "C"
 /*********************************************************************
  * CONSTANTS
  */
+#define ENCRYPT_AES            1
+#define DECRYPT_AES            0
+#define Coordinator_MAX_ATTRIBUTES      15
 #define Coordinator_ENDPOINT            8
 #define Coordinator_MAX_ATTRIBUTES      15
 #define LIGHT_OFF                       0x00

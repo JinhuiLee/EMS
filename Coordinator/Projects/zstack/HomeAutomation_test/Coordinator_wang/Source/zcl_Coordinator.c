@@ -43,7 +43,7 @@
 #include "ZDObject.h"
 #include "MT_APP.h"
 #include "MT_SYS.h"
-
+#include "aes.h"
 #include "zcl.h"
 #include "zcl_general.h"
 #include "zcl_ha.h"
@@ -307,6 +307,7 @@ uint8_t pInBuffer[128];
 uint8_t pOutBuffer[128];
 uint8_t pAppBuffer[128];
 
+uint8_t ui8AESKey[16] = {0};
 /*********************************************************************
  * GLOBAL FUNCTIONS
  */
@@ -367,6 +368,8 @@ static endPointDesc_t Coordinator_TestEp =
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
+static uint8_t AesEncryptDecrypt(uint8_t *pui8Key, uint8_t *pui8Buf, uint8_t ui8KeyLocation, uint8_t ui8Encrypt);
+
 static void zclCoordinator_HandleKeys( byte shift, byte keys );
 static void zclCoordinator_BasicResetCB( void );
 static void zclCoordinator_IdentifyCB( zclIdentify_t *pCmd );
@@ -573,8 +576,14 @@ void zclCoordinator_Init( byte task_id )
     MT_UartInit();
     MT_UartRegisterTaskID(zclCoordinator_TaskID);
 
-    initUART();  //Michelle: Use UART funcitons directly
+    initUART();  
 
+    //
+    // Enable AES peripheral
+    //
+    SysCtrlPeripheralReset(SYS_CTRL_PERIPH_AES);
+    SysCtrlPeripheralEnable(SYS_CTRL_PERIPH_AES);
+    
     initUSB();
 
     //Initialize controlReg in the coordinator
@@ -834,12 +843,68 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 HalLcdWriteString( "uartstep1", HAL_LCD_LINE_3 );
             }
             else if (!second_time_in)
-            {
-                //if (osal_GetSystemClock() - switch_timenew >= 30 )
+            {                
+                
                 if (osal_GetSystemClock() - switch_timenew >= 35 )
                 {
-                    HalUART1Write ( HAL_UART_PORT_1, send_buffer, len_uart1);
-                    //HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_uart1);
+                    
+                    
+                    for(uint8 i = 0; i < 8; i++)
+                    {
+                        ui8AESKey[i] = send_buffer[i + 1];
+                    }
+                    
+                    
+                    if(send_buffer[14] == COM_ADD)
+                    {
+                        for(uint8 i = 8; i < 16; i++)
+                        {
+                            ui8AESKey[i] = 0;
+                        }
+                    }
+                    
+                    
+                    
+                    uint8 len_data = 0;
+                    len_data = len_uart1 - 13;
+                    
+                    uint8 encry_data[70] = {0};
+                    
+                    for (uint8 i = 0; i < len_data; i++)
+                        encry_data[i] = send_buffer[i + 11];
+                    
+                    // change data length to make encryption package stay the same
+                    len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+                    
+                    //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+                    for(uint8 i = 0; i < (len_data / 16) ; i++)
+                        AesEncryptDecrypt(ui8AESKey, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+                    /*
+                    ui8AESKey[8] = (uint8)((ADD_3 & 0xff00) >> 8);
+                    ui8AESKey[9] = (uint8)(ADD_3 & 0x00ff);
+                    ui8AESKey[10] = (uint8)((ADD_2 & 0xff00) >> 8);
+                    ui8AESKey[11] = (uint8)(ADD_2 & 0x00ff);
+                    ui8AESKey[12] = (uint8)((ADD_1 & 0xff00) >> 8);
+                    ui8AESKey[13] = (uint8)(ADD_1 & 0x00ff);
+                    ui8AESKey[14] = (uint8)((ADD_0 & 0xff00) >> 8);
+                    ui8AESKey[15] = (uint8)(ADD_0 & 0x00ff);
+                    */
+                    HalUART0Write ( HAL_UART_PORT_0, ui8AESKey, 16);                   
+                    //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+                    for (uint8 i = 0; i < len_data; i++)
+                        send_buffer[i + 11] = encry_data[i];
+                    
+                    send_buffer[len_data + 11] = 0x00;
+                    for (uint8 i = 0; i < len_data + 11; i++ )
+                        send_buffer[len_data + 11] +=  send_buffer[i];
+                    send_buffer[len_data + 12] = 0x16;
+                    send_buffer[10] = len_data;
+                    ///////////////////////////////////////////////////////////////////////
+                    
+                    
+                    HalUART1Write ( HAL_UART_PORT_1, send_buffer, len_data + 13);
+                    //HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
                     for( uint8 i = 0; i < 70; i++)
                         send_buffer[i] = 0;
                     second_time_in = 1;
@@ -2835,13 +2900,34 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
 {
     if ( keys & HAL_KEY_SW_1 )
     {
-        uint8 buffer[44] = {0x68 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x68 ,
-                            0x1F , 0x48 , 0x02 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 ,
-                            0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 , 0x00 ,
-                            0x00 , 0x00 , 0x00 , 0x00 , 0x39 , 0x16
-                           };
+      
+       uint8_t ui8AESKey[16] =  { 0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00,
+        0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00 };
+       uint8 buffer[16] = { 0x5a, 0x5f, 0x57, 0x58, 0x55, 0x53, 0x06, 0x0f, 
+         0x6c, 0x5f, 0x51, 0x74, 0x53, 0x53, 0x77, 0x5a};
 
-        HalUART1Write ( HAL_UART_PORT_1, buffer, 44);
+        char  lcdString[10];
+        switch_timenew = osal_GetSystemClock();
+
+        
+        AesEncryptDecrypt(ui8AESKey, buffer, 0, ENCRYPT_AES);
+        //HalUART0Write ( HAL_UART_PORT_0, buffer, 16);
+        //AesEncryptDecrypt(ui8AESKey, buffer+16, 1, ENCRYPT_AES);
+        //HalUART0Write ( HAL_UART_PORT_0, buffer+16, 16);
+        //AesEncryptDecrypt(ui8AESKey, buffer+32, 1, ENCRYPT_AES);
+        HalUART0Write ( HAL_UART_PORT_0, buffer, 16);
+        
+        AesEncryptDecrypt(ui8AESKey, buffer, 0, DECRYPT_AES);
+        //HalUART0Write ( HAL_UART_PORT_0, buffer, 16);
+        //AesEncryptDecrypt(ui8AESKey, buffer+16, 1, DECRYPT_AES);
+        //HalUART0Write ( HAL_UART_PORT_0, buffer+16, 16);
+        //AesEncryptDecrypt(ui8AESKey, buffer+32, 1, DECRYPT_AES);
+        HalUART0Write ( HAL_UART_PORT_0, buffer, 16);       
+        
+
+        //sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
+        //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+        
 
     }
 
@@ -3822,12 +3908,34 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
  */
 static void Process_Wired_Cmd(void)
 {
+  /*
+    uint8_t ui8AESKey[16] =  { 0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00,
+        0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00 };
+  */
+    uint8 len_data = USB_Msg_in[10];
+
+    uint8 encry_data[70] = {0};
+    
+    for (uint8 i = 0; i < len_data; i++)
+        encry_data[i] = USB_Msg_in[i + 11];
+    
+    for(uint8 i = 0; i < ((len_data%16)? (len_data / 16 + 1) : (len_data / 16)) ; i++)
+        AesEncryptDecrypt(ui8AESKey, encry_data + 16 * i, 0, DECRYPT_AES);
+    
+    for (uint8 i = 0; i < len_data; i++)
+        USB_Msg_in[i + 11] = encry_data[i];
+
+    
     uint16 OPERATION = UINT8_TO_16(USB_Msg_in[11], USB_Msg_in[12]);
     uint16 RESULT = UINT8_TO_16(USB_Msg_in[13], USB_Msg_in[14]);
 
     uint16 ENERGY_RESET_VALUE_1;
     uint16 ENERGY_RESET_VALUE_0;
 
+    char  lcdString[10];
+    sprintf((char *)lcdString, "%x %x", (uint8)OPERATION, (uint8)RESULT );
+    HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+        
     if ((OPERATION == SET_PARAM) && (RESULT == SUCCESS))
     {
         // store the current parameter value sent over the air from smart meter *
@@ -5894,4 +6002,50 @@ void zclCoordinator_sendACK(uint8 ControlReg0, uint8 ControlReg1, uint8 ControlR
     UARTDisable(UART0_BASE);
     */
     usbibufPush(&usbCdcInBufferData, pack_out, 17);
+}
+
+//*****************************************************************************
+//
+// AesEncryptDecrypt
+//
+// param   pui8Key            Pointer to buffer containing the key
+// param   ui8KeyLocation     location of Key in the Key RAM. Must be one of
+//                            the following:
+//                            KEY_AREA_0
+//                            KEY_AREA_1
+//                            KEY_AREA_2
+//                            KEY_AREA_3
+//                            KEY_AREA_4
+//                            KEY_AREA_5
+//                            KEY_AREA_6
+//                            KEY_AREA_7
+// param   pui8Buf            pointer to input Buffer
+// param   ui8Encrypt is set 'true' to ui8Encrypt or set 'false' to decrypt.
+// return  AES_SUCCESS if successful
+//
+//*****************************************************************************
+uint8_t AesEncryptDecrypt(uint8_t *pui8Key,
+                          uint8_t *pui8Buf,
+                          uint8_t ui8KeyLocation,                         
+                          uint8_t ui8Encrypt)
+{
+
+    //
+    // example using polling
+    //
+
+    AESLoadKey((uint8_t*)pui8Key, ui8KeyLocation);
+    AESECBStart(pui8Buf, pui8Buf, ui8KeyLocation, ui8Encrypt, false);
+    
+    //
+    // wait for completion of the operation
+    //
+    do
+    {
+        ASM_NOP;
+    }while(!(AESECBCheckResult()));
+    
+    AESECBGetResult();
+
+    return (AES_SUCCESS);
 }
