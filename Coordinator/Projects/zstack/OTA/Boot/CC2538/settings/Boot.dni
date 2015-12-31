@@ -1,0 +1,38 @@
+[xds100]
+xds100serialNo=06EB122013BB
+xds100foundProbes=06EB122013BB:06EB122013D5:
+xdsResetStyle=0
+xdsResetStrategy=0
+[DebugChecksum]
+Checksum=-2100130217
+[Exceptions]
+StopOnUncaught=_ 0
+StopOnThrow=_ 0
+[Stack]
+FillEnabled=0
+OverflowWarningsEnabled=1
+WarningThreshold=90
+SpWarningsEnabled=1
+WarnLogOnly=1
+UseTrigger=1
+TriggerName=main
+LimitSize=0
+ByteLimit=50
+[Log file]
+LoggingEnabled=_ 0
+LogFile=_ ""
+Category=_ 0
+[TermIOLog]
+LoggingEnabled=_ 0
+LogFile=_ ""
+[CallStack]
+ShowArgs=0
+[Disassembly]
+MixedMode=1
+[Disassemble mode]
+mode=0
+[Breakpoints]
+Count=0
+[Aliases]
+Count=0
+SuppressDialog=0

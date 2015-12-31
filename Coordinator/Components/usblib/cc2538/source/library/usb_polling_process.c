@@ -5,7 +5,7 @@
 uint8 usb_start_flag = 0;
 uint8 usb_end_flag = 0;
 char  Display_lcdString[10];
-
+uint8* usb_alloc_buf;
 
 /*************************************************************************************************
  * @fn      USB_Poll
@@ -35,6 +35,25 @@ void USB_Poll(void)
 
     if (count)
     {
+        //////////////////////////////////////////////////////////////////////////////////
+        if(usb_start_flag == 0) {
+            usb_alloc_buf = (uint8*) osal_mem_alloc(sizeof(uint8)*500);
+        }
+        //////////////////////////////////////////////////////////////////////////////////
+        usbobufPop(&usbCdcOutBufferData, pAppBuffer, count); // receive function
+        
+        uint16 index = 0;
+        for(index = 0; index < count; index++)
+            *(usb_alloc_buf + index + 64 * usb_start_flag) = *(pAppBuffer + index);
+            //usb_alloc_buf[index + 64 * usb_start_flag] = *(pAppBuffer + index);
+        usb_start_flag++;                        
+        usb_end_flag = 0;
+        
+        uint8 data_len = *(usb_alloc_buf + 10);
+        for(int i = 0; i < data_len + 13; i++)
+            USB_Msg_in[i] = *(usb_alloc_buf + i);
+        
+        /*
         usbobufPop(&usbCdcOutBufferData, pAppBuffer, count); // receive function
         
         uint16 index = 0;
@@ -42,9 +61,13 @@ void USB_Poll(void)
             USB_Msg_in[index + 64 * usb_start_flag] = *(pAppBuffer + index);
         usb_start_flag++;                        
         usb_end_flag = 0;
+        */
     }
     else if (!count && usb_start_flag)
     {
+        
+        //osal_mem_free(usb_alloc_buf);
+        ////////////////////////////////////////////////////////////////////////////////////////
         usb_start_flag = 0;
         usb_end_flag = 1;         
         dataLen = USB_Msg_in[10];

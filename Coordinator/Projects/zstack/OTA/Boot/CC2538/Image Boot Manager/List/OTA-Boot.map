@@ -1,0 +1,174 @@
+###############################################################################
+#
+# IAR ELF Linker V7.20.5.7591/W32 for ARM                 19/Nov/2015  18:53:52
+# Copyright 2007-2014 IAR Systems AB.
+#
+#    Output file  =  
+#        E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\Image
+#        Boot Manager\Exe\OTA-Boot.out
+#    Map file     =  
+#        E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\Image
+#        Boot Manager\List\OTA-Boot.map
+#    Command line =  
+#        "E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\Image
+#        Boot Manager\Obj\boot_main.o"
+#        "E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\Image
+#        Boot Manager\Obj\hal_sys_ctrl.o"
+#        "E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\Image
+#        Boot Manager\Obj\startup_ewarm.o" --redirect _Printf=_PrintfTiny
+#        --redirect _Scanf=_ScanfSmall -o
+#        "E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\Image
+#        Boot Manager\Exe\OTA-Boot.out" --map
+#        "E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\Image
+#        Boot Manager\List\OTA-Boot.map" --config
+#        E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\Source\cc2538.icf
+#        --semihosting
+#        E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\..\..\..\..\..\Components\driverlib\cc2538\bin\iar\sdriverlib.lib
+#        E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\bin\iar\bsp.lib
+#        --entry __iar_program_start --vfe
+#
+###############################################################################
+
+*******************************************************************************
+*** RUNTIME MODEL ATTRIBUTES
+***
+
+CppFlavor       = *
+__SystemLibrary = DLib
+
+
+*******************************************************************************
+*** PLACEMENT SUMMARY
+***
+
+"A1":  place at start of [0x0027f800-0x0027fd00] { ro section .intvec };
+"P1":  place in [from 0x0027f800 to 0x0027fd00] { ro };
+"P2":  place in [from 0x20004000 to 0x20007fff] { rw, block HEAP };
+
+  Section  Kind        Address   Size  Object
+  -------  ----        -------   ----  ------
+"A1":                           0x100
+  .intvec  const    0x0027f800  0x100  startup_ewarm.o [1]
+                  - 0x0027f900  0x100
+
+"P1":                           0x294
+  .text    ro code  0x0027f900   0xc0  sys_ctrl.o [5]
+  .text    ro code  0x0027f9c0    0xc  cpu.o [5]
+  .text    ro code  0x0027f9cc   0xa0  boot_main.o [1]
+  .text    ro code  0x0027fa6c   0x62  memcmp_unaligned.o [4]
+  .text    ro code  0x0027fad0   0x5e  hal_sys_ctrl.o [1]
+  .text    ro code  0x0027fb30    0xe  interrupt.o [5]
+  .text    ro code  0x0027fb40   0x1a  cmain.o [4]
+  .text    ro code  0x0027fb5a    0x4  low_level_init.o [3]
+  .text    ro code  0x0027fb5e    0x4  exit.o [3]
+  .text    ro code  0x0027fb64    0xa  cexit.o [4]
+  .text    ro code  0x0027fb70   0x14  exit.o [6]
+  .text    ro code  0x0027fb84    0xc  cstartup_M.o [4]
+  .text    ro code  0x0027fb90    0x4  startup_ewarm.o [1]
+                  - 0x0027fb94  0x294
+
+"P2":                           0x320
+  .noinit  uninit   0x20004000  0x320  startup_ewarm.o [1]
+                  - 0x20004320  0x320
+
+
+
+*******************************************************************************
+*** MODULE SUMMARY
+***
+
+    Module              ro code  ro data  rw data
+    ------              -------  -------  -------
+E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\Image Boot Manager\Obj: [1]
+    boot_main.o             160
+    hal_sys_ctrl.o           94
+    startup_ewarm.o           4      256      800
+    ---------------------------------------------
+    Total:                  258      256      800
+
+command line: [2]
+    ---------------------------------------------
+    Total:
+
+dl7M_tln.a: [3]
+    exit.o                    4
+    low_level_init.o          4
+    ---------------------------------------------
+    Total:                    8
+
+rt7M_tl.a: [4]
+    cexit.o                  10
+    cmain.o                  26
+    cstartup_M.o             12
+    memcmp_unaligned.o       98
+    ---------------------------------------------
+    Total:                  146
+
+sdriverlib.lib: [5]
+    cpu.o                    12
+    interrupt.o              14
+    sys_ctrl.o              192
+    ---------------------------------------------
+    Total:                  218
+
+shb_l.a: [6]
+    exit.o                   20
+    ---------------------------------------------
+    Total:                   20
+
+    Gaps                     10
+-------------------------------------------------
+    Grand Total:            660      256      800
+
+
+*******************************************************************************
+*** ENTRY LIST
+***
+
+Entry                      Address   Size  Type      Object
+-----                      -------   ----  ----      ------
+?main                   0x0027fb41         Code  Gb  cmain.o [4]
+CPUcpsid                0x0027f9c1    0x8  Code  Gb  cpu.o [5]
+CPUwfi                  0x0027f9c9    0x4  Code  Gb  cpu.o [5]
+EnterNvmApplication     0x0027fa51    0xc  Code  Lc  boot_main.o [1]
+IntDefaultHandler       0x0027fb91    0x4  Code  Lc  startup_ewarm.o [1]
+IntMasterDisable        0x0027fb31    0x6  Code  Gb  interrupt.o [5]
+LedgerPageSignature     0x0027fa5c   0x10  Data  Lc  boot_main.o [1]
+Region$$Table$$Base     0x00000000          --   Gb  - Linker created -
+Region$$Table$$Limit    0x00000000          --   Gb  - Linker created -
+SysCtrlDeepSleep        0x0027f909   0x70  Code  Gb  sys_ctrl.o [5]
+SysCtrlDeepSleepSetting
+                        0x0027fad1   0x5e  Code  Gb  hal_sys_ctrl.o [1]
+SysCtrlPeripheralDeepSleepDisable
+                        0x0027f995    0x6  Code  Gb  sys_ctrl.o [5]
+SysCtrlReset            0x0027f901    0x8  Code  Gb  sys_ctrl.o [5]
+__as_entries_start      0xffffffff          --   Gb  command line/config [2]
+__as_table_start        0xffffffff          --   Gb  command line/config [2]
+__cmain                 0x0027fb41         Code  Gb  cmain.o [4]
+__exit                  0x0027fb71   0x14  Code  Gb  exit.o [6]
+__iar_program_start     0x0027fb85         Code  Gb  cstartup_M.o [4]
+__iar_unaligned_memcmp  0x0027fa6d         Code  Gb  memcmp_unaligned.o [4]
+__low_level_init        0x0027fb5b    0x4  Code  Gb  low_level_init.o [3]
+__vector_table          0x0027f800  0x100  Data  Gb  startup_ewarm.o [1]
+_call_main              0x0027fb4d         Code  Gb  cmain.o [4]
+_exit                   0x0027fb65         Code  Gb  cexit.o [4]
+_main                   0x0027fb57         Code  Gb  cmain.o [4]
+exit                    0x0027fb5f    0x4  Code  Gb  exit.o [3]
+g_pui32DCGCRegs         0x0027f9a8   0x18  Data  Lc  sys_ctrl.o [5]
+main                    0x0027f9cd   0x74  Code  Gb  boot_main.o [1]
+pulStack                0x20004000  0x320  Data  Lc  startup_ewarm.o [1]
+
+
+[1] = E:\github\jay\Energy-Management-System\Coordinator\Projects\zstack\OTA\Boot\CC2538\Image Boot Manager\Obj
+[2] = command line
+[3] = dl7M_tln.a
+[4] = rt7M_tl.a
+[5] = sdriverlib.lib
+[6] = shb_l.a
+
+  660 bytes of readonly  code memory
+  256 bytes of readonly  data memory
+  800 bytes of readwrite data memory
+
+Errors: none
+Warnings: none

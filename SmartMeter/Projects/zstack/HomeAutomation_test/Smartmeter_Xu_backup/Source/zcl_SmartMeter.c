@@ -79,11 +79,13 @@
 #define CAL_GEN_1    0xD3
 #define CAL_GEN_2    0xD4
 #define TEMP_STOP    0xD5
+#define AUTHEN       0xD6
+#define SET_KEY      0xD7
 
 #define FLASH_PARAM  0x1000
 #define FLASH_PARAMCAL  0x1100
 #define FLASH_CONFIG 0x1078
-
+#define FLASH_RO     0x1200
 #define FFT_N 16
 //*****************************************************************
 #define TYPE_VOL_DELTA 			0x00
@@ -108,7 +110,6 @@
 #define EXAMPLE_GPIO_BASE1               GPIO_C_BASE
 
 //*****************************************************************************
-
 // how often to sample ADC in millisecond
 //#define SmartMeter_PowerCal_INTERVAL   56
 #define SmartMeter_PowerCal_INTERVAL   1
@@ -394,7 +395,7 @@ uint8 Msg_in[120] = {0}; //for save UART DATA
 uint8 pack_out[120] = {0}; //for send out UART data to coordinator
 extern mtOSALSerialData_t  *pMsg;
 
-
+uint8 romread[16] = {0x00};
 //variables related to FFT
 complex x[30], W[16];
 uint16 result_PHASE[3] = {0};
@@ -406,7 +407,8 @@ uint8 first_time_in = 1;
 uint8 second_time_in = 0;
 uint8 len_uart1 = 0;
 
-uint8_t ui8AESKey[16] = {0};
+uint8_t end_final_key[16] = {0};
+bool flag_end_encry = false;
 /*********************************************************************
  * GLOBAL FUNCTIONS
  */
@@ -476,6 +478,7 @@ static void zclSmartMeter_SendStart(void);
 static void zclSmartMeter_SendCalibrate(void);
 static void zclSmartMeter_SendCalPara(void);
 static void zclSmartMeter_SendRestart(void);
+static void zclSmartMeter_SendKeyAck(void);
 
 static void zclSmartMeter_nvReadParam(void);
 static void zclSmartMeter_nvWriteParam(void);
@@ -921,52 +924,42 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
               if (osal_GetSystemClock() - switch_timenew >= 37 )
               {
                   
-                    
-                  for(uint8 i = 0; i < 8; i++)                  
-                      ui8AESKey[i] = pack_out[i + 1];
 
-                  /*
-                  ui8AESKey[8] = (uint8)((coordinator_Addr_3 & 0xff00) >> 8);
-                  ui8AESKey[9] = (uint8)(coordinator_Addr_3 & 0x00ff);
-                  ui8AESKey[10] = (uint8)((coordinator_Addr_2 & 0xff00) >> 8);
-                  ui8AESKey[11] = (uint8)(coordinator_Addr_2 & 0x00ff);
-                  ui8AESKey[12] = (uint8)((coordinator_Addr_1 & 0xff00) >> 8);
-                  ui8AESKey[13] = (uint8)(coordinator_Addr_1 & 0x00ff);
-                  ui8AESKey[14] = (uint8)((coordinator_Addr_0 & 0xff00) >> 8);
-                  ui8AESKey[15] = (uint8)(coordinator_Addr_0 & 0x00ff);
-                    */
-                  HalUART0Write ( HAL_UART_PORT_0, ui8AESKey, 16);
-                  uint8 len_data = 0;
-                  len_data = len_uart1 - 13;
+                  uint8 len_data = len_uart1 - 13;
+                      
                   
                   
+                  if (flag_end_encry)
+                  {
+                      uint8 encry_data[70] = {0};
+                      
+                      for (uint8 i = 0; i < len_data; i++)
+                          encry_data[i] = pack_out[i + 11];
+                      
+                      // change data length to make encryption package stay the same
+                      len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+                      
+                      //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+                      for(uint8 i = 0; i < (len_data / 16) ; i++)
+                          AesEncryptDecrypt(end_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+                     
+                      //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+                      pack_out[10] = len_data;
+                      for (uint8 i = 0; i < len_data; i++)
+                          pack_out[i + 11] = encry_data[i];
+                      
+                      pack_out[len_data + 11] = 0x00;
+                      for (uint8 i = 0; i < len_data + 11; i++ )
+                          pack_out[len_data + 11] +=  pack_out[i];
+                      
+                      pack_out[len_data + 12] = 0x16;
+                  }
                   
-                  uint8 encry_data[70] = {0};
-                  
-                  for (uint8 i = 0; i < len_data; i++)
-                      encry_data[i] = pack_out[i + 11];
-                  
-                  // change data length to make encryption package stay the same
-                  len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
-                  
-                  //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
-                  for(uint8 i = 0; i < (len_data / 16) ; i++)
-                      AesEncryptDecrypt(ui8AESKey, encry_data + 16 * i, 0, ENCRYPT_AES);
-                 
-                  //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
-                  for (uint8 i = 0; i < len_data; i++)
-                      pack_out[i + 11] = encry_data[i];
-                  
-                  pack_out[len_data + 11] = 0x00;
-                  for (uint8 i = 0; i < len_data + 11; i++ )
-                      pack_out[len_data + 11] +=  pack_out[i];
-                  
-                  pack_out[len_data + 12] = 0x16;
-                  pack_out[10] = len_data;
-                  
+                  if (pack_out[12] == SET_KEY)
+                      flag_end_encry = true;
                     
                   HalUART1Write ( HAL_UART_PORT_1, pack_out, len_data + 13);  
-                  HalUART0Write ( HAL_UART_PORT_0, pack_out, len_data + 13);    
+                  //HalUART0Write ( HAL_UART_PORT_0, pack_out, len_data + 13);    
                   for( uint8 i = 0; i < 120; i++)
                        pack_out[i] = 0;
                   second_time_in = 1;
@@ -1818,6 +1811,67 @@ static void zclSmartMeter_SendCalibrate(void)
 
 
 /*********************************************************************
+ * @fn      zclSmartMeter_SendKeyAck     *
+ *
+ * @brief   Called to send SmartMeter key ack to the coordinator
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void zclSmartMeter_SendKeyAck( void )
+{
+    if( Connect_Mode == WIRELESS_CONNECTION)
+    {
+#ifdef ZCL_REPORT
+        zclReportCmd_t *pReportCmd;
+        uint16 packet[] = {SET_KEY, SUCCESS};
+        pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
+        if ( pReportCmd != NULL )
+        {
+            pReportCmd->numAttr = 1;
+            pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT64;
+            pReportCmd->attrList[0].attrData = (void *)(packet);
+            zcl_SendReportCmd( SmartMeter_ENDPOINT, &zclSmartMeter_DstAddr,
+                               ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
+                               pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclSmartMeterSeqNum++ );
+        }
+        osal_mem_free( pReportCmd );
+#endif  // ZCL_REPORT
+    }
+    else if( Connect_Mode == WIRED_CONNECTION)
+    {
+        uint16 packet[] = {SET_KEY, SUCCESS};
+        pack_out[0] = 0x68;
+        uint8 i;
+        for(i = 1; i <= 8; i++)
+            pack_out[i] = Msg_in[i];
+
+        pack_out[9] = 0x68;
+        pack_out[10] = (uint8)sizeof(packet);
+
+        for(i = 0; i < sizeof(packet) / 2; i++)
+        {
+            pack_out[11 + i * 2] = (uint8_t) ((packet[i] & 0xFF00) >> 8);
+            pack_out[12 + i * 2] = (uint8_t) (packet[i] & 0x00FF);
+        }
+
+        pack_out[11 + sizeof(packet)] = 0x00;
+
+        for(i = 0; i < 11 + sizeof(packet); i++)
+            pack_out[11 + sizeof(packet)] += pack_out[i];
+
+        pack_out[12 + sizeof(packet)] = 0x16;
+
+        len_uart1 = 13 + sizeof(packet);
+        //HalUART1Write ( HAL_UART_PORT_1, pack_out, 13 + sizeof(packet));
+        //HalLcdWriteString( "datastart", HAL_LCD_LINE_6 );
+    }
+}
+
+
+/*********************************************************************
  * @fn      zclSmartMeter_SendRestart     *
  *
  * @brief   Called to send SmartMeter relay information to the coordinator
@@ -1937,7 +1991,80 @@ static void zclSmartMeter_SendStart(void)
     }
 }
 
+/*********************************************************************
+ * @fn      zclSmartMeter_SendAuth    *
+ *
+ * @brief   Called to send SmartMeter Authentication code to Coordinator
+ *
+ * @return  none
+ */
+static void zclSmartMeter_SendAuth(void)
+{
+  /*
+    if( Connect_Mode == WIRELESS_CONNECTION)
+    {
+      
+#ifdef ZCL_REPORT
+        zclReportCmd_t *pReportCmd;
+        uint16 packet[] = {TEMP_STOP, SUCCESS, flaginc};
+        pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
+        if ( pReportCmd != NULL )
+        {
+            pReportCmd->numAttr = 1;
+            pReportCmd->attrList[0].attrID = ATTRID_MS_ADD_MEASURED_VALUE;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT128;
+            pReportCmd->attrList[0].attrData = (void *)(packet);
+            zcl_SendReportCmd( SmartMeter_ENDPOINT, &zclSmartMeter_DstAddr,
+                               ZCL_CLUSTER_ID_MS_ADD_MEASUREMENT,
+                               pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclSmartMeterSeqNum++ );
+        }
+        osal_mem_free( pReportCmd );
+    }
+#endif  // ZCL_REPORT 
+    else */
+      
+    if( Connect_Mode == WIRED_CONNECTION)
+    {
+        //////// TO BE REPLACED
+        uint8 romreg[16] = {0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11};
+        osal_nv_item_init (FLASH_RO, 40, NULL);
+        osal_nv_write (FLASH_RO, 0, 40, &romreg[0]);
+        //////// TO BE REPLACED
 
+
+        osal_nv_item_init (FLASH_RO, 40, NULL);
+        osal_nv_read (FLASH_RO, 0, 40, &romread[0]);
+        //HalUART0Write ( HAL_UART_PORT_0, romread, 16);
+        
+        uint16 packet[] = {AUTHEN, SUCCESS, UINT8_TO_16(romread[0], romread[1]), UINT8_TO_16(romread[2], romread[3]), UINT8_TO_16(romread[4], romread[5]), UINT8_TO_16(romread[6], romread[7]),
+                                            UINT8_TO_16(romread[8], romread[9]), UINT8_TO_16(romread[10], romread[11]), UINT8_TO_16(romread[12], romread[13]), UINT8_TO_16(romread[14], romread[15])};
+        
+        pack_out[0] = 0x68;
+        uint8 i;
+        for(i = 1; i <= 8; i++)
+            pack_out[i] = Msg_in[i];
+
+        pack_out[9] = 0x68;
+        pack_out[10] = (uint8)sizeof(packet);
+
+        for(i = 0; i < sizeof(packet) / 2; i++)
+        {
+            pack_out[11 + i * 2] = (uint8_t) ((packet[i] & 0xFF00) >> 8);
+            pack_out[12 + i * 2] = (uint8_t) (packet[i] & 0x00FF);
+        }
+
+        pack_out[11 + sizeof(packet)] = 0x00;
+
+        for(i = 0; i < 11 + sizeof(packet); i++)
+            pack_out[11 + sizeof(packet)] += pack_out[i];
+
+        pack_out[12 + sizeof(packet)] = 0x16;
+
+        len_uart1 = 13 + sizeof(packet);
+        //HalUART1Write ( HAL_UART_PORT_1, pack_out, 13 + sizeof(packet));
+        
+    }
+}
 
 
 /*********************************************************************
@@ -2714,33 +2841,23 @@ void zclSmartMeter_ProcessUART_Pkt(void)
         HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
     #endif
     */   
-    
-    uint8 len_data = Msg_in[10];
+    if (flag_end_encry)
+    {
+        uint8 len_data = Msg_in[10];
 
-    ui8AESKey[0] = (uint8)((ADD_3 & 0xff00) >> 8);
-    ui8AESKey[1] = (uint8)(ADD_3 & 0x00ff);
-    ui8AESKey[2] = (uint8)((ADD_2 & 0xff00) >> 8);
-    ui8AESKey[3] = (uint8)(ADD_2 & 0x00ff);
-    ui8AESKey[4] = (uint8)((ADD_1 & 0xff00) >> 8);
-    ui8AESKey[5] = (uint8)(ADD_1 & 0x00ff);
-    ui8AESKey[6] = (uint8)((ADD_0 & 0xff00) >> 8);
-    ui8AESKey[7] = (uint8)(ADD_0 & 0x00ff);
-    
-    uint8 encry_data[70] = {0};
-    
-    
-    
-    for (uint8 i = 0; i < len_data; i++)
-        encry_data[i] = Msg_in[i + 11];
-    
-    //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
-    for(uint8 i = 0; i < ((len_data%16)? (len_data / 16 + 1) : (len_data / 16)) ; i++)
-        AesEncryptDecrypt(ui8AESKey, encry_data + 16 * i, 0, DECRYPT_AES);
-    
-    //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
-    for (uint8 i = 0; i < len_data; i++)
-        Msg_in[i + 11] = encry_data[i];
-    
+        uint8 encry_data[70] = {0};
+       
+        for (uint8 i = 0; i < len_data; i++)
+            encry_data[i] = Msg_in[i + 11];
+        
+        //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+        for(uint8 i = 0; i < ((len_data%16)? (len_data / 16 + 1) : (len_data / 16)) ; i++)
+            AesEncryptDecrypt(end_final_key, encry_data + 16 * i, 0, DECRYPT_AES);
+        
+        //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+        for (uint8 i = 0; i < len_data; i++)
+            Msg_in[i + 11] = encry_data[i];
+    }
     
     
     uint16 COMMAND = UINT8_TO_16(Msg_in[11], Msg_in[12]);
@@ -2779,6 +2896,44 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             zclSmartMeter_SendRelay();
 
             flagrelay = 2;
+        }
+        
+        else if ((COMMAND == USR_RX_GET) && (OPERATION == AUTHEN))
+        {          
+            zclSmartMeter_SendAuth();   
+        }
+        
+        else if ((COMMAND == USR_RX_SET) && (OPERATION == SET_KEY))
+        {          
+            uint8 end_key[16] = {0};
+            for (uint8 i = 0; i < 16; i++)
+                end_key[i] = Msg_in[15 + i];
+            
+            uint8 encry_data[16] = {0};
+            encry_data[0] = (uint8)((ADD_3 & 0xff00) >> 8);
+            encry_data[1] = (uint8)(ADD_3 & 0x00ff);
+            encry_data[2] = (uint8)((ADD_2 & 0xff00) >> 8);
+            encry_data[3] = (uint8)(ADD_2 & 0x00ff);
+            encry_data[4] = (uint8)((ADD_1 & 0xff00) >> 8);
+            encry_data[5] = (uint8)(ADD_1 & 0x00ff);
+            encry_data[6] = (uint8)((ADD_0 & 0xff00) >> 8);
+            encry_data[7] = (uint8)(ADD_0 & 0x00ff);
+
+            HalUART0Write ( HAL_UART_PORT_0, end_key, 16);
+            HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+            AesEncryptDecrypt(end_key, encry_data, 0, ENCRYPT_AES);
+            HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+
+            for (uint8 i = 0; i < 16; i++)
+                end_final_key[i] = romread[i];
+
+            HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+            HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+            AesEncryptDecrypt(encry_data, end_final_key,  0, ENCRYPT_AES);
+            HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+            zclSmartMeter_SendKeyAck();
+
+            //flag_end_encry = true;
         }
 
         else if ((COMMAND == USR_RX_GET) && (OPERATION == COM_ADD))
@@ -4153,8 +4308,8 @@ void zclSmartMeter_ADC_init(void)
     // Set pins AIN6 and AIN7 as GPIO input for ADC input using, SW controlled.
 
 
-    GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_0);
-    GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_1);
+    //GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_0);
+    //GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_1);
     
     GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_5);
     GPIOPinTypeGPIOInput(GPIO_A_BASE, GPIO_PIN_6);

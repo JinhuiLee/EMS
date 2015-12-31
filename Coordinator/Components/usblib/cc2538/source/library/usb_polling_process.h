@@ -16,12 +16,12 @@
 extern mtOSALSerialData_t  *pMsg;   
 extern USB_EPIN_RINGBUFFER_DATA usbCdcInBufferData;
 extern USB_EPOUT_RINGBUFFER_DATA usbCdcOutBufferData;
-extern uint8_t pInBuffer[64];
-extern uint8_t pOutBuffer[64];
-extern uint8_t pAppBuffer[64];
+extern uint8_t pInBuffer[128];
+extern uint8_t pOutBuffer[128];
+extern uint8_t pAppBuffer[128];
 extern uint8 usb_start_flag;
 extern uint8 usb_end_flag;
-extern uint8 USB_Msg_in[128];
+extern uint8 USB_Msg_in[110];
 extern uint8 dataLen;
 void USB_Poll(void);
 

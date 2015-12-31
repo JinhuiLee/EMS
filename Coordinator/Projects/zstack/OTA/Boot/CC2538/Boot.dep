@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+
+<project>
+  <fileVersion>2</fileVersion>
+  <fileChecksum>3895315073</fileChecksum>
+  <configuration>
+    <name>Image Boot Manager</name>
+    <outputs>
+      <file>$PROJ_DIR$\Source\cc2538.icf</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2538\hal_types.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2538\iocc2538.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_ana_regs.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\source\interrupt.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2538\hal_board_cfg.h</file>
+      <file>$PROJ_DIR$\Image Boot Manager\Exe\Boot.bin</file>
+      <file>$PROJ_DIR$\Source\boot_main.c</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2538\hal_sys_ctrl.c</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2538\hal_mcu.h</file>
+      <file>$PROJ_DIR$\Source\startup_ewarm.c</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2538\hal_sys_ctrl.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\hal\include\hal_defs.h</file>
+      <file>$PROJ_DIR$\Image Boot Manager\Obj\hal_sys_ctrl.pbi</file>
+      <file>$PROJ_DIR$\Image Boot Manager\Exe\OTA-Boot.out</file>
+      <file>$PROJ_DIR$\Image Boot Manager\Obj\Boot.pbd</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_ssi.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_sys_ctrl.h</file>
+      <file>$PROJ_DIR$\Image Boot Manager\Obj\boot_main.o</file>
+      <file>$PROJ_DIR$\Image Boot Manager\Obj\boot_main.pbi</file>
+      <file>$PROJ_DIR$\Image Boot Manager\Obj\startup_ewarm.pbi</file>
+      <file>$PROJ_DIR$\Image Boot Manager\Obj\startup_ewarm.o</file>
+      <file>$PROJ_DIR$\Image Boot Manager\Obj\hal_sys_ctrl.o</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\source\flash.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\stdbool.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\DLib_Product_string.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_types.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_memmap.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_aes.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\source\uart.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\source\ioc.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\source\gpio.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\xencoding_limits.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\hal\include\hal_assert.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\yvals.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_nvic.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_gpio.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\ysizet.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\DLib_Product.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\DLib_Config_Normal.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\ycheck.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\source\sys_ctrl.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\DLib_Defaults.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source\lcd_dogm128_6.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\DLib_Threads.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\source\systick.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source\bsp.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_ints.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_flash_ctrl.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\source\bsp_key.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\string.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\inc\hw_soc_adc.h</file>
+      <file>$TOOLKIT_DIR$\inc\c\stdint.h</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\bsp\srf06eb_cc2538\drivers\bin\iar\bsp.lib</file>
+      <file>$TOOLKIT_DIR$\lib\dl7M_tln.a</file>
+      <file>$PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wConfig.cfg</file>
+      <file>$TOOLKIT_DIR$\lib\m7M_tl.a</file>
+      <file>$PROJ_DIR$\..\..\..\..\..\Components\driverlib\cc2538\bin\iar\sdriverlib.lib</file>
+      <file>$TOOLKIT_DIR$\lib\shb_l.a</file>
+      <file>$PROJ_DIR$\..\..\..\Tools\CC2538DB\f8wCoord.cfg</file>
+      <file>$TOOLKIT_DIR$\lib\rt7M_tl.a</file>
+      <file>$PROJ_DIR$\Image Boot Manager\List\OTA-Boot.map</file>
+    </outputs>
+    <file>
+      <name>$PROJ_DIR$\Source\boot_main.c</name>
+      <outputs>
+        <tool>
+          <name>BICOMP</name>
+          <file> 19</file>
+        </tool>
+        <tool>
+          <name>ICCARM</name>
+          <file> 18</file>
+        </tool>
+      </outputs>
+      <inputs>
+        <tool>
+          <name>BICOMP</name>
+          <file> 40 34 35 37 43 41 39 36 42 44 1 45 2 24 25 38 9 11 12 26 27 28 29 30 31 5 32 33 46 47 48 17 16 3 4 23 49 52 50 51</file>
+        </tool>
+        <tool>
+          <name>ICCARM</name>
+          <file> 55 59 50 40 34 42 39 38 32 44 37 25 5 9 12 1 35 47 26 52 24 48 36 17 27 16 28 3 45 4 29 31 41 23 30 49 46 2 51 33 11 43</file>
+        </tool>
+      </inputs>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2538\hal_sys_ctrl.c</name>
+      <outputs>
+        <tool>
+          <name>BICOMP</name>
+          <file> 13</file>
+        </tool>
+        <tool>
+          <name>ICCARM</name>
+          <file> 22</file>
+        </tool>
+      </outputs>
+      <inputs>
+        <tool>
+          <name>BICOMP</name>
+          <file> 36 32 27 40 12 29 52 26 28 30 33 17 9 34 35 45 41 2 31 5 24 42 44 39 38 1 47 48 16 3 4 23 49 46 51 11 43</file>
+        </tool>
+        <tool>
+          <name>ICCARM</name>
+          <file> 55 59 17 41 26 52 40 34 42 39 38 32 44 24 36 31 9 12 1 35 47 48 27 16 28 3 45 4 29 23 30 49 46 2 51 5 33 11 43</file>
+        </tool>
+      </inputs>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\Source\startup_ewarm.c</name>
+      <outputs>
+        <tool>
+          <name>BICOMP</name>
+          <file> 20</file>
+        </tool>
+        <tool>
+          <name>ICCARM</name>
+          <file> 21</file>
+        </tool>
+      </outputs>
+      <inputs>
+        <tool>
+          <name>BICOMP</name>
+          <file> 52 27 38 11 12 29 9 26 28 30 1 43 35 36 45 41 2 24 40 42 44 39 34 33 46 47 48 17 16 3 4 31 23 49 32 51 5</file>
+        </tool>
+        <tool>
+          <name>ICCARM</name>
+          <file> 55 59 5 9 12 1 35 47 26 52 40 34 42 39 38 32 44 24 48 36 17 27 16 28 3 45 4 29 31 41 23 30 49 46 2 51 33 11 43</file>
+        </tool>
+      </inputs>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\Image Boot Manager\Exe\OTA-Boot.out</name>
+      <outputs>
+        <tool>
+          <name>OBJCOPY</name>
+          <file> 6</file>
+        </tool>
+        <tool>
+          <name>ILINK</name>
+          <file> 61</file>
+        </tool>
+      </outputs>
+      <inputs>
+        <tool>
+          <name>ILINK</name>
+          <file> 0 18 22 21 57 53 58 60 56 54</file>
+        </tool>
+      </inputs>
+    </file>
+    <file>
+      <name>[ROOT_NODE]</name>
+      <outputs>
+        <tool>
+          <name>ILINK</name>
+          <file> 14 61</file>
+        </tool>
+      </outputs>
+    </file>
+  </configuration>
+</project>
+
+

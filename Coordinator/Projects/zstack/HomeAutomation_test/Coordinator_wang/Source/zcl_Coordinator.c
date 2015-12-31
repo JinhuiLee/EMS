@@ -115,9 +115,15 @@
 #define COM_CAL      0xD1
 #define COM_CONFIG   0xD2
 #define TEMP_STOP    0xD5
+#define AUTHEN       0xD6
+#define SET_KEY      0xD7
 
 #define FLASH_PARAM  0x1000
-
+#define FLASH_RO     0x1100
+#define UINT8_TO_16(hiByte, loByte) \
+        ((uint16)(((loByte) & 0x00FF) + (((hiByte) & 0x00FF) << 8)))
+  
+            
 // wait time for all smart meter to respond to network discovery command
 #define Coordinator_NwkDiscov_INTERVAL 5000 //in millisecond
 // wait time to request the next smart meter to send data
@@ -126,9 +132,8 @@
 //wireless or wired connection switch
 #define Connect_Mode WIRED_CONNECTION
 //#define Connect_Mode WIRELESS_CONNECTION
-
-#define UINT8_TO_16(hiByte, loByte) \
-          ((uint16)(((loByte) & 0x00FF) + (((hiByte) & 0x00FF) << 8)))
+            
+#define NUM_SMART_METER  30
 /*********************************************************************
  * GLOBAL VARIABLES
  */
@@ -140,20 +145,20 @@ uint16 paramReg[25] = {0};
 uint8 sm_address_buffer[8] = {0};
 uint8 send_buffer[70] = {0};
 extern uint8 usb_end_flag;
-
+extern uint8* usb_alloc_buf;
 uint16 SmartMeterparamReg[25]; //parameters send by SmartMeter
 uint16 SmartMeterTimeReg[10]; //Time send by SmartMeter
 uint16 dataReg_Ping[29] = {0};
 uint16 dataReg_Pong[29] = {0};
 uint8 dataRegSel = 1;
 uint8 PowSpCal = 0;
-uint64 sm_ADD[20] = {0}; //smart meter address registers --350 max
-//uint16 sm_ADD_0[20] = {0};
-//uint16 sm_ADD_1[20] = {0};
-//uint16 sm_ADD_2[20] = {0};
-//uint16 sm_ADD_3[20] = {0};
-uint8 sm_ADD_status[20] = {1};
-uint16 SM_ADD16 = 0xffff;
+uint64 sm_ADD[NUM_SMART_METER] = {0}; //smart meter address registers --350 max
+
+uint8 sm_ADD_status[NUM_SMART_METER] = {1};
+uint8 val_prio[NUM_SMART_METER] = {0};
+uint64 final_key_table_hi[NUM_SMART_METER] = {0};
+uint64 final_key_table_lo[NUM_SMART_METER] = {0};
+
 uint8 coor_addrRegister[8];
 uint64 sm_ADD_reg = 0;
 uint8 V_CAL = 0;
@@ -178,8 +183,8 @@ uint8 controlReg[45] = {0};
 
 uint8 try_count = 0;
 uint16 timeReg[6] = {0};
-uint8 sm_receive_flag[20] = {0};
-uint8 sm_retry_times[20] = {3};
+//uint8 sm_receive_flag[20] = {0};
+//uint8 sm_retry_times[20] = {3};
 uint8 relay_receive_flag = 0;
 uint8 relay_retry_times = 3;
 uint8 ack_index = 0;
@@ -219,6 +224,13 @@ uint8 len_uart1 = 0;
 uint8 SmartMeter_start = 2;
 uint8 start_receive_flag = 0;
 uint8 write_energy_index = 0;
+bool flag_encry = false;
+uint8 coor_key[16] = {0x00};
+uint8 romread[16] = {0x00};
+uint8 coor_final_key[16] = {0x00};
+uint8 end_final_key[16] = {0x00};
+bool flag_end_encry = false;
+bool flag_auth = false;
 
 uint16 MIN_ADC;
 uint16 MAX_ADC;
@@ -270,6 +282,7 @@ uint16 calT_EFF;
 
 uint8 dataLen;  //length of the packdge
 uint8 flag_calget = 0;
+bool flag_key_set = false;
 
 uint16 ADD_3;
 uint16 ADD_2;
@@ -298,8 +311,8 @@ uint32 switch_timenew = 0;
 uint8 first_time_in = 1;
 uint8 second_time_in = 0;
 
-uint8 sm_routing_prio_table[50] = {0};
-uint64 sm_ADD_prio = 0;
+uint8 sm_routing_prio_table[3*NUM_SMART_METER] = {0};
+//uint64 sm_ADD_prio = 0;
 ////////////////////////////////////////////////////usb
 USB_EPIN_RINGBUFFER_DATA usbCdcInBufferData;
 USB_EPOUT_RINGBUFFER_DATA usbCdcOutBufferData;
@@ -307,7 +320,7 @@ uint8_t pInBuffer[128];
 uint8_t pOutBuffer[128];
 uint8_t pAppBuffer[128];
 
-uint8_t ui8AESKey[16] = {0};
+//uint8_t ui8AESKey[16] = {0};
 /*********************************************************************
  * GLOBAL FUNCTIONS
  */
@@ -382,7 +395,8 @@ static void zclCoordinator_ProcessFoundationMsg( afAddrType_t *dstAddr, uint16 c
 static void zclscoordinator_startEZmode( void );
 static void zclCoordinator_NetDiscov( void );
 static void zclCoordinator_SetPowerCalculation( void );
-
+static void zclCoordinator_SendAuth (void);
+static void zclCoordinator_SetKey (uint8*);
 // app display functions
 void zclCoordinator_LCDDisplayUpdate(void);
 void zclCoordinator_LcdDisplayTestMode(void);
@@ -423,9 +437,10 @@ void zclCoordinator_sendACK(uint8 ControlReg0, uint8 ControlReg1, uint8 ControlR
 void zclCoordinator_ReadRoutingTable(uint8 sm_i);
 static void zclCoordinator_getcalParam(void);
 static void zclCoordinator_calregtimeout(void);
-
-static uint8 zclCoordinator_smIEEE_to_id(uint64 sm_ADD_64);
-static void zclCoordinator_id_to_smIEEE(uint8 sm_id_8);
+static void find_end_in_routing_table(uint8 buffer[]);
+//static uint8 zclCoordinator_smIEEE_to_id(uint64 sm_ADD_64);
+//static void zclCoordinator_id_to_smIEEE(uint8 sm_id_8);
+static void send_rom_back(uint8 *reg_ro);
 
 uint32 BUILD_UINT32_16 (uint16 num1, uint16 numb2);
 uint64 BUILD_UINT64_8 (uint8 numb1, uint8 numb2, uint8 numb3, uint8 numb4, uint8 numb5, uint8 numb6, uint8 numb7, uint8 numb8);
@@ -576,14 +591,14 @@ void zclCoordinator_Init( byte task_id )
     MT_UartInit();
     MT_UartRegisterTaskID(zclCoordinator_TaskID);
 
-    initUART();  
+    initUART();
 
     //
     // Enable AES peripheral
     //
     SysCtrlPeripheralReset(SYS_CTRL_PERIPH_AES);
     SysCtrlPeripheralEnable(SYS_CTRL_PERIPH_AES);
-    
+
     initUSB();
 
     //Initialize controlReg in the coordinator
@@ -675,6 +690,7 @@ void ProcessUartData( mtOSALSerialData_t *Uart_Msg)
     {
         USB_Msg_in[index + 11] = Uart_Msg->msg[index + 1] ;
     }
+    
     /*
     if(dataLen == 0x50)
         dataLen = 0x1F;
@@ -770,6 +786,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
             case CMD_USB_MSG:                                           //ZcomDef.h 10.8
                 osal_set_event(task_id, Coordinator_USB_EVT);
+                //HalUART0Write ( HAL_UART_PORT_0, USB_Msg_in, dataLen + 13);
                 break;
 
             default:
@@ -843,18 +860,18 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 HalLcdWriteString( "uartstep1", HAL_LCD_LINE_3 );
             }
             else if (!second_time_in)
-            {                
-                
+            {
+
                 if (osal_GetSystemClock() - switch_timenew >= 35 )
                 {
-                    
-                    
+
+/*
                     for(uint8 i = 0; i < 8; i++)
                     {
                         ui8AESKey[i] = send_buffer[i + 1];
                     }
-                    
-                    
+
+
                     if(send_buffer[14] == COM_ADD)
                     {
                         for(uint8 i = 8; i < 16; i++)
@@ -862,47 +879,43 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                             ui8AESKey[i] = 0;
                         }
                     }
-                    
-                    
-                    
+*/
                     uint8 len_data = 0;
                     len_data = len_uart1 - 13;
                     
-                    uint8 encry_data[70] = {0};
                     
-                    for (uint8 i = 0; i < len_data; i++)
-                        encry_data[i] = send_buffer[i + 11];
-                    
-                    // change data length to make encryption package stay the same
-                    len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
-                    
-                    //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
-                    for(uint8 i = 0; i < (len_data / 16) ; i++)
-                        AesEncryptDecrypt(ui8AESKey, encry_data + 16 * i, 0, ENCRYPT_AES);
+                    /////////////////////////////////////////////////////////////////////
+                    if (flag_end_encry)
+                    {
+                        find_end_in_routing_table(send_buffer);
+                        
+                      
+                        uint8 encry_data[70] = {0};
 
-                    /*
-                    ui8AESKey[8] = (uint8)((ADD_3 & 0xff00) >> 8);
-                    ui8AESKey[9] = (uint8)(ADD_3 & 0x00ff);
-                    ui8AESKey[10] = (uint8)((ADD_2 & 0xff00) >> 8);
-                    ui8AESKey[11] = (uint8)(ADD_2 & 0x00ff);
-                    ui8AESKey[12] = (uint8)((ADD_1 & 0xff00) >> 8);
-                    ui8AESKey[13] = (uint8)(ADD_1 & 0x00ff);
-                    ui8AESKey[14] = (uint8)((ADD_0 & 0xff00) >> 8);
-                    ui8AESKey[15] = (uint8)(ADD_0 & 0x00ff);
-                    */
-                    HalUART0Write ( HAL_UART_PORT_0, ui8AESKey, 16);                   
-                    //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
-                    for (uint8 i = 0; i < len_data; i++)
-                        send_buffer[i + 11] = encry_data[i];
-                    
-                    send_buffer[len_data + 11] = 0x00;
-                    for (uint8 i = 0; i < len_data + 11; i++ )
-                        send_buffer[len_data + 11] +=  send_buffer[i];
-                    send_buffer[len_data + 12] = 0x16;
-                    send_buffer[10] = len_data;
+                        for (uint8 i = 0; i < len_data; i++)
+                            encry_data[i] = send_buffer[i + 11];
+
+                        // change data length to make encryption package stay the same
+                        len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+                        //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+                        for(uint8 i = 0; i < (len_data / 16) ; i++)
+                            AesEncryptDecrypt(end_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+                        
+                        HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+                        //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
+                        send_buffer[10] = len_data;
+                        for (uint8 i = 0; i < len_data; i++)
+                            send_buffer[i + 11] = encry_data[i];
+
+                        send_buffer[len_data + 11] = 0x00;
+                        for (uint8 i = 0; i < len_data + 11; i++ )
+                            send_buffer[len_data + 11] +=  send_buffer[i];
+                        send_buffer[len_data + 12] = 0x16;
+                    }
                     ///////////////////////////////////////////////////////////////////////
-                    
-                    
+
+
                     HalUART1Write ( HAL_UART_PORT_1, send_buffer, len_data + 13);
                     //HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
                     for( uint8 i = 0; i < 70; i++)
@@ -952,8 +965,6 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
             HalLcdWriteString( "coordinator reset", HAL_LCD_LINE_3 );
 
-
-
             uint8 i;
             uint8 pack_out[20] = {0};
             pack_out[0] = 0x68;
@@ -980,15 +991,33 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 pack_out[15] += pack_out[i];
 
             pack_out[16] = 0x16;
-            /*
-            UARTEnable(UART0_BASE );
-            for (i = 0; i < 16; i++)
+
+            uint8 len_data = pack_out[10];
+            if(flag_encry)
             {
-                UARTCharPut(UART0_BASE, pack_out[i]);
+                uint8 encry_data[70] = {0};
+
+                for (uint8 i = 0; i < len_data; i++)
+                    encry_data[i] = pack_out[i + 11];
+
+                len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+                for(uint8 i = 0; i < (len_data / 16) ; i++)
+                    AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+                pack_out[10] = len_data;
+                for (uint8 i = 0; i < len_data; i++)
+                    pack_out[i + 11] = encry_data[i];
+
+                pack_out[len_data + 11] = 0x00;
+                for (uint8 i = 0; i < len_data + 11; i++ )
+                    pack_out[len_data + 11] +=  pack_out[i];
+                pack_out[len_data + 12] = 0x16;
+
+
+                //HalUART1Write ( HAL_UART_PORT_1, send_buffer, len_data + 13);
             }
-            UARTDisable(UART0_BASE);
-            */
-            usbibufPush(&usbCdcInBufferData, pack_out, 17);
+
+            usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
 
             write_energy_index = 0;
             setpower_index = 0;
@@ -1008,6 +1037,20 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         else if((ADD_3 == (uint16)(((uint16)USB_Msg_in[1] << 8) + (uint16)USB_Msg_in[2])) && (ADD_2 == (uint16)(((uint16)USB_Msg_in[3] << 8) + (uint16)USB_Msg_in[4]))
                 && (ADD_1 == (uint16)(((uint16)USB_Msg_in[5] << 8) + (uint16)USB_Msg_in[6])) && (ADD_0 == (uint16)(((uint16)USB_Msg_in[7] << 8) + (uint16)USB_Msg_in[8])))
         {
+            if (flag_encry)
+            {
+                uint8 len_data = USB_Msg_in[10];
+                uint8 encry_data[70] = {0};
+
+                for (uint8 i = 0; i < len_data; i++)
+                    encry_data[i] = USB_Msg_in[i + 11];
+
+                for(uint8 i = 0; i < ((len_data % 16) ? (len_data / 16 + 1) : (len_data / 16)) ; i++)
+                    AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, DECRYPT_AES);
+
+                for (uint8 i = 0; i < len_data; i++)
+                    USB_Msg_in[i + 11] = encry_data[i];
+            }
 
             if(USB_Msg_in[0] && usb_end_flag)   //if there is message in
             {
@@ -1015,58 +1058,43 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 //HalLcdWriteString( lcdString, HAL_LCD_LINE_5 );
                 int index;
                 checksum = 0;
-
-                if(dataLen == 4)
+        
+                uint8 len_data = USB_Msg_in[10];
+                
+                for (index = 0; index < 11 + len_data; index++)
                 {
-
-                    for (index = 0; index < 15; index++)
-                    {
-                        checksum += USB_Msg_in[index];
-                    }
-
-                    //if((uint8)(checksum & 0xFF) != USB_Msg_in[15] || USB_Msg_in[16] != 0x16)    //if sum is wrong or end flag is not 0x16
-                    if(0)
-
-                    {
-                        zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x05);
-                        uint8 i;
-                        for(i = 0; i < 110; i++)
-                            USB_Msg_in[i] = 0;
-                        cmd_right_flag = 0;
-                    }
+                    checksum += USB_Msg_in[index];
                 }
-                else
+                
+                //if((uint8)(checksum & 0xFF) != USB_Msg_in[11 + len_data] || USB_Msg_in[12 + len_data] != 0x16) 
+                if(0)
                 {
-                    for (index = 0; index < 51; index++)
+                    zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x05);
+                    uint8 i;
+                    for(i = 0; i < 110; i++)
+                        USB_Msg_in[i] = 0;
+                    cmd_right_flag = 0;
+                }
+
+                else 
+                { 
+                    //if (((USB_Msg_in[11] >> 1) & 0x01) == 1 || USB_Msg_in[13] == 0x10) // Parameter write / key write
+                    if (((USB_Msg_in[11] >> 1) & 0x01) == 1) //Parameter write
                     {
-                        checksum += USB_Msg_in[index];
-                    }
-
-                    //if((uint8)(checksum & 0xFF) != USB_Msg_in[51] || USB_Msg_in[52] != 0x16)    //if sum is wrong or end flag is not 0x16
-                    if(0)
-
-                    {
-                        zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x05);
-                        uint8 i;
-                        for(i = 0; i < 110; i++)
-                            USB_Msg_in[i] = 0;
-                        cmd_right_flag = 0;
-                    }
-
-                    else if (((USB_Msg_in[11] >> 1) & 0x01) == 1)             //if success in reading controlReg and the command is set parameter,then continue to read the parameter
-                    {
-
-                        //int i;
+                        
+                        uint8 len_data0 = USB_Msg_in[10];
+                        //uint8 len_data = USB_Msg_in[23 + len_data0];
+                        uint8 len_data = *(usb_alloc_buf + 23 + len_data0);
                         checksum = 0;
-                        for (index = 0; index < 47; index++)
+                        for (index = 0; index < 11 + len_data; index++)
                         {
-                            checksum += USB_Msg_in[index + 53];
+                            //checksum += USB_Msg_in[index + 13 + len_data0];
+                            checksum += *(usb_alloc_buf + index + 13 + len_data0);
                         }
-
-
-                        //if((uint8)(checksum & 0xFF) != USB_Msg_in[100] || USB_Msg_in[101] != 0x16)  //if sum is wrong or end flag is not 0x16
+                        
+                        //if((uint8)(checksum & 0xFF) != USB_Msg_in[13 + len_data0 + 11 + len_data] || USB_Msg_in[13 + len_data0 + 12 + len_data] != 0x16) 
+                        //if((uint8)(checksum & 0xFF) != *(usb_alloc_buf + 13 + len_data0 + 11 + len_data) || *(usb_alloc_buf + 13 + len_data0 + 12 + len_data) != 0x16) 
                         if(0)
-
                         {
                             zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x05);
                             uint8 i;
@@ -1074,26 +1102,30 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                                 USB_Msg_in[i] = 0;
                             cmd_right_flag = 0;
                         }
-
+                        
                         else   //if no problem with the package, get parameter out
                         {
-                            for(uint8 i = 0; i < 47; i++)
-                                parameter_in[i] = USB_Msg_in[i + 53];
+                            for(uint8 i = 0; i < len_data + 13; i++)
+                                parameter_in[i] = *(usb_alloc_buf + i + 13 + len_data0);
                         }
-                    }
-
+                    }                                        
                     else if ((USB_Msg_in[13] & 0x01) == 1 && (USB_Msg_in[19] == 0x00 || USB_Msg_in[19] == 0xFF)
                              && (USB_Msg_in[20] == 0x00 || USB_Msg_in[20] == 0xFF) && (USB_Msg_in[21] == 0x00 || USB_Msg_in[21] == 0xFF))             //ROUTING table write
                     {
 
                         checksum = 0;
-                        uint8 len_addr = USB_Msg_in[63];
+                        
+                        uint8 len_data0 = USB_Msg_in[10];
+                        //uint8 len_addr = USB_Msg_in[63];
+                        uint8 len_addr = *(usb_alloc_buf + 23 + len_data0);
                         for (index = 0; index < (len_addr + 11); index++)
                         {
-                            checksum += USB_Msg_in[index + 53];
+                            //checksum += USB_Msg_in[index + 53];
+                            checksum += *(usb_alloc_buf + index + 13 + len_data0);
                         }
 
 
+                        //if((uint8)(checksum & 0xFF) != *(usb_alloc_buf + 13 + len_data0 + 11 + len_data) || *(usb_alloc_buf + 13 + len_data0 + 12 + len_data) != 0x16) 
                         //if((uint8)(checksum & 0xFF) != USB_Msg_in[len_addr + 64] || USB_Msg_in[len_addr + 65] != 0x16)  //if sum is wrong or end flag is not 0x16
                         if(0)
 
@@ -1105,19 +1137,20 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                             cmd_right_flag = 0;
                         }
 
-                        else   //if no problem with the package
+                        else   //if no problem with the package, only can have 1 high priority value!!!
                         {
+                          /*
                             uint8 i;
-                            for(i = 0; i < 50; i++)
+                            for(i = 0; i < 3 * NUM_SMART_METER; i++)
                                 sm_routing_prio_table[i] = 0;
-                            
+
                             sm_max = len_addr / 9;
                             uint8 num_high_prio = 0; //uint8
                             uint8 val_high_prio = 0;
-                            uint8 sm_routing_id_table[20] = {0};
+                            uint8 sm_routing_id_table[NUM_SMART_METER] = {0};
 
                             val_high_prio = USB_Msg_in[72];
-                            
+
 
                             for(i = 0; i < sm_max; i++)
                             {
@@ -1130,7 +1163,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                                     num_high_prio ++;
                                 }
                             }
-                            
+
 
                             uint8 j, l;
                             uint8 k = 0;
@@ -1150,10 +1183,76 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                             num_prio_sm_max = k;
                             routing_all_flag = 1;
-                            
+                            */
+                            uint8 i;
+                            for(i = 0; i < 3 * NUM_SMART_METER; i++)
+                                sm_routing_prio_table[i] = 0;
+
+                            sm_max = len_addr / 41;
+                            uint8 num_high_prio = 0; //uint8
+
+
+
+
+                            for(i = 0; i < sm_max; i++)
+                            {
+                                
+                                sm_ADD[i] = BUILD_UINT64_8(*(usb_alloc_buf + 24 + len_data0 + i * 41), *(usb_alloc_buf + 25 + len_data0 + i * 41), *(usb_alloc_buf + 26 + len_data0 + i * 41), *(usb_alloc_buf + 27 + len_data0 + i * 41),
+                                                           *(usb_alloc_buf + 28 + len_data0 + i * 41), *(usb_alloc_buf + 29 + len_data0 + i * 41), *(usb_alloc_buf + 30 + len_data0 + i * 41), *(usb_alloc_buf + 31 + len_data0 + i * 41));
+                                val_prio[i] = *(usb_alloc_buf + 32 + len_data0 + i * 41);
+                                
+                                uint8 sm_IEEE_data[16] = {0};
+                                uint8 sm_ROM_data[16] = {0};
+                                uint8 sm_key_data[16] = {0};
+                                for (int index = 0; index < 8; index++)
+                                    sm_IEEE_data[index] = *(usb_alloc_buf + 24 + len_data0 + i * 41 + index);
+                                for (int index = 0; index < 16; index++)
+                                {   
+                                    sm_ROM_data[index] = *(usb_alloc_buf + 33 + len_data0 + i * 41 + index);
+                                    sm_key_data[index] = *(usb_alloc_buf + 49 + len_data0 + i * 41 + index);
+                                }
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_key_data, 16);
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
+                                AesEncryptDecrypt(sm_key_data, sm_IEEE_data, 0, ENCRYPT_AES);
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
+                                
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_ROM_data, 16);
+                                AesEncryptDecrypt(sm_IEEE_data, sm_ROM_data,  0, ENCRYPT_AES);
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_ROM_data, 16);
+                                
+                                final_key_table_hi[i] = BUILD_UINT64_8(sm_ROM_data[0], sm_ROM_data[1], sm_ROM_data[2], sm_ROM_data[3], sm_ROM_data[4], sm_ROM_data[5], sm_ROM_data[6], sm_ROM_data[7]);
+                                final_key_table_lo[i] = BUILD_UINT64_8(sm_ROM_data[8], sm_ROM_data[9], sm_ROM_data[10], sm_ROM_data[11], sm_ROM_data[12], sm_ROM_data[13], sm_ROM_data[14], sm_ROM_data[15]);
+                                if(val_prio[i] != 1)
+                                {
+                                    num_high_prio ++;
+                                }
+                            }
+
+
+
+                            uint8 j, l;
+                            uint8 k = 0;
+                            uint8 num_low_prio = 0;
+                            num_low_prio = sm_max - num_high_prio;
+                            for(i = 0; i < num_low_prio; i++) // number of low priority
+                            {
+                                for(j = 0; j < val_prio[i] / num_low_prio; j++)
+                                {
+                                    for(l = 0; l < num_high_prio; l++)
+                                    {
+                                        sm_routing_prio_table[k++] = l;
+                                    }
+                                }
+                                sm_routing_prio_table[k++] = i + num_high_prio;
+                            }
+
+                            num_prio_sm_max = k;
+                            routing_all_flag = 1;
                             //test
+                            sm_routing_prio_table[48] = (uint8)sm_max;
                             sm_routing_prio_table[49] = (uint8)num_prio_sm_max;
-                            //HalUART0Write ( HAL_UART_PORT_0, sm_routing_prio_table, 50);
+                            HalUART0Write ( HAL_UART_PORT_0, sm_routing_prio_table, 50);
 
                         }
                     }
@@ -1237,7 +1336,177 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                                 }
                                 UARTDisable(UART0_BASE);
                     */
-                    usbibufPush(&usbCdcInBufferData, pack_out, 53);
+                    uint8 len_data = pack_out[10];
+                    if(flag_encry)
+                    {
+                        uint8 encry_data[70] = {0};
+
+                        for (uint8 i = 0; i < len_data; i++)
+                            encry_data[i] = pack_out[i + 11];
+
+                        len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+                        for(uint8 i = 0; i < (len_data / 16) ; i++)
+                            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+                        pack_out[10] = len_data;
+                        for (uint8 i = 0; i < len_data; i++)
+                            pack_out[i + 11] = encry_data[i];
+
+                        pack_out[len_data + 11] = 0x00;
+                        for (uint8 i = 0; i < len_data + 11; i++ )
+                            pack_out[len_data + 11] +=  pack_out[i];
+                        pack_out[len_data + 12] = 0x16;
+
+
+                        //HalUART1Write ( HAL_UART_PORT_1, send_buffer, len_data + 13);
+                    }
+
+                    usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
+                    //usbibufPush(&usbCdcInBufferData, pack_out, 53);
+                }
+
+                // command: Authentication
+                else if (controlReg[2] == 0x08)
+                {
+                    //HalLcdWriteString( "Auth", HAL_LCD_LINE_4 );
+                    if (controlReg[8] == 0x00 && controlReg[9] == 0x00 && controlReg[10] == 0x00 && controlReg[11] == 0x00
+                            && controlReg[12] == 0x00 && controlReg[13] == 0x00 && controlReg[14] == 0x00 && controlReg[15] == 0x00)  //to Coordinator
+                    {
+                        //////// TO BE REPLACED
+                        uint8 romreg[16] = {0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18};
+                        osal_nv_item_init (FLASH_RO, 40, NULL);
+                        osal_nv_write (FLASH_RO, 0, 40, &romreg[0]);
+                        //////// TO BE REPLACED
+
+
+                        osal_nv_item_init (FLASH_RO, 40, NULL);
+                        osal_nv_read (FLASH_RO, 0, 40, &romread[0]);
+                        send_rom_back(&romread[0]);
+
+                        //controlReg[0] = 0x08;
+                        //controlReg[1] = 0x03;
+                        //controlReg[2] = 0x00;
+                        //controlReg[3] = 0x00;
+                        
+                    }
+
+                    else
+                    {
+                        //controlReg[0] = 0x08;
+                        //controlReg[1] = 0x03;
+                        //controlReg[2] = 0x00;
+                        //controlReg[3] = 0x00;
+                        
+                        flag_auth = false;
+                        zclCoordinator_SendAuth();
+                        WAIT_EVT_INDEX = Coordinator_Auth;
+                        osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
+                        time_old = osal_GetSystemClock();
+                        time_new = time_old;
+                    }
+                }
+
+                // command: set key
+                else if (controlReg[2] == 0x10)
+                {
+                    HalLcdWriteString( "Set key", HAL_LCD_LINE_4 );
+                    if (controlReg[8] == 0x00 && controlReg[9] == 0x00 && controlReg[10] == 0x00 && controlReg[11] == 0x00
+                            && controlReg[12] == 0x00 && controlReg[13] == 0x00 && controlReg[14] == 0x00 && controlReg[15] == 0x00)  //to Coordinator
+                    {
+                        for (uint8 i = 0; i < 16; i++)
+                            coor_key[i] = controlReg[40 + i];
+
+                        zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+
+                        uint8 encry_data[16] = {0};
+
+                        encry_data[0] = (uint8)((ADD_3 & 0xff00) >> 8);
+                        encry_data[1] = (uint8)(ADD_3 & 0x00ff);
+                        encry_data[2] = (uint8)((ADD_2 & 0xff00) >> 8);
+                        encry_data[3] = (uint8)(ADD_2 & 0x00ff);
+                        encry_data[4] = (uint8)((ADD_1 & 0xff00) >> 8);
+                        encry_data[5] = (uint8)(ADD_1 & 0x00ff);
+                        encry_data[6] = (uint8)((ADD_0 & 0xff00) >> 8);
+                        encry_data[7] = (uint8)(ADD_0 & 0x00ff);
+
+                        //HalUART0Write ( HAL_UART_PORT_0, coor_key, 16);
+                        //HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+                        AesEncryptDecrypt(coor_key, encry_data, 0, ENCRYPT_AES);
+                        //HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+
+                        for (uint8 i = 0; i < 16; i++)
+                            coor_final_key[i] = romread[i];
+
+                        //HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+                        //HalUART0Write ( HAL_UART_PORT_0, coor_final_key, 16);
+                        AesEncryptDecrypt(encry_data, coor_final_key,  0, ENCRYPT_AES);
+                        //HalUART0Write ( HAL_UART_PORT_0, coor_final_key, 16);
+                        flag_encry = true;
+                    }
+
+                    else
+                    { 
+                        //////////////////////////////////////////////////////////////////////////////
+                        
+                        uint8 end_key[16] = {0};
+                        for (uint8 i = 0; i < 16; i++)
+                            end_key[i] = controlReg[40 + i];
+                        /*
+                        uint8 encry_data[16] = {0};
+                        encry_data[0] = (uint8)((ADD_3 & 0xff00) >> 8);
+                        encry_data[1] = (uint8)(ADD_3 & 0x00ff);
+                        encry_data[2] = (uint8)((ADD_2 & 0xff00) >> 8);
+                        encry_data[3] = (uint8)(ADD_2 & 0x00ff);
+                        encry_data[4] = (uint8)((ADD_1 & 0xff00) >> 8);
+                        encry_data[5] = (uint8)(ADD_1 & 0x00ff);
+                        encry_data[6] = (uint8)((ADD_0 & 0xff00) >> 8);
+                        encry_data[7] = 0xBF;
+
+                        HalUART0Write ( HAL_UART_PORT_0, end_key, 16);
+                        HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+                        AesEncryptDecrypt(end_key, encry_data, 0, ENCRYPT_AES);
+                        HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+
+                        for (uint8 i = 0; i < 16; i++)
+                            end_final_key[i] = romread[i];
+
+                        HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+                        HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+                        AesEncryptDecrypt(encry_data, end_final_key,  0, ENCRYPT_AES);
+                        HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+                        */
+                        ///////////////////////////////////////////////////////////////////////////////
+                        /*
+                        end_final_key[0] = (uint8)(((final_key_table_hi[sm_routing_prio_table[ack_index]]) >> 56) & 0x00000000000000FF); 
+                        end_final_key[1] = (uint8)(((final_key_table_hi[sm_routing_prio_table[ack_index]]) >> 48) & 0x00000000000000FF);
+                        end_final_key[2] = (uint8)(((final_key_table_hi[sm_routing_prio_table[ack_index]]) >> 40) & 0x00000000000000FF);
+                        end_final_key[3] = (uint8)(((final_key_table_hi[sm_routing_prio_table[ack_index]]) >> 32) & 0x00000000000000FF);
+                        end_final_key[4] = (uint8)(((final_key_table_hi[sm_routing_prio_table[ack_index]]) >> 24) & 0x00000000000000FF);
+                        end_final_key[5] = (uint8)(((final_key_table_hi[sm_routing_prio_table[ack_index]]) >> 16) & 0x00000000000000FF);
+                        end_final_key[6] = (uint8)(((final_key_table_hi[sm_routing_prio_table[ack_index]]) >> 8) & 0x00000000000000FF);
+                        end_final_key[7] = (uint8)((final_key_table_hi[sm_routing_prio_table[ack_index]]) & 0x00000000000000FF);
+                        
+                        end_final_key[8] = (uint8)(((final_key_table_lo[sm_routing_prio_table[ack_index]]) >> 56) & 0x00000000000000FF); 
+                        end_final_key[9] = (uint8)(((final_key_table_lo[sm_routing_prio_table[ack_index]]) >> 48) & 0x00000000000000FF);
+                        end_final_key[10] = (uint8)(((final_key_table_lo[sm_routing_prio_table[ack_index]]) >> 40) & 0x00000000000000FF);
+                        end_final_key[11] = (uint8)(((final_key_table_lo[sm_routing_prio_table[ack_index]]) >> 32) & 0x00000000000000FF);
+                        end_final_key[12] = (uint8)(((final_key_table_lo[sm_routing_prio_table[ack_index]]) >> 24) & 0x00000000000000FF);
+                        end_final_key[13] = (uint8)(((final_key_table_lo[sm_routing_prio_table[ack_index]]) >> 16) & 0x00000000000000FF);
+                        end_final_key[14] = (uint8)(((final_key_table_lo[sm_routing_prio_table[ack_index]]) >> 8) & 0x00000000000000FF);
+                        end_final_key[15] = (uint8)((final_key_table_lo[sm_routing_prio_table[ack_index]]) & 0x00000000000000FF);
+                        */
+                        //HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+                        flag_end_encry = false;              
+                        flag_key_set = false;
+                        
+                        zclCoordinator_SetKey(end_key);
+                        WAIT_EVT_INDEX = Coordinator_Setkey;
+                        osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
+                        time_old = osal_GetSystemClock();
+                        time_new = time_old;
+                        
+                    }
                 }
 
                 // command: relay control
@@ -1489,16 +1758,16 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                     if(routing_all_flag == 1)
                     {
-                      /*
-                        ack_index = 0;   //To make it stop current round robin immediately, and start a new one
-                        datain_complete = 0;
-                        first_write_flag = 1;
-                        Drr_flag = 0;
-                        ACK_flag = 1;
-                        PowSpCal = 0;
-                        Round_end_flag = 0;
-                      */
-                        for(uint8 i = 0; i < 20; i++)
+                        /*
+                          ack_index = 0;   //To make it stop current round robin immediately, and start a new one
+                          datain_complete = 0;
+                          first_write_flag = 1;
+                          Drr_flag = 0;
+                          ACK_flag = 1;
+                          PowSpCal = 0;
+                          Round_end_flag = 0;
+                        */
+                        for(uint8 i = 0; i < NUM_SMART_METER; i++)
                             sm_ADD_status[i] = 1;
                     }
                     routing_all_flag = 0;
@@ -1544,7 +1813,30 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                     pack_out[56] = 0x16;
 
-                    usbibufPush(&usbCdcInBufferData, pack_out, 57);
+                    uint8 len_data = pack_out[10];
+                    if(flag_encry)
+                    {
+                        uint8 encry_data[70] = {0};
+
+                        for (uint8 i = 0; i < len_data; i++)
+                            encry_data[i] = pack_out[i + 11];
+
+                        len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+                        for(uint8 i = 0; i < (len_data / 16) ; i++)
+                            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+                        pack_out[10] = len_data;
+                        for (uint8 i = 0; i < len_data; i++)
+                            pack_out[i + 11] = encry_data[i];
+
+                        pack_out[len_data + 11] = 0x00;
+                        for (uint8 i = 0; i < len_data + 11; i++ )
+                            pack_out[len_data + 11] +=  pack_out[i];
+                        pack_out[len_data + 12] = 0x16;
+
+                    }
+                    usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
                 }
 
                 // command: Timeset
@@ -1639,7 +1931,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 //Specify which smart meter to request data
                 //&zclCoordinator_DstAddr = &sm_ADD[sm_index];
                 //else if (((controlReg[0] >> 7) & 0x01) == 1 && Drr_flag == 1 && (((controlReg[3] >> 3) & 0x01) == 0))
-                else if (((controlReg[0] >> 7) & 0x01) == 1 && dataLen != 4 && (((controlReg[3] >> 3) & 0x01) == 0))
+                else if (((controlReg[0] >> 7) & 0x01) == 1 && (((controlReg[3] >> 3) & 0x01) == 0))
                 {
                     //HalLcdWriteString( "DRREVT", HAL_LCD_LINE_7 );
                     ack_index = 0;
@@ -1653,15 +1945,15 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     }
                     */
 
-                    zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
-                    zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD_prio) >> 56) & 0x00000000000000FF); //AF.h; highest
-                    zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD_prio) >> 48) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD_prio) >> 40) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD_prio) >> 32) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD_prio) >> 24) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD_prio) >> 16) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD_prio) >> 8) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD_prio) & 0x00000000000000FF);
+                    //zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
+                    zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 56) & 0x00000000000000FF); //AF.h; highest
+                    zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 48) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 40) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 32) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 24) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 16) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 8) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_routing_prio_table[ack_index]]) & 0x00000000000000FF);
 
                     //Stop power calculation
                     flaginc = 0;
@@ -1682,7 +1974,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                 //ACKcommand
                 //else if((((controlReg[3] >> 3) & 0x01) == 1) && (((controlReg[0] >> 7) & 0x01) == 1) && ACK_flag == 1)
-                else if((((controlReg[3] >> 3) & 0x01) == 1) && (((controlReg[0] >> 7) & 0x01) == 1) && (dataLen == 4 || controlReg[1] == 0x00))
+                else if((((controlReg[3] >> 3) & 0x01) == 1) && (((controlReg[0] >> 7) & 0x01) == 1))
                 {
                     if((controlReg[3] & 0x01) == 1)//check is retry or not!
                     {
@@ -1768,6 +2060,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         }
         cmd_right_flag = 1;
 
+        if (usb_alloc_buf)
+            osal_mem_free(usb_alloc_buf);
         return ( events ^ Coordinator_USB_EVT );
     }
 
@@ -1776,7 +2070,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
     if ( events & ACK_WAIT_EVT )
     {
 
-        uint8 smvalid_flag = 0;
+        //uint8 smvalid_flag = 0;
         uint8 all_smvalid_flag = 0;
 
         if(PowSpCal == 1)
@@ -1800,7 +2094,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     ack_index++;
 
                     osal_set_event(task_id, ACK_CS_EVT);
-                    
+
                     uint8 test[4] = {0};
                     test[0] = ack_index;
                     test[1] = (uint8)num_prio_sm_max;
@@ -1855,10 +2149,11 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 else
                 {
                     ack_index = 0;                                //check there is no stop it, so the round robin will continue from the beginning.
+                    /*
                     while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                     {
                         ack_index++;
-                    }
+                    }*/
                     osal_set_event(task_id, ACK_CS_EVT);
                 }
             }
@@ -1988,8 +2283,32 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         }
         UARTDisable(UART0_BASE );
         */
+        uint8 len_data = pack_out[10];
+        if(flag_encry)
+        {
+            uint8 encry_data[70] = {0};
 
-        usbibufPush(&usbCdcInBufferData, pack_out, 45 + len_DataReg * 2);
+            for (uint8 i = 0; i < len_data; i++)
+                encry_data[i] = pack_out[i + 11];
+
+            len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+            for(uint8 i = 0; i < (len_data / 16) ; i++)
+                AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+            pack_out[10] = len_data;
+            for (uint8 i = 0; i < len_data; i++)
+                pack_out[i + 11] = encry_data[i];
+
+            pack_out[len_data + 11] = 0x00;
+            for (uint8 i = 0; i < len_data + 11; i++ )
+                pack_out[len_data + 11] +=  pack_out[i];
+            pack_out[len_data + 12] = 0x16;
+
+        }
+        usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
+        //usbibufPush(&usbCdcInBufferData, pack_out, 30);
+        //usbibufPush(&usbCdcInBufferData, pack_out, 45 + len_DataReg * 2);
 
         controlReg[1] = 0x03;
         //dataRegSel = dataRegSel ^ 0x01;
@@ -2006,6 +2325,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
     if ( events & ACK_CS_EVT )
     {
         //HalLcdWriteString( "datawait3", HAL_LCD_LINE_6 );
+        /*
         zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
         zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD_prio) >> 56) & 0x00000000000000FF);
         zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD_prio) >> 48) & 0x00000000000000FF);
@@ -2015,6 +2335,15 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD_prio) >> 16) & 0x00000000000000FF);
         zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD_prio) >> 8) & 0x00000000000000FF);
         zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD_prio) & 0x00000000000000FF);
+        */
+        zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 56) & 0x00000000000000FF); 
+        zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 48) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 40) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 32) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 24) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 16) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 8) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_routing_prio_table[ack_index]]) & 0x00000000000000FF);
         if(sm_ADD_status[ack_index] == 1)
         {
             //Stop power calculation
@@ -2050,6 +2379,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
     {
         if ( WAIT_EVT_INDEX == Coordinator_ProcessParaSet )
         {
+          /*
             if( Connect_Mode == WIRELESS_CONNECTION)
             {
                 int index;
@@ -2112,7 +2442,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     }
                 }
             }
-            else if( Connect_Mode == WIRED_CONNECTION)
+            else */
+            if( Connect_Mode == WIRED_CONNECTION)
             {
                 int index;
                 time_new = osal_GetSystemClock();
@@ -2234,6 +2565,90 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 else
                 {
                     WAIT_EVT_INDEX = Coordinator_EnergyResetWait;
+                    osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
+                }
+            }
+        }
+        
+        else if ( WAIT_EVT_INDEX == Coordinator_Auth )
+        {
+            int index;
+            time_new = osal_GetSystemClock();
+            if((time_new - time_old) > 0x0000013B)
+            {
+                sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
+                for(index = 0; index < sm_max; index++)
+                {
+                    if(sm_ADD_reg == sm_ADD[index])
+                        //sm_ADD_status[index] = 0;  //The address is invalid
+                        ;
+                }
+                sm_ADD_reg = 0;
+
+                zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
+
+                flag_auth = false;
+
+                time_new = 0;
+                time_old = 0;
+                WAIT_EVT_INDEX = 0x0000;
+            }
+            else
+            {
+                if (flag_auth)
+                {
+                    //zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+
+                    flag_auth = false;
+                    time_new = 0;
+                    time_old = 0;
+                    WAIT_EVT_INDEX = 0x0000;
+                }
+                else
+                {
+                    WAIT_EVT_INDEX = Coordinator_Auth;
+                    osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
+                }
+            }
+        }
+        
+        else if ( WAIT_EVT_INDEX == Coordinator_Setkey )
+        {
+            int index;
+            time_new = osal_GetSystemClock();
+            if((time_new - time_old) > 0x0000013B)
+            {
+                sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
+                for(index = 0; index < sm_max; index++)
+                {
+                    if(sm_ADD_reg == sm_ADD[index])
+                        //sm_ADD_status[index] = 0;  //The address is invalid
+                        ;
+                }
+                sm_ADD_reg = 0;
+
+                zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
+
+                flag_key_set = false;
+
+                time_new = 0;
+                time_old = 0;
+                WAIT_EVT_INDEX = 0x0000;
+            }
+            else
+            {
+                if (flag_key_set)
+                {
+                    zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                    
+                    flag_key_set = false;
+                    time_new = 0;
+                    time_old = 0;
+                    WAIT_EVT_INDEX = 0x0000;
+                }
+                else
+                {
+                    WAIT_EVT_INDEX = Coordinator_Setkey;
                     osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
                 }
             }
@@ -2390,7 +2805,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
         else if ( WAIT_EVT_INDEX == Calibration_WAIT )
         {
-            
+
             //int index;
             time_new = osal_GetSystemClock();
             if((time_new - time_old) > 0x00000FA0)   ///4000ms
@@ -2405,7 +2820,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 }
                 sm_ADD_reg = 0;
                 */
-                
+
 
                 cal_receive_flag = 0;
                 zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
@@ -2417,7 +2832,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             {
                 if (cal_receive_flag == 1)
                 {
-                    
+
                     zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
                     cal_receive_flag = 0;
                     time_new = 0;
@@ -2470,7 +2885,31 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     }
                     UARTDisable(UART0_BASE);
                     */
-                    usbibufPush(&usbCdcInBufferData, pack_out, 18);
+                    uint8 len_data = pack_out[10];
+                    if(flag_encry)
+                    {
+                        uint8 encry_data[70] = {0};
+
+                        for (uint8 i = 0; i < len_data; i++)
+                            encry_data[i] = pack_out[i + 11];
+
+                        len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+                        for(uint8 i = 0; i < (len_data / 16) ; i++)
+                            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+                        pack_out[10] = len_data;
+                        for (uint8 i = 0; i < len_data; i++)
+                            pack_out[i + 11] = encry_data[i];
+
+                        pack_out[len_data + 11] = 0x00;
+                        for (uint8 i = 0; i < len_data + 11; i++ )
+                            pack_out[len_data + 11] +=  pack_out[i];
+                        pack_out[len_data + 12] = 0x16;
+
+                    }
+                    usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
+                    //usbibufPush(&usbCdcInBufferData, pack_out, 18);
                     WAIT_EVT_INDEX = 0x0000;
                     time_new = 0;
                     time_old = 0;
@@ -2610,11 +3049,12 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     {
                         Timeout_Pong = 1;
                     }
-                    zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
-                    dataReg_Ping[0] = (uint16)(((sm_ADD_prio) >> 48) & 0x000000000000FFFF); //ADD_3
-                    dataReg_Ping[1] = (uint16)(((sm_ADD_prio) >> 32) & 0x000000000000FFFF); //ADD_2
-                    dataReg_Ping[2] = (uint16)(((sm_ADD_prio) >> 16) & 0x000000000000FFFF); //ADD_1
-                    dataReg_Ping[3] = (uint16)((sm_ADD_prio) & 0x000000000000FFFF); //ADD_0
+                    
+                    //zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
+                    dataReg_Ping[0] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 48) & 0x000000000000FFFF); //ADD_3
+                    dataReg_Ping[1] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 32) & 0x000000000000FFFF); //ADD_2
+                    dataReg_Ping[2] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 16) & 0x000000000000FFFF); //ADD_1
+                    dataReg_Ping[3] = (uint16)((sm_ADD[sm_routing_prio_table[ack_index]]) & 0x000000000000FFFF); //ADD_0
                     dataReg_Ping[4] = 0;
                     dataReg_Ping[5] = 0;
                     dataReg_Ping[6] = 0;
@@ -2632,11 +3072,11 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     dataReg_Ping[12 + len_DataReg] = (uint16)TimeStruct.minutes;
                     dataReg_Ping[13 + len_DataReg] = (uint16)TimeStruct.seconds;
 
-                    zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
-                    dataReg_Pong[0] = (uint16)(((sm_ADD_prio) >> 48) & 0x000000000000FFFF); //ADD_3
-                    dataReg_Pong[1] = (uint16)(((sm_ADD_prio) >> 32) & 0x000000000000FFFF); //ADD_2
-                    dataReg_Pong[2] = (uint16)(((sm_ADD_prio) >> 16) & 0x000000000000FFFF); //ADD_1
-                    dataReg_Pong[3] = (uint16)((sm_ADD_prio) & 0x000000000000FFFF); //ADD_0
+                    //zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
+                    dataReg_Pong[0] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 48) & 0x000000000000FFFF); //ADD_3
+                    dataReg_Pong[1] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 32) & 0x000000000000FFFF); //ADD_2
+                    dataReg_Pong[2] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 16) & 0x000000000000FFFF); //ADD_1
+                    dataReg_Pong[3] = (uint16)((sm_ADD[sm_routing_prio_table[ack_index]]) & 0x000000000000FFFF); //ADD_0
                     dataReg_Pong[4] = 0;
                     dataReg_Pong[5] = 0;
                     dataReg_Pong[6] = 0;
@@ -2689,7 +3129,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         if(ack_index < (num_prio_sm_max - 1))
                         {
                             ack_index++;                                 //at first, the DRR command actually will send request to two Smart Meter, so the Smart Meter address need update.
-                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
+                       /*     while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                             {
                                 ack_index++;
                             }
@@ -2700,7 +3140,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                                 {
                                     ack_index++;
                                 }
-                            }
+                            }*/
 
                             osal_set_event(task_id, ACK_CS_EVT);
 
@@ -2708,10 +3148,10 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         else
                         {
                             ack_index = 0;
-                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
+                        /*    while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                             {
                                 ack_index++;
-                            }
+                            }*/
                             osal_set_event(task_id, ACK_CS_EVT);
 
                         }
@@ -2730,7 +3170,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         if(ack_index < (num_prio_sm_max - 1))
                         {
                             ack_index++;                                 //at first, the DRR command actually will send request to two Smart Meter, so the Smart Meter address need update.
-                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
+                         /*   while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                             {
                                 ack_index++;
                             }
@@ -2741,7 +3181,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                                 {
                                     ack_index++;
                                 }
-                            }
+                            }*/
 
                             /*
                             uint32 wait_timenew = osal_GetSystemClock();
@@ -2755,10 +3195,10 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         else
                         {
                             ack_index = 0;
-                            while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
+                           /* while((sm_ADD_status[ack_index] == 0) && (ack_index < (num_prio_sm_max - 1)))
                             {
                                 ack_index++;
-                            }
+                            }*/
                             osal_set_event(task_id, ACK_CS_EVT);
                             datain_complete = 0;
                         }
@@ -2901,34 +3341,275 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
     if ( keys & HAL_KEY_SW_1 )
     {
       
-       uint8_t ui8AESKey[16] =  { 0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00,
-        0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00 };
-       uint8 buffer[16] = { 0x5a, 0x5f, 0x57, 0x58, 0x55, 0x53, 0x06, 0x0f, 
-         0x6c, 0x5f, 0x51, 0x74, 0x53, 0x53, 0x77, 0x5a};
-
-        char  lcdString[10];
-        switch_timenew = osal_GetSystemClock();
-
+/*68 00 12 4B 00 04 13 31 
+  BF 68 28 18 02 00 00 00 
+  00 00 00 00 12 4B 00 04 
+  0F 05 B3 00 00 00 00 00 
+  00 00 00 00 00 00 00 00 
+  00 00 00 00 00 00 00 00
+  00 00 00 9E 16*/
+      /*
+        uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
+                               0x76, 0x68, 0x28, 0x18, 0x02, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x12, 0x4b, 0x00, 0x04,
+                               0x13, 0x31, 0xbf, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x9e, 0x16
+                           };
         
-        AesEncryptDecrypt(ui8AESKey, buffer, 0, ENCRYPT_AES);
-        //HalUART0Write ( HAL_UART_PORT_0, buffer, 16);
-        //AesEncryptDecrypt(ui8AESKey, buffer+16, 1, ENCRYPT_AES);
-        //HalUART0Write ( HAL_UART_PORT_0, buffer+16, 16);
-        //AesEncryptDecrypt(ui8AESKey, buffer+32, 1, ENCRYPT_AES);
-        HalUART0Write ( HAL_UART_PORT_0, buffer, 16);
+        uint8 encry_data[60] = {0};
         
-        AesEncryptDecrypt(ui8AESKey, buffer, 0, DECRYPT_AES);
-        //HalUART0Write ( HAL_UART_PORT_0, buffer, 16);
-        //AesEncryptDecrypt(ui8AESKey, buffer+16, 1, DECRYPT_AES);
-        //HalUART0Write ( HAL_UART_PORT_0, buffer+16, 16);
-        //AesEncryptDecrypt(ui8AESKey, buffer+32, 1, DECRYPT_AES);
-        HalUART0Write ( HAL_UART_PORT_0, buffer, 16);       
+        uint8 len_data = send_buffer[10];
+        for (uint8 i = 0; i < len_data; i++)
+             encry_data[i] = send_buffer[i + 11];      
         
+        len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+        
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+        
+        send_buffer[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            send_buffer[i + 11] = encry_data[i];
+        
+        send_buffer[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            send_buffer[len_data + 11] +=  send_buffer[i];
+        send_buffer[len_data + 12] = 0x16;
 
-        //sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
-        //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+        HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        */
+//////////////////////////////////////////////////////////////////////////////////////////////////
+        //68 00 12 4B 00 04 13 31 
+        //76 68 10 2B 75 2F 60 22  
+        //00 E0 F2 65 6D 2C 68 B7
+        //A8 59 E7 23 16
+      /*
+        uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
+                               0x76, 0x68, 0x10, 0x2b, 0x75, 0x2f, 0x60, 0x22,
+                               0x00, 0xe0, 0xf2, 0x65, 0x6d, 0x2c, 0x68, 0xb7,
+                               0xa8, 0x59, 0xe7, 0x23, 0x16
+                           };
         
+        uint8 encry_data[60] = {0};
+        
+        uint8 len_data = send_buffer[10];
+        for (uint8 i = 0; i < len_data; i++)
+             encry_data[i] = send_buffer[i + 11];      
+        
+        len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+        
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, DECRYPT_AES);
+        
+        send_buffer[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            send_buffer[i + 11] = encry_data[i];
+        
+        send_buffer[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            send_buffer[len_data + 11] +=  send_buffer[i];
+        send_buffer[len_data + 12] = 0x16;
 
+        //HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        
+        //rom read smart
+        //68 00 12 4B 00 04 13 31 
+        //76 68 28 08 02 08 00 00 
+        //00 00 00 00 12 4B 00 04 
+        //13 31 BF 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 25 16
+        uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
+                               0x76, 0x68, 0x28, 0x08, 0x02, 0x08, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x12, 0x4b, 0x00, 0x04,
+                               0x13, 0x31, 0xbf, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x9e, 0x16
+                           };
+        
+        uint8 encry_data[60] = {0};
+        
+        uint8 len_data = send_buffer[10];
+        for (uint8 i = 0; i < len_data; i++)
+             encry_data[i] = send_buffer[i + 11];      
+        
+        len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+        
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+        
+        send_buffer[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            send_buffer[i + 11] = encry_data[i];
+        
+        send_buffer[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            send_buffer[len_data + 11] +=  send_buffer[i];
+        send_buffer[len_data + 12] = 0x16;
+
+        HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        
+        
+        //SET KEY TO smart
+        //68 00 12 4B 00 04 13 31 
+        //76 68 38 08 02 10 00 00 
+        //00 00 00 00 12 4B 00 04 
+        //13 31 BF 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 11 22 33 44 55 
+        //66 77 88 11 22 33 44 55 
+        //66 77 88 9E 16
+        uint8 send_buffer[69] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
+                               0x76, 0x68, 0x38, 0x08, 0x02, 0x10, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x12, 0x4b, 0x00, 0x04,
+                               0x13, 0x31, 0xbf, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+                               0x66, 0x77, 0x88, 0x11, 0x22, 0x33, 0x44, 0x55,
+                               0x66, 0x77, 0x88, 0x9e, 0x16
+                           };
+        
+        uint8 encry_data[70] = {0};
+        
+        uint8 len_data = send_buffer[10];
+        for (uint8 i = 0; i < len_data; i++)
+             encry_data[i] = send_buffer[i + 11];      
+        
+        len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+        
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+        
+        send_buffer[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            send_buffer[i + 11] = encry_data[i];
+        
+        send_buffer[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            send_buffer[len_data + 11] +=  send_buffer[i];
+        send_buffer[len_data + 12] = 0x16;
+
+        HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        
+        
+        //start on/off
+        //68 00 12 4B 00 04 13 31 
+        //76 68 28 08 00 00 00 00 
+        //00 00 00 00 12 4B 00 04 
+        //13 31 BF 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 8C 16
+
+        uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
+                               0x76, 0x68, 0x28, 0x08, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x12, 0x4b, 0x00, 0x04,
+                               0x13, 0x31, 0xbf, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x8c, 0x16
+                           };
+        
+        uint8 encry_data[60] = {0};
+        
+        uint8 len_data = send_buffer[10];
+        for (uint8 i = 0; i < len_data; i++)
+             encry_data[i] = send_buffer[i + 11];      
+        
+        len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+        
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+        
+        send_buffer[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            send_buffer[i + 11] = encry_data[i];
+        
+        send_buffer[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            send_buffer[len_data + 11] +=  send_buffer[i];
+        send_buffer[len_data + 12] = 0x16;
+
+        HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        */
+        
+        //data register read
+        //68 00 12 4B 00 04 13 31 
+        //76 68 28 88 02 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 E6 16
+
+        uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
+                               0x76, 0x68, 0x28, 0x88, 0x02, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x8c, 0x16
+                           };
+        
+        uint8 encry_data[60] = {0};
+        
+        uint8 len_data = send_buffer[10];
+        for (uint8 i = 0; i < len_data; i++)
+             encry_data[i] = send_buffer[i + 11];      
+        
+        len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+        
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+        
+        send_buffer[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            send_buffer[i + 11] = encry_data[i];
+        
+        send_buffer[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            send_buffer[len_data + 11] +=  send_buffer[i];
+        send_buffer[len_data + 12] = 0x16;
+        HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+      
+        /*
+        //ack
+        //68 00 12 4B 00 04 13 31 
+        //76 68 04 88 02 00 08 CA 
+        //16
+        uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
+                               0x76, 0x68, 0x04, 0x88, 0x02, 0x00, 0x08, 0x8c,
+                                0x16
+                           };
+        
+        uint8 encry_data[60] = {0};
+        
+        uint8 len_data = send_buffer[10];
+        for (uint8 i = 0; i < len_data; i++)
+             encry_data[i] = send_buffer[i + 11];      
+        
+        len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+        
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+        
+        send_buffer[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            send_buffer[i + 11] = encry_data[i];
+        
+        send_buffer[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            send_buffer[len_data + 11] +=  send_buffer[i];
+        send_buffer[len_data + 12] = 0x16;
+        HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        
+*/
     }
 
     if ( keys & HAL_KEY_SW_2 )
@@ -3542,7 +4223,8 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         SmartMeterparamReg[17] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[38], pInParameterReport->attrList[0].attrData[39]); //N_SM
         sm_id = BUILD_UINT16(pInParameterReport->attrList[0].attrData[40], pInParameterReport->attrList[0].attrData[41]);
 
-
+        para_set_rcv_flag = 1;
+        /*
         if(!zclCoordinator_SmartMeterParamCompare())
         {
             sm_receive_flag[sm_id] = 1;
@@ -3572,7 +4254,7 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
                 sm_retry_times[sm_id]--;
 
             }
-        }
+        }*/
     }
 
     if ((OPERATION == TIME_SET) && (RESULT == SUCCESS) &&
@@ -3588,6 +4270,8 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         SmartMeterTimeReg[5] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[14], pInParameterReport->attrList[0].attrData[15]);
         sm_id = BUILD_UINT16(pInParameterReport->attrList[0].attrData[16], pInParameterReport->attrList[0].attrData[17]);
 
+        para_set_rcv_flag = 1;
+        /*
         if(!zclCoordinator_SmartMeterTimeCompare())
         {
             sm_receive_flag[sm_id] = 1;
@@ -3618,6 +4302,7 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 
             }
         }
+        */
     }
 
     //Process incomming data report from smart meter in response to GET date command *
@@ -3908,24 +4593,26 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
  */
 static void Process_Wired_Cmd(void)
 {
-  /*
-    uint8_t ui8AESKey[16] =  { 0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00,
-        0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00 };
-  */
-    uint8 len_data = USB_Msg_in[10];
+    /*
+      uint8_t ui8AESKey[16] =  { 0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00,
+          0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00 };
+    */
+    if (flag_end_encry)
+    {
+        uint8 len_data = USB_Msg_in[10];
 
-    uint8 encry_data[70] = {0};
-    
-    for (uint8 i = 0; i < len_data; i++)
-        encry_data[i] = USB_Msg_in[i + 11];
-    
-    for(uint8 i = 0; i < ((len_data%16)? (len_data / 16 + 1) : (len_data / 16)) ; i++)
-        AesEncryptDecrypt(ui8AESKey, encry_data + 16 * i, 0, DECRYPT_AES);
-    
-    for (uint8 i = 0; i < len_data; i++)
-        USB_Msg_in[i + 11] = encry_data[i];
+        uint8 encry_data[70] = {0};
 
-    
+        for (uint8 i = 0; i < len_data; i++)
+            encry_data[i] = USB_Msg_in[i + 11];
+
+        for(uint8 i = 0; i < ((len_data % 16) ? (len_data / 16 + 1) : (len_data / 16)) ; i++)
+            AesEncryptDecrypt(end_final_key, encry_data + 16 * i, 0, DECRYPT_AES);
+
+        for (uint8 i = 0; i < len_data; i++)
+            USB_Msg_in[i + 11] = encry_data[i];
+    }
+
     uint16 OPERATION = UINT8_TO_16(USB_Msg_in[11], USB_Msg_in[12]);
     uint16 RESULT = UINT8_TO_16(USB_Msg_in[13], USB_Msg_in[14]);
 
@@ -3935,7 +4622,7 @@ static void Process_Wired_Cmd(void)
     char  lcdString[10];
     sprintf((char *)lcdString, "%x %x", (uint8)OPERATION, (uint8)RESULT );
     HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
-        
+
     if ((OPERATION == SET_PARAM) && (RESULT == SUCCESS))
     {
         // store the current parameter value sent over the air from smart meter *
@@ -4151,28 +4838,23 @@ static void Process_Wired_Cmd(void)
     {
         SmartMeter_relay = UINT8_TO_16(USB_Msg_in[15], USB_Msg_in[16]);
         relay_receive_flag = 1;
-
-        /*
-        if (SmartMeter_relay == flagrelay)
-        {
-            relay_receive_flag = 1;
-            flagrelay = 2;
-        }
-        else
-        {
-            if (!relay_retry_times)
-            {
-                relay_receive_flag = 2; //means times out
-                relay_retry_times = 3;  //reset retry times
-            }
-
-            else  //if retry times is not 0
-            {
-                zclCoordinator_SendRelay();
-                relay_retry_times--;
-            }
-        }
-        */
+    }
+    
+    if ((OPERATION == AUTHEN) && (RESULT == SUCCESS))
+    {
+        flag_auth = true;
+        
+        uint8 end_romread[16];
+        
+        for (uint8 i = 0; i < 16; i++)
+          end_romread[i] = USB_Msg_in[15 + i];
+        send_rom_back(&end_romread[0]);
+    }
+    
+    if ((OPERATION == SET_KEY) && (RESULT == SUCCESS))
+    {
+        flag_key_set = true;
+        flag_end_encry = true;
     }
 
     if ((OPERATION == CALIBRATE) && (RESULT == SUCCESS))
@@ -4810,6 +5492,131 @@ static void zclCoordinator_SendReset( void )
     }
 }
 
+/*********************************************************************
+ * @fn      zclCoordinator_SendAuth *
+ *
+ * @brief   Called to send command to send authentication in smart meter
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void zclCoordinator_SendAuth( void )
+{
+    if( Connect_Mode == WIRELESS_CONNECTION)
+    {
+#ifdef ZCL_REPORT
+        zclReportCmd_t *pReportCmd;
+        uint16 packet[] = {USR_RX_GET, AUTHEN};
+
+        pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
+        if ( pReportCmd != NULL )
+        {
+            pReportCmd->numAttr = 1;
+            pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT32; //zcl.c
+            pReportCmd->attrList[0].attrData = (void *)(packet);
+
+            zcl_SendReportCmd( Coordinator_ENDPOINT, &zclCoordinator_DstAddr,
+                               ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
+                               pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclCoordinatorSeqNum++ );
+        }
+
+        osal_mem_free( pReportCmd );
+#endif  // ZCL_REPORT
+    }
+    else if( Connect_Mode == WIRED_CONNECTION)
+    {
+        uint8 i = 0;
+
+        uint16 packet[] = {USR_RX_GET, AUTHEN}; //sizeof(packet) = 4
+
+        send_buffer[0] = 0x68;
+        for(i = 1; i < 9; i++)
+        {
+            send_buffer[i] = controlReg[i + 7];
+        }
+        send_buffer[9] = 0x68;
+        send_buffer[10] = (uint8)sizeof(packet);
+
+        for(i = 0; i < sizeof(packet) / 2; i++)
+        {
+            send_buffer[11 + i * 2] = (uint8_t) ((packet[i] & 0xFF00) >> 8);
+            send_buffer[12 + i * 2] = (uint8_t) (packet[i] & 0x00FF);
+        }
+
+        send_buffer[11 + sizeof(packet)] = 0x00;
+        for(i = 0; i < 11 + sizeof(packet); i++)
+            send_buffer[11 + sizeof(packet)] += send_buffer[i];
+
+        send_buffer[12 + sizeof(packet)] = 0x16;
+        len_uart1 = 13 + sizeof(packet);
+    }
+}
+
+/*********************************************************************
+ * @fn      zclCoordinator_SetKey *
+ *
+ * @brief   Called to send command to set key in smart meter
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void zclCoordinator_SetKey( uint8* parameter )
+{
+    if( Connect_Mode == WIRELESS_CONNECTION)
+    {
+#ifdef ZCL_REPORT
+        zclReportCmd_t *pReportCmd;
+        uint16 packet[] = {USR_RX_SET, SET_KEY, UINT8_TO_16(parameter[0],parameter[1]), UINT8_TO_16(parameter[2],parameter[3]), UINT8_TO_16(parameter[4],parameter[5]), UINT8_TO_16(parameter[6],parameter[7]),
+                                                UINT8_TO_16(parameter[8],parameter[9]), UINT8_TO_16(parameter[10],parameter[11]), UINT8_TO_16(parameter[12],parameter[13]), UINT8_TO_16(parameter[14],parameter[15])};
+
+        pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
+        if ( pReportCmd != NULL )
+        {
+            pReportCmd->numAttr = 1;
+            pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT32; //zcl.c
+            pReportCmd->attrList[0].attrData = (void *)(packet);
+
+            zcl_SendReportCmd( Coordinator_ENDPOINT, &zclCoordinator_DstAddr,
+                               ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
+                               pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclCoordinatorSeqNum++ );
+        }
+
+        osal_mem_free( pReportCmd );
+#endif  // ZCL_REPORT
+    }
+    else if( Connect_Mode == WIRED_CONNECTION)
+    {
+        uint8 i = 0;
+
+        uint16 packet[] = {USR_RX_SET, SET_KEY, UINT8_TO_16(parameter[0],parameter[1]), UINT8_TO_16(parameter[2],parameter[3]), UINT8_TO_16(parameter[4],parameter[5]), UINT8_TO_16(parameter[6],parameter[7]),
+                                                UINT8_TO_16(parameter[8],parameter[9]), UINT8_TO_16(parameter[10],parameter[11]), UINT8_TO_16(parameter[12],parameter[13]), UINT8_TO_16(parameter[14],parameter[15])};
+
+        send_buffer[0] = 0x68;
+        for(i = 1; i < 9; i++)
+        {
+            send_buffer[i] = controlReg[i + 7];
+        }
+        send_buffer[9] = 0x68;
+        send_buffer[10] = (uint8)sizeof(packet);
+
+        for(i = 0; i < sizeof(packet) / 2; i++)
+        {
+            send_buffer[11 + i * 2] = (uint8_t) ((packet[i] & 0xFF00) >> 8);
+            send_buffer[12 + i * 2] = (uint8_t) (packet[i] & 0x00FF);
+        }
+
+        send_buffer[11 + sizeof(packet)] = 0x00;
+        for(i = 0; i < 11 + sizeof(packet); i++)
+            send_buffer[11 + sizeof(packet)] += send_buffer[i];
+
+        send_buffer[12 + sizeof(packet)] = 0x16;
+        len_uart1 = 13 + sizeof(packet);
+    }
+}
 
 /*********************************************************************
  * @fn      zclCoordinator_SendRelay *
@@ -5766,7 +6573,7 @@ static void zclCoordinator_EZModeCB( zlcEZMode_State_t state, zclEZMode_CBData_t
             zclCoordinator_NetDiscov();
         }
         uint8 i;
-        for(i = 0; i < 20; i++)
+        for(i = 0; i < NUM_SMART_METER; i++)
             sm_ADD_status[i] = 1;
 
 
@@ -5795,7 +6602,7 @@ static void zclCoordinator_ReadRoutingTable(uint8 sm_i)
     pack_out[17] = (uint8)(((sm_ADD[sm_i]) >> 8) & 0x00000000000000FF);
     pack_out[18] = (uint8)((sm_ADD[sm_i]) & 0x00000000000000FF);
     pack_out[19] = sm_ADD_status[sm_i];
-
+/*
     if(sm_ADD[sm_i] == 0x00124B00040F1A3C)
         SM_ADD16 = 0x0000;
     else if(sm_ADD[sm_i] == 0x00124B00040F1C77)
@@ -5808,6 +6615,7 @@ static void zclCoordinator_ReadRoutingTable(uint8 sm_i)
         SM_ADD16 = 0x0004;
     else
         SM_ADD16 = 0xffff;
+    */
     //pack_out[20] = (uint8)((SM_ADD16 & 0xff00) >> 8);
     //pack_out[21] = (uint8)(SM_ADD16 & 0x00ff);
     pack_out[20] = controlReg[0];
@@ -5817,10 +6625,35 @@ static void zclCoordinator_ReadRoutingTable(uint8 sm_i)
     for(i = 0; i < 24; i++)
         pack_out[24] += pack_out[i];
     pack_out[25] = 0x16;
-    usbibufPush(&usbCdcInBufferData, pack_out, 26);
+    uint8 len_data = pack_out[10];
+    if(flag_encry)
+    {
+        uint8 encry_data[70] = {0};
+
+        for (uint8 i = 0; i < len_data; i++)
+            encry_data[i] = pack_out[i + 11];
+
+        len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+        pack_out[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            pack_out[i + 11] = encry_data[i];
+
+        pack_out[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            pack_out[len_data + 11] +=  pack_out[i];
+        pack_out[len_data + 12] = 0x16;
+
+    }
+    usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
+
+    //usbibufPush(&usbCdcInBufferData, pack_out, 26);
 }
 
-
+/*
 static uint8 zclCoordinator_smIEEE_to_id(uint64 sm_ADD_64)
 {
 
@@ -5864,12 +6697,12 @@ static void zclCoordinator_id_to_smIEEE(uint8 sm_id_8)
         sm_ADD_prio = 0x00124B00041331BF;
     else if(sm_id_8 == 0x07)
         sm_ADD_prio = 0x00124B0004133698;
-    
+
 
     else
         sm_ADD_prio = 0xffffffffffffffff;
 }
-
+*/
 //sent calibration register package to local server
 static void zclCoordinator_sendcalreg(void)
 {
@@ -5923,7 +6756,31 @@ static void zclCoordinator_sendcalreg(void)
         UARTCharPut (UART0_BASE, pack_out[i]);
     UARTDisable(UART0_BASE );
     */
-    usbibufPush(&usbCdcInBufferData, pack_out, 49);
+    uint8 len_data = pack_out[10];
+    if(flag_encry)
+    {
+        uint8 encry_data[70] = {0};
+
+        for (uint8 i = 0; i < len_data; i++)
+            encry_data[i] = pack_out[i + 11];
+
+        len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+        pack_out[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            pack_out[i + 11] = encry_data[i];
+
+        pack_out[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            pack_out[len_data + 11] +=  pack_out[i];
+        pack_out[len_data + 12] = 0x16;
+
+    }
+    usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
+    //usbibufPush(&usbCdcInBufferData, pack_out, 49);
 }
 
 //sent calibration timeout response to local server
@@ -5960,7 +6817,31 @@ static void zclCoordinator_calregtimeout()
         UARTCharPut (UART0_BASE, pack_out[i]);
     UARTDisable(UART0_BASE );
     */
-    usbibufPush(&usbCdcInBufferData, pack_out, 49);
+    uint8 len_data = pack_out[10];
+    if(flag_encry)
+    {
+        uint8 encry_data[70] = {0};
+
+        for (uint8 i = 0; i < len_data; i++)
+            encry_data[i] = pack_out[i + 11];
+
+        len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+        pack_out[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            pack_out[i + 11] = encry_data[i];
+
+        pack_out[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            pack_out[len_data + 11] +=  pack_out[i];
+        pack_out[len_data + 12] = 0x16;
+
+    }
+    usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
+    //usbibufPush(&usbCdcInBufferData, pack_out, 49);
 }
 
 /********************************************************
@@ -6001,7 +6882,31 @@ void zclCoordinator_sendACK(uint8 ControlReg0, uint8 ControlReg1, uint8 ControlR
     }
     UARTDisable(UART0_BASE);
     */
-    usbibufPush(&usbCdcInBufferData, pack_out, 17);
+    uint8 len_data = pack_out[10];
+    if(flag_encry)
+    {
+        uint8 encry_data[70] = {0};
+
+        for (uint8 i = 0; i < len_data; i++)
+            encry_data[i] = pack_out[i + 11];
+
+        len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+        pack_out[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            pack_out[i + 11] = encry_data[i];
+
+        pack_out[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            pack_out[len_data + 11] +=  pack_out[i];
+        pack_out[len_data + 12] = 0x16;
+
+    }
+    usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
+    //usbibufPush(&usbCdcInBufferData, pack_out, 17);
 }
 
 //*****************************************************************************
@@ -6026,7 +6931,7 @@ void zclCoordinator_sendACK(uint8 ControlReg0, uint8 ControlReg1, uint8 ControlR
 //*****************************************************************************
 uint8_t AesEncryptDecrypt(uint8_t *pui8Key,
                           uint8_t *pui8Buf,
-                          uint8_t ui8KeyLocation,                         
+                          uint8_t ui8KeyLocation,
                           uint8_t ui8Encrypt)
 {
 
@@ -6034,18 +6939,110 @@ uint8_t AesEncryptDecrypt(uint8_t *pui8Key,
     // example using polling
     //
 
-    AESLoadKey((uint8_t*)pui8Key, ui8KeyLocation);
+    AESLoadKey((uint8_t *)pui8Key, ui8KeyLocation);
     AESECBStart(pui8Buf, pui8Buf, ui8KeyLocation, ui8Encrypt, false);
-    
+
     //
     // wait for completion of the operation
     //
     do
     {
         ASM_NOP;
-    }while(!(AESECBCheckResult()));
-    
+    }
+    while(!(AESECBCheckResult()));
+
     AESECBGetResult();
 
     return (AES_SUCCESS);
+}
+
+
+static void send_rom_back(uint8 *reg_ro)
+{
+    uint8 i;
+    uint8 pack_out[33] = {0};
+    pack_out[0] = 0x68;
+
+    for(i = 1; i <= 8; i++)
+        pack_out[i] = coor_addrRegister[i - 1];
+
+    pack_out[9] = 0x68;
+    pack_out[10] = 0x14;
+
+    for (i = 0; i < 16; i++)
+    {
+        pack_out[11 + i] = *(reg_ro + i);
+    }
+
+    controlReg[0] = 0x08;
+    controlReg[1] = 0x03;
+    controlReg[2] = 0x00;
+    controlReg[3] = 0x00;
+    pack_out[27] = 0x08;
+    pack_out[28] = 0x03;
+    pack_out[29] = 0x00;
+    pack_out[30] = 0x00;
+
+    for(i = 0; i < 31; i++)
+        pack_out[31] += pack_out[i];
+
+    pack_out[32] = 0x16;
+
+    uint8 len_data = pack_out[10];
+    if(flag_encry)
+    {
+        uint8 encry_data[70] = {0};
+
+        for (uint8 i = 0; i < len_data; i++)
+            encry_data[i] = pack_out[i + 11];
+
+        len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+        for(uint8 i = 0; i < (len_data / 16) ; i++)
+            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+        pack_out[10] = len_data;
+        for (uint8 i = 0; i < len_data; i++)
+            pack_out[i + 11] = encry_data[i];
+
+        pack_out[len_data + 11] = 0x00;
+        for (uint8 i = 0; i < len_data + 11; i++ )
+            pack_out[len_data + 11] +=  pack_out[i];
+        pack_out[len_data + 12] = 0x16;
+
+    }
+    usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
+
+    //usbibufPush(&usbCdcInBufferData, pack_out, 33);
+}
+
+void find_end_in_routing_table(uint8 buffer[])
+{
+    uint64 IEEE_id = BUILD_UINT64_8(buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8]);
+    int end_index = 0;
+    for (end_index = 0; end_index < sm_max; end_index++)
+    {
+        if (IEEE_id == sm_ADD[end_index])
+            break;
+    }
+    if(end_index < sm_max)
+    {            
+        end_final_key[0] = (uint8)(((final_key_table_hi[end_index]) >> 56) & 0x00000000000000FF); 
+        end_final_key[1] = (uint8)(((final_key_table_hi[end_index]) >> 48) & 0x00000000000000FF);
+        end_final_key[2] = (uint8)(((final_key_table_hi[end_index]) >> 40) & 0x00000000000000FF);
+        end_final_key[3] = (uint8)(((final_key_table_hi[end_index]) >> 32) & 0x00000000000000FF);
+        end_final_key[4] = (uint8)(((final_key_table_hi[end_index]) >> 24) & 0x00000000000000FF);
+        end_final_key[5] = (uint8)(((final_key_table_hi[end_index]) >> 16) & 0x00000000000000FF);
+        end_final_key[6] = (uint8)(((final_key_table_hi[end_index]) >> 8) & 0x00000000000000FF);
+        end_final_key[7] = (uint8)((final_key_table_hi[end_index]) & 0x00000000000000FF);
+
+        end_final_key[8] = (uint8)(((final_key_table_lo[end_index]) >> 56) & 0x00000000000000FF); 
+        end_final_key[9] = (uint8)(((final_key_table_lo[end_index]) >> 48) & 0x00000000000000FF);
+        end_final_key[10] = (uint8)(((final_key_table_lo[end_index]) >> 40) & 0x00000000000000FF);
+        end_final_key[11] = (uint8)(((final_key_table_lo[end_index]) >> 32) & 0x00000000000000FF);
+        end_final_key[12] = (uint8)(((final_key_table_lo[end_index]) >> 24) & 0x00000000000000FF);
+        end_final_key[13] = (uint8)(((final_key_table_lo[end_index]) >> 16) & 0x00000000000000FF);
+        end_final_key[14] = (uint8)(((final_key_table_lo[end_index]) >> 8) & 0x00000000000000FF);
+        end_final_key[15] = (uint8)((final_key_table_lo[end_index]) & 0x00000000000000FF);
+    }
 }
