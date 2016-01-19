@@ -48,7 +48,7 @@ extern "C"
 #define GETCAL_WAIT                                      0x0047
 #define SETCONFIG_WAIT                                   0x0048
 #define setPowerCalculation_WAIT                         0x0049
-#define Coordinator_Auth                                 0x004A
+#define Smartmeter_Auth                                  0x004A
 #define Coordinator_Setkey                               0x004B
 // Application Display Modes
 #define THERMOSTAT_MAINMODE         0x00

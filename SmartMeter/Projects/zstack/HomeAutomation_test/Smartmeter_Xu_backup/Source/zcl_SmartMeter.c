@@ -2709,10 +2709,7 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     else if ((COMMAND == START) &&
              (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
     {
-        if(start  == 0)
-            start = 1;
-        else if(start == 1)
-            start = 0;
+        start = 0;
         // send the current flaginc value to send over the air to Coordinator
         zclSmartMeter_SendRestart();
     }
@@ -2863,7 +2860,51 @@ void zclSmartMeter_ProcessUART_Pkt(void)
     uint16 COMMAND = UINT8_TO_16(Msg_in[11], Msg_in[12]);
     uint16 OPERATION = UINT8_TO_16(Msg_in[13], Msg_in[14]);
 
+    if(Msg_in[1] == 0xFF && Msg_in[2] == 0xFF && Msg_in[3] == 0xFF && Msg_in[4] == 0xFF &&
+       Msg_in[5] == 0xFF && Msg_in[6] == 0xFF && Msg_in[7] == 0xFF && Msg_in[8] == 0xFF)
+    {
+        if ((COMMAND == START))
+        {                  
+            start = 0; 
+            CAL_OPT = 0;
+            // send the current start value to send over the air to Coordinator
+            
+            /////////////////////////////////////////////
+            //reset all the energy calculation related varibles
+            rmsTemp_V1 = 0;
+            overflow_num_V1 = 0;
+            rmsTemp_V2 = 0;
+            overflow_num_V2 = 0;
+            rmsTemp_V3 = 0;
+            overflow_num_V3 = 0;
 
+            for(uint8 i = 0; i < 8; i++)
+            {
+                rmsTemp_I1[i] = 0;
+                overflow_num_I1[i] = 0;
+                rmsTemp_I2[i] = 0;
+                overflow_num_I2[i] = 0;
+                rmsTemp_I3[i] = 0;
+                overflow_num_I3[i] = 0;
+
+                accu_GEN_INPUT1[i] = 0;
+                accu_GEN_INPUT2[i] = 0;                
+            }
+
+            l_nSamples = 0;
+            enecal_timeperiod = 0;
+            
+            flagrelay = 1;
+            //GPIOPinWrite(GPIO_C_BASE, (GPIO_PIN_0 | GPIO_PIN_1), 0x01);
+            GPIOPinWrite(GPIO_C_BASE, GPIO_PIN_0, 0x01);
+            flaginc = 1;
+            ///////////////////////////////////////
+            
+            zclSmartMeter_SendRestart();
+            zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+            SystemResetSoft();
+        }
+    }
     if(ADD_3 == ((uint16)((((Msg_in[1]) & 0x00FF) << 8) + (Msg_in[2] & 0x00FF))) && ADD_2 == ((uint16)((((Msg_in[3]) & 0x00FF) << 8) + (Msg_in[4] & 0x00FF)))
             && ADD_1 == ((uint16)((((Msg_in[5]) & 0x00FF) << 8) + (Msg_in[6] & 0x00FF))) && ADD_0 == ((uint16)((((Msg_in[7]) & 0x00FF) << 8) + (Msg_in[8] & 0x00FF))))
     {
@@ -2980,9 +3021,10 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             // send the current parameter value to send over the air to Coordinator
             zclSmartMeter_SendParam();
         }
-        //process power calculation start/stop command
+        //process power calculation start/stop command -> CHANGED INTO Reset command
         else if ((COMMAND == START))
         {
+            /*
             if(start  == 0)
             {
                 start = 1;
@@ -2993,15 +3035,53 @@ void zclSmartMeter_ProcessUART_Pkt(void)
                 start = 0; 
                 CAL_OPT = 0;
             }
-
+            */
+            
+          
+            start = 0; 
+            CAL_OPT = 0;
             // send the current start value to send over the air to Coordinator
+            
+            /////////////////////////////////////////////
+            //reset all the energy calculation related varibles
+            rmsTemp_V1 = 0;
+            overflow_num_V1 = 0;
+            rmsTemp_V2 = 0;
+            overflow_num_V2 = 0;
+            rmsTemp_V3 = 0;
+            overflow_num_V3 = 0;
+
+            for(uint8 i = 0; i < 8; i++)
+            {
+                rmsTemp_I1[i] = 0;
+                overflow_num_I1[i] = 0;
+                rmsTemp_I2[i] = 0;
+                overflow_num_I2[i] = 0;
+                rmsTemp_I3[i] = 0;
+                overflow_num_I3[i] = 0;
+
+                accu_GEN_INPUT1[i] = 0;
+                accu_GEN_INPUT2[i] = 0;                
+            }
+
+            l_nSamples = 0;
+            enecal_timeperiod = 0;
+            
+            flagrelay = 1;
+            //GPIOPinWrite(GPIO_C_BASE, (GPIO_PIN_0 | GPIO_PIN_1), 0x01);
+            GPIOPinWrite(GPIO_C_BASE, GPIO_PIN_0, 0x01);
+            flaginc = 1;
+            ///////////////////////////////////////
+            
             zclSmartMeter_SendRestart();
+            zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+            SystemResetSoft();
         }
 
         else if ((COMMAND == TEMP_STOP))
         {
             flaginc = OPERATION;
-            //start = 1;
+            start = 1;
             // send the current start value to send over the air to Coordinator
             zclSmartMeter_SendStart();
         }
@@ -3145,6 +3225,8 @@ void zclSmartMeter_ProcessUART_Pkt(void)
                 energyVal[i] = (uint64)ENERGY_RESET_VALUE * 100000; //ENERGY_RESET_VALUE in J
                 Energy[i] = (double)((double)energyVal[i] / 1000 / 3600 / 100000); //energy magnified in kWh
             }
+            
+            /*
             start = 0;
             //reset all the energy calculation related varibles
             rmsTemp_V1 = 0;
@@ -3176,7 +3258,7 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             GPIOPinWrite(GPIO_C_BASE, GPIO_PIN_0, 0x01);
             start = 0; 
             flaginc = 1;
-            
+            */
             
             //UARTprintf(" ENERGY_RESET_VALUE: %d\n", ENERGY_RESET_VALUE);
             // send the current flagreset and ENERGY_RESET_VALUE to send over the air to Coordinator

@@ -133,7 +133,7 @@
 #define Connect_Mode WIRED_CONNECTION
 //#define Connect_Mode WIRELESS_CONNECTION
             
-#define NUM_SMART_METER  30
+#define NUM_SMART_METER  20
 /*********************************************************************
  * GLOBAL VARIABLES
  */
@@ -159,6 +159,12 @@ uint8 val_prio[NUM_SMART_METER] = {0};
 uint64 final_key_table_hi[NUM_SMART_METER] = {0};
 uint64 final_key_table_lo[NUM_SMART_METER] = {0};
 
+uint64 sm_rom_table_hi[NUM_SMART_METER] = {0};
+uint64 sm_rom_table_lo[NUM_SMART_METER] = {0};
+
+uint64 sm_key_table_hi[NUM_SMART_METER] = {0};
+uint64 sm_key_table_lo[NUM_SMART_METER] = {0};
+
 uint8 coor_addrRegister[8];
 uint64 sm_ADD_reg = 0;
 uint8 V_CAL = 0;
@@ -174,13 +180,14 @@ uint32 sys_secnew = 0;
 uint32 sys_timeold = 0;
 uint32 sys_timenew = 0;
 
+uint8 sm_ROM_index = 0xff;
 uint16 sm_id;
 uint16 sm_index = 0;  //index for sm_Add[index]
 uint16 index;  //general purpose index
-uint16 sm_max = 0; //total number of smart meter
+uint8 sm_max = 0; //total number of smart meter
 uint16 num_prio_sm_max = 0;
 uint8 controlReg[45] = {0};
-
+uint8 num_high_prio = 0;
 uint8 try_count = 0;
 uint16 timeReg[6] = {0};
 //uint8 sm_receive_flag[20] = {0};
@@ -412,6 +419,7 @@ static void zclCoordinator_nvReadParam( void );
 static void zclCoordinator_SendAck( void );
 static void zclCoordinator_SendRestart( void );
 static void Process_Wired_Cmd(void);
+static void delete_item(int index, uint64 array[], uint8 length);
 
 static void zclCoordinator_SendReset(void);
 static void zclCoordinator_SendRelay(void);
@@ -1184,6 +1192,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                             num_prio_sm_max = k;
                             routing_all_flag = 1;
                             */
+                            /*
                             uint8 i;
                             for(i = 0; i < 3 * NUM_SMART_METER; i++)
                                 sm_routing_prio_table[i] = 0;
@@ -1253,7 +1262,83 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                             sm_routing_prio_table[48] = (uint8)sm_max;
                             sm_routing_prio_table[49] = (uint8)num_prio_sm_max;
                             HalUART0Write ( HAL_UART_PORT_0, sm_routing_prio_table, 50);
-
+                            */
+                          
+                            uint8 flag_valid = *(usb_alloc_buf + 32 + len_data0);
+                            if (flag_valid) {
+                                sm_max ++;
+                                sm_ADD_status[sm_max-1] = flag_valid;
+                                sm_ADD[sm_max-1] = BUILD_UINT64_8(*(usb_alloc_buf + 24 + len_data0), *(usb_alloc_buf + 25 + len_data0), *(usb_alloc_buf + 26 + len_data0), *(usb_alloc_buf + 27 + len_data0),
+                                                            *(usb_alloc_buf + 28 + len_data0), *(usb_alloc_buf + 29 + len_data0), *(usb_alloc_buf + 30 + len_data0), *(usb_alloc_buf + 31 + len_data0));
+                                val_prio[sm_max-1] = *(usb_alloc_buf + 33 + len_data0);
+                                
+                                uint8 sm_IEEE_data[16] = {0};
+                                uint8 sm_ROM_data[16] = {0};
+                                uint8 sm_key_data[16] = {0};
+                                for (int index = 0; index < 8; index++)
+                                    sm_IEEE_data[index] = *(usb_alloc_buf + 24 + len_data0 + index);
+                                for (int index = 0; index < 16; index++)
+                                {   
+                                    sm_ROM_data[index] = *(usb_alloc_buf + 34 + len_data0 + index);
+                                    sm_key_data[index] = *(usb_alloc_buf + 50 + len_data0 + index);
+                                }
+                                
+                                sm_rom_table_hi[sm_max-1] = BUILD_UINT64_8(sm_ROM_data[0], sm_ROM_data[1], sm_ROM_data[2], sm_ROM_data[3], sm_ROM_data[4], sm_ROM_data[5], sm_ROM_data[6], sm_ROM_data[7]);
+                                sm_rom_table_lo[sm_max-1] = BUILD_UINT64_8(sm_ROM_data[8], sm_ROM_data[9], sm_ROM_data[10], sm_ROM_data[11], sm_ROM_data[12], sm_ROM_data[13], sm_ROM_data[14], sm_ROM_data[15]);
+                                
+                                sm_key_table_hi[sm_max-1] = BUILD_UINT64_8(sm_key_data[0], sm_key_data[1], sm_key_data[2], sm_key_data[3], sm_key_data[4], sm_key_data[5], sm_key_data[6], sm_key_data[7]);
+                                sm_key_table_lo[sm_max-1] = BUILD_UINT64_8(sm_key_data[8], sm_key_data[9], sm_key_data[10], sm_key_data[11], sm_key_data[12], sm_key_data[13], sm_key_data[14], sm_key_data[15]);
+                                
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_key_data, 16);
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
+                                AesEncryptDecrypt(sm_key_data, sm_IEEE_data, 0, ENCRYPT_AES);
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
+                                
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_ROM_data, 16);
+                                AesEncryptDecrypt(sm_IEEE_data, sm_ROM_data,  0, ENCRYPT_AES);
+                                //HalUART0Write ( HAL_UART_PORT_0, sm_ROM_data, 16);
+                                
+                                final_key_table_hi[sm_max-1] = BUILD_UINT64_8(sm_ROM_data[0], sm_ROM_data[1], sm_ROM_data[2], sm_ROM_data[3], sm_ROM_data[4], sm_ROM_data[5], sm_ROM_data[6], sm_ROM_data[7]);
+                                final_key_table_lo[sm_max-1] = BUILD_UINT64_8(sm_ROM_data[8], sm_ROM_data[9], sm_ROM_data[10], sm_ROM_data[11], sm_ROM_data[12], sm_ROM_data[13], sm_ROM_data[14], sm_ROM_data[15]);
+                                if(val_prio[sm_max-1] != 1)
+                                {
+                                    num_high_prio ++;
+                                }
+                            }
+                            else {
+                                uint64 sm_invalid_ADD = BUILD_UINT64_8(*(usb_alloc_buf + 24 + len_data0), *(usb_alloc_buf + 25 + len_data0), *(usb_alloc_buf + 26 + len_data0), *(usb_alloc_buf + 27 + len_data0),
+                                                            *(usb_alloc_buf + 28 + len_data0), *(usb_alloc_buf + 29 + len_data0), *(usb_alloc_buf + 30 + len_data0), *(usb_alloc_buf + 31 + len_data0));
+                                uint8 invalid_index = sm_max;
+                                for(uint8 i = 0; i < sm_max; i++)
+                                    if(sm_invalid_ADD == sm_ADD[i]) {
+                                        invalid_index = i;
+                                        break;
+                                    }
+                                if(val_prio[invalid_index] != 1) {
+                                    num_high_prio --;
+                                }
+                                
+                                delete_item(invalid_index, sm_ADD, sm_max);
+                                //delete_item(invalid_index, sm_ADD_status, sm_max);
+                                //delete_item(invalid_index, val_prio, sm_max);
+                                delete_item(invalid_index, sm_rom_table_hi, sm_max);
+                                delete_item(invalid_index, sm_rom_table_lo, sm_max);
+                                
+                                delete_item(invalid_index, sm_key_table_hi, sm_max);
+                                delete_item(invalid_index, sm_key_table_lo, sm_max);
+                                
+                                delete_item(invalid_index, final_key_table_hi, sm_max);
+                                delete_item(invalid_index, final_key_table_lo, sm_max);
+                                
+                                for(int i = invalid_index; i < sm_max - 1; i++) {
+                                    sm_ADD_status[i] = sm_ADD_status[i + 1];
+                                    val_prio[i] = val_prio[i + 1];
+                                }
+                                
+                                sm_max --;
+                            }
+                            
                         }
                     }
                 }
@@ -1366,7 +1451,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     //usbibufPush(&usbCdcInBufferData, pack_out, 53);
                 }
 
-                // command: Authentication
+                // command: coordinator Authentication
                 else if (controlReg[2] == 0x08)
                 {
                     //HalLcdWriteString( "Auth", HAL_LCD_LINE_4 );
@@ -1400,14 +1485,14 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         
                         flag_auth = false;
                         zclCoordinator_SendAuth();
-                        WAIT_EVT_INDEX = Coordinator_Auth;
+                        WAIT_EVT_INDEX = Smartmeter_Auth;
                         osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
                         time_old = osal_GetSystemClock();
                         time_new = time_old;
                     }
                 }
 
-                // command: set key
+                // command: coordinator set key
                 else if (controlReg[2] == 0x10)
                 {
                     HalLcdWriteString( "Set key", HAL_LCD_LINE_4 );
@@ -1509,6 +1594,27 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     }
                 }
 
+                // command: smart meter authentication
+                else if (controlReg[2] == 0x20)
+                {
+                    flag_auth = false;
+                    uint64 rom_sm_ADD = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11],
+                                                   controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
+                    
+                    for(uint8 i = 0; i < sm_max; i++)
+                        if(rom_sm_ADD == sm_ADD[i]) {
+                            sm_ROM_index = i;
+                            break;
+                        }
+                    
+                    
+                    zclCoordinator_SendAuth();
+                    WAIT_EVT_INDEX = Smartmeter_Auth;
+                    osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
+                    time_old = osal_GetSystemClock();
+                    time_new = time_old;
+                }
+                
                 // command: relay control
                 // Switch smart meter power condition if bit 3 is set to 0  *
                 // Reset this bit to its default value when operation is finished
@@ -1661,22 +1767,39 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                 }
 
-                // command: power calculation control: start/stop power calculation on one or many smartmeters.
-                // Perform power calculation control depends on the value of if controlReg[1] bit[1].           *
-                //else if (controlReg[0] == 0x08 &&((controlReg[1] >> 1) & 0x01) == 0)  //defult value of power calculation bit is 1:power calculation start.
+                // command: system reset
                 else if (((controlReg[0] >> 7) & 0x01) == 0 && ((controlReg[1] >> 1) & 0x01) == 0)
                 {
 
+                    for(uint8 i = 0; i < 3 * NUM_SMART_METER; i++)
+                        sm_routing_prio_table[i] = 0;
+
+                    
+                    
+                    sm_max = 0;
+                    num_high_prio = 0;
+                    for(uint8 i = 0; i < NUM_SMART_METER; i++) {
+                        sm_ADD_status[i] = 1;
+                        sm_ADD[i] = 0;
+                        val_prio[i] = 0;
+                        final_key_table_hi[i] = 0;
+                        final_key_table_lo[i] = 0;
+                    }
+                    
+                    
                     if(((controlReg[3] >> 3) & 0x01) == 0)
                         setpower_index = 0;
 
                     start = 0;
                     zclCoordinator_SetPowerCalculation();
 
+                    zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                    /*
                     WAIT_EVT_INDEX = setPowerCalculation_WAIT;
                     osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
                     time_old = osal_GetSystemClock();
                     time_new = time_old;
+                    */
                 }
 
 
@@ -1756,17 +1879,9 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 else if ((controlReg[2] & 0x01) == 1)
                 {
 
+                    /*
                     if(routing_all_flag == 1)
                     {
-                        /*
-                          ack_index = 0;   //To make it stop current round robin immediately, and start a new one
-                          datain_complete = 0;
-                          first_write_flag = 1;
-                          Drr_flag = 0;
-                          ACK_flag = 1;
-                          PowSpCal = 0;
-                          Round_end_flag = 0;
-                        */
                         for(uint8 i = 0; i < NUM_SMART_METER; i++)
                             sm_ADD_status[i] = 1;
                     }
@@ -1778,7 +1893,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         sm_ADD[sm_max - 1] = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11],
                                                             controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                     }
-
+                    */
 
                     zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
                 }
@@ -1933,6 +2048,27 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 //else if (((controlReg[0] >> 7) & 0x01) == 1 && Drr_flag == 1 && (((controlReg[3] >> 3) & 0x01) == 0))
                 else if (((controlReg[0] >> 7) & 0x01) == 1 && (((controlReg[3] >> 3) & 0x01) == 0))
                 {
+                    //update frequency table
+                    uint8 j, l, k = 0;
+                    uint8 num_low_prio = 0;
+                    num_low_prio = sm_max - num_high_prio;
+                    
+                    for(uint8 i = 0; i < 3 * NUM_SMART_METER; i++)
+                        sm_routing_prio_table[i] = 0;
+                    
+                    for(i = 0; i < num_low_prio; i++) // number of low priority
+                    {
+                        for(j = 0; j < val_prio[i] / num_low_prio; j++)
+                        {
+                            for(l = 0; l < num_high_prio; l++)
+                            {
+                                sm_routing_prio_table[k++] = l;
+                            }
+                        }
+                        sm_routing_prio_table[k++] = i + num_high_prio;
+                    }
+                    num_prio_sm_max = k;
+                  
                     //HalLcdWriteString( "DRREVT", HAL_LCD_LINE_7 );
                     ack_index = 0;
                     datain_complete = 0;
@@ -2570,7 +2706,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             }
         }
         
-        else if ( WAIT_EVT_INDEX == Coordinator_Auth )
+        else if ( WAIT_EVT_INDEX == Smartmeter_Auth )
         {
             int index;
             time_new = osal_GetSystemClock();
@@ -2588,6 +2724,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
 
                 flag_auth = false;
+                flag_key_set = false;
 
                 time_new = 0;
                 time_old = 0;
@@ -2595,23 +2732,24 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             }
             else
             {
-                if (flag_auth)
+                if (flag_auth && flag_key_set)
                 {
-                    //zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                    zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
 
                     flag_auth = false;
+                    flag_key_set = false;
                     time_new = 0;
                     time_old = 0;
                     WAIT_EVT_INDEX = 0x0000;
                 }
                 else
                 {
-                    WAIT_EVT_INDEX = Coordinator_Auth;
+                    WAIT_EVT_INDEX = Smartmeter_Auth;
                     osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
                 }
             }
         }
-        
+        /*
         else if ( WAIT_EVT_INDEX == Coordinator_Setkey )
         {
             int index;
@@ -2652,7 +2790,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
                 }
             }
-        }
+        }*/
 
         else if ( WAIT_EVT_INDEX == Coordinator_RelaySet )
         {
@@ -3340,19 +3478,23 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
 {
     if ( keys & HAL_KEY_SW_1 )
     {
-      
+      //network discovery
 /*68 00 12 4B 00 04 13 31 
-  BF 68 28 18 02 00 00 00 
+  BF 68 38 18 02 00 00 00 
   00 00 00 00 12 4B 00 04 
   0F 05 B3 00 00 00 00 00 
+  00 00 00 00 00 00 00 00 
+  00 00 00 00 00 00 00 00
   00 00 00 00 00 00 00 00 
   00 00 00 00 00 00 00 00
   00 00 00 9E 16*/
       /*
         uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
-                               0x76, 0x68, 0x28, 0x18, 0x02, 0x00, 0x00, 0x00,
+                               0x76, 0x68, 0x38, 0x18, 0x02, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x00, 0x12, 0x4b, 0x00, 0x04,
                                0x13, 0x31, 0xbf, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x9e, 0x16
@@ -3412,67 +3554,28 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
             send_buffer[len_data + 11] +=  send_buffer[i];
         send_buffer[len_data + 12] = 0x16;
 
-        //HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        //HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);              
         
-        //rom read smart
-        //68 00 12 4B 00 04 13 31 
-        //76 68 28 08 02 08 00 00 
-        //00 00 00 00 12 4B 00 04 
-        //13 31 BF 00 00 00 00 00 
-        //00 00 00 00 00 00 00 00 
-        //00 00 00 00 00 00 00 00 
-        //00 00 00 25 16
-        uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
-                               0x76, 0x68, 0x28, 0x08, 0x02, 0x08, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x12, 0x4b, 0x00, 0x04,
-                               0x13, 0x31, 0xbf, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x9e, 0x16
-                           };
-        
-        uint8 encry_data[60] = {0};
-        
-        uint8 len_data = send_buffer[10];
-        for (uint8 i = 0; i < len_data; i++)
-             encry_data[i] = send_buffer[i + 11];      
-        
-        len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
-        
-        for(uint8 i = 0; i < (len_data / 16) ; i++)
-            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
-        
-        send_buffer[10] = len_data;
-        for (uint8 i = 0; i < len_data; i++)
-            send_buffer[i + 11] = encry_data[i];
-        
-        send_buffer[len_data + 11] = 0x00;
-        for (uint8 i = 0; i < len_data + 11; i++ )
-            send_buffer[len_data + 11] +=  send_buffer[i];
-        send_buffer[len_data + 12] = 0x16;
-
-        HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
-        
-        
-        //SET KEY TO smart
+      
+        //Authenticate smart
         //68 00 12 4B 00 04 13 31 
         //76 68 38 08 02 10 00 00 
         //00 00 00 00 12 4B 00 04 
         //13 31 BF 00 00 00 00 00 
         //00 00 00 00 00 00 00 00 
         //00 00 00 00 00 00 00 00 
-        //00 00 00 11 22 33 44 55 
-        //66 77 88 11 22 33 44 55 
-        //66 77 88 9E 16
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 9E 16
         uint8 send_buffer[69] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
-                               0x76, 0x68, 0x38, 0x08, 0x02, 0x10, 0x00, 0x00,
+                               0x76, 0x68, 0x38, 0x08, 0x02, 0x20, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x00, 0x12, 0x4b, 0x00, 0x04,
                                0x13, 0x31, 0xbf, 0x00, 0x00, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
-                               0x66, 0x77, 0x88, 0x11, 0x22, 0x33, 0x44, 0x55,
-                               0x66, 0x77, 0x88, 0x9e, 0x16
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x9e, 0x16
                            };
         
         uint8 encry_data[70] = {0};
@@ -3496,52 +3599,14 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
         send_buffer[len_data + 12] = 0x16;
 
         HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
-        
-        
-        //start on/off
-        //68 00 12 4B 00 04 13 31 
-        //76 68 28 08 00 00 00 00 
-        //00 00 00 00 12 4B 00 04 
-        //13 31 BF 00 00 00 00 00 
-        //00 00 00 00 00 00 00 00 
-        //00 00 00 00 00 00 00 00 
-        //00 00 00 8C 16
-
-        uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
-                               0x76, 0x68, 0x28, 0x08, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x12, 0x4b, 0x00, 0x04,
-                               0x13, 0x31, 0xbf, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x8c, 0x16
-                           };
-        
-        uint8 encry_data[60] = {0};
-        
-        uint8 len_data = send_buffer[10];
-        for (uint8 i = 0; i < len_data; i++)
-             encry_data[i] = send_buffer[i + 11];      
-        
-        len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
-        
-        for(uint8 i = 0; i < (len_data / 16) ; i++)
-            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
-        
-        send_buffer[10] = len_data;
-        for (uint8 i = 0; i < len_data; i++)
-            send_buffer[i + 11] = encry_data[i];
-        
-        send_buffer[len_data + 11] = 0x00;
-        for (uint8 i = 0; i < len_data + 11; i++ )
-            send_buffer[len_data + 11] +=  send_buffer[i];
-        send_buffer[len_data + 12] = 0x16;
-
-        HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+      
         */
         
         //data register read
         //68 00 12 4B 00 04 13 31 
-        //76 68 28 88 02 00 00 00 
+        //76 68 38 88 02 00 00 00 
+        //00 00 00 00 00 00 00 00 
+        //00 00 00 00 00 00 00 00 
         //00 00 00 00 00 00 00 00 
         //00 00 00 00 00 00 00 00 
         //00 00 00 00 00 00 00 00 
@@ -3549,7 +3614,9 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
         //00 00 00 E6 16
 
         uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
-                               0x76, 0x68, 0x28, 0x88, 0x02, 0x00, 0x00, 0x00,
+                               0x76, 0x68, 0x38, 0x88, 0x02, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -4842,13 +4909,35 @@ static void Process_Wired_Cmd(void)
     
     if ((OPERATION == AUTHEN) && (RESULT == SUCCESS))
     {
-        flag_auth = true;
-        
-        uint8 end_romread[16];
-        
-        for (uint8 i = 0; i < 16; i++)
-          end_romread[i] = USB_Msg_in[15 + i];
-        send_rom_back(&end_romread[0]);
+        flag_auth = true;       
+        //send_rom_back(&end_romread[0]);
+        if (sm_rom_table_hi[sm_ROM_index] == BUILD_UINT64_8(USB_Msg_in[15], USB_Msg_in[16], USB_Msg_in[17], USB_Msg_in[18], USB_Msg_in[19], USB_Msg_in[20], USB_Msg_in[21], USB_Msg_in[22]) &&
+            sm_rom_table_lo[sm_ROM_index] == BUILD_UINT64_8(USB_Msg_in[23], USB_Msg_in[24], USB_Msg_in[25], USB_Msg_in[26], USB_Msg_in[27], USB_Msg_in[28], USB_Msg_in[29], USB_Msg_in[30]))
+            {
+                uint8 end_key[16] = {0};                   
+                end_key[0] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 56) & 0x00000000000000FF); 
+                end_key[1] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 48) & 0x00000000000000FF);
+                end_key[2] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 40) & 0x00000000000000FF);
+                end_key[3] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 32) & 0x00000000000000FF);
+                end_key[4] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 24) & 0x00000000000000FF);
+                end_key[5] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 16) & 0x00000000000000FF);
+                end_key[6] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 8) & 0x00000000000000FF);
+                end_key[7] = (uint8)((sm_key_table_hi[sm_ROM_index]) & 0x00000000000000FF);
+
+                end_key[8] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 56) & 0x00000000000000FF); 
+                end_key[9] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 48) & 0x00000000000000FF);
+                end_key[10] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 40) & 0x00000000000000FF);
+                end_key[11] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 32) & 0x00000000000000FF);
+                end_key[12] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 24) & 0x00000000000000FF);
+                end_key[13] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 16) & 0x00000000000000FF);
+                end_key[14] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 8) & 0x00000000000000FF);
+                end_key[15] = (uint8)((sm_key_table_lo[sm_ROM_index]) & 0x00000000000000FF);
+
+                    
+                flag_end_encry = false;              
+                flag_key_set = false;                
+                zclCoordinator_SetKey(end_key);
+            }
     }
     
     if ((OPERATION == SET_KEY) && (RESULT == SUCCESS))
@@ -5759,6 +5848,7 @@ static void zclCoordinator_SetPowerCalculation( void )
         }
         else
         {
+          /*
             if(setpower_index < sm_max)
             {
                 send_buffer[1] = (uint8)(((sm_ADD[setpower_index]) >> 56) & 0x00000000000000FF);
@@ -5769,6 +5859,10 @@ static void zclCoordinator_SetPowerCalculation( void )
                 send_buffer[6] = (uint8)(((sm_ADD[setpower_index]) >> 16) & 0x00000000000000FF);
                 send_buffer[7] = (uint8)(((sm_ADD[setpower_index]) >> 8) & 0x00000000000000FF);
                 send_buffer[8] = (uint8)((sm_ADD[setpower_index]) & 0x00000000000000FF);
+            }*/
+            for(i = 1; i < 9; i++)
+            {
+                send_buffer[i] = 0xFF;
             }
         }
         send_buffer[9] = 0x68;
@@ -6587,12 +6681,12 @@ static void zclCoordinator_EZModeCB( zlcEZMode_State_t state, zclEZMode_CBData_t
 static void zclCoordinator_ReadRoutingTable(uint8 sm_i)
 {
     int i = 0;
-    uint8 pack_out[30] = {0};
+    uint8 pack_out[59] = {0};
     pack_out[0] = 0x68;
     for(i = 1; i <= 8; i++)
         pack_out[i] = coor_addrRegister[i - 1];
     pack_out[9] = 0x68;
-    pack_out[10] = 0x0D;
+    pack_out[10] = 0x0E;
     pack_out[11] = (uint8)(((sm_ADD[sm_i]) >> 56) & 0x00000000000000FF);
     pack_out[12] = (uint8)(((sm_ADD[sm_i]) >> 48) & 0x00000000000000FF);
     pack_out[13] = (uint8)(((sm_ADD[sm_i]) >> 40) & 0x00000000000000FF);
@@ -6602,29 +6696,50 @@ static void zclCoordinator_ReadRoutingTable(uint8 sm_i)
     pack_out[17] = (uint8)(((sm_ADD[sm_i]) >> 8) & 0x00000000000000FF);
     pack_out[18] = (uint8)((sm_ADD[sm_i]) & 0x00000000000000FF);
     pack_out[19] = sm_ADD_status[sm_i];
-/*
-    if(sm_ADD[sm_i] == 0x00124B00040F1A3C)
-        SM_ADD16 = 0x0000;
-    else if(sm_ADD[sm_i] == 0x00124B00040F1C77)
-        SM_ADD16 = 0x0001;
-    else if(sm_ADD[sm_i] == 0x00124B00040EF19E)
-        SM_ADD16 = 0x0002;
-    else if(sm_ADD[sm_i] == 0x00124B00040F05B3)
-        SM_ADD16 = 0x0003;
-    else if(sm_ADD[sm_i] == 0x00124B000413318E)
-        SM_ADD16 = 0x0004;
-    else
-        SM_ADD16 = 0xffff;
-    */
-    //pack_out[20] = (uint8)((SM_ADD16 & 0xff00) >> 8);
-    //pack_out[21] = (uint8)(SM_ADD16 & 0x00ff);
-    pack_out[20] = controlReg[0];
-    pack_out[21] = controlReg[1];
-    pack_out[22] = controlReg[2];
-    pack_out[23] = controlReg[3];
-    for(i = 0; i < 24; i++)
-        pack_out[24] += pack_out[i];
-    pack_out[25] = 0x16;
+    pack_out[20] = val_prio[sm_i];
+    
+    pack_out[21] = (uint8)(((sm_rom_table_hi[sm_i]) >> 56) & 0x00000000000000FF); 
+    pack_out[22] = (uint8)(((sm_rom_table_hi[sm_i]) >> 48) & 0x00000000000000FF);
+    pack_out[23] = (uint8)(((sm_rom_table_hi[sm_i]) >> 40) & 0x00000000000000FF);
+    pack_out[24] = (uint8)(((sm_rom_table_hi[sm_i]) >> 32) & 0x00000000000000FF);
+    pack_out[25] = (uint8)(((sm_rom_table_hi[sm_i]) >> 24) & 0x00000000000000FF);
+    pack_out[26] = (uint8)(((sm_rom_table_hi[sm_i]) >> 16) & 0x00000000000000FF);
+    pack_out[27] = (uint8)(((sm_rom_table_hi[sm_i]) >> 8) & 0x00000000000000FF);
+    pack_out[28] = (uint8)((sm_rom_table_hi[sm_i]) & 0x00000000000000FF);
+    pack_out[29] = (uint8)(((sm_rom_table_lo[sm_i]) >> 56) & 0x00000000000000FF); 
+    pack_out[30] = (uint8)(((sm_rom_table_lo[sm_i]) >> 48) & 0x00000000000000FF);
+    pack_out[31] = (uint8)(((sm_rom_table_lo[sm_i]) >> 40) & 0x00000000000000FF);
+    pack_out[32] = (uint8)(((sm_rom_table_lo[sm_i]) >> 32) & 0x00000000000000FF);
+    pack_out[33] = (uint8)(((sm_rom_table_lo[sm_i]) >> 24) & 0x00000000000000FF);
+    pack_out[34] = (uint8)(((sm_rom_table_lo[sm_i]) >> 16) & 0x00000000000000FF);
+    pack_out[35] = (uint8)(((sm_rom_table_lo[sm_i]) >> 8) & 0x00000000000000FF);
+    pack_out[36] = (uint8)((sm_rom_table_lo[sm_i]) & 0x00000000000000FF); 
+    
+    pack_out[37] = (uint8)(((sm_key_table_hi[sm_i]) >> 56) & 0x00000000000000FF); 
+    pack_out[38] = (uint8)(((sm_key_table_hi[sm_i]) >> 48) & 0x00000000000000FF);
+    pack_out[39] = (uint8)(((sm_key_table_hi[sm_i]) >> 40) & 0x00000000000000FF);
+    pack_out[40] = (uint8)(((sm_key_table_hi[sm_i]) >> 32) & 0x00000000000000FF);
+    pack_out[41] = (uint8)(((sm_key_table_hi[sm_i]) >> 24) & 0x00000000000000FF);
+    pack_out[42] = (uint8)(((sm_key_table_hi[sm_i]) >> 16) & 0x00000000000000FF);
+    pack_out[43] = (uint8)(((sm_key_table_hi[sm_i]) >> 8) & 0x00000000000000FF);
+    pack_out[44] = (uint8)((sm_key_table_hi[sm_i]) & 0x00000000000000FF);
+    pack_out[45] = (uint8)(((sm_key_table_lo[sm_i]) >> 56) & 0x00000000000000FF); 
+    pack_out[46] = (uint8)(((sm_key_table_lo[sm_i]) >> 48) & 0x00000000000000FF);
+    pack_out[47] = (uint8)(((sm_key_table_lo[sm_i]) >> 40) & 0x00000000000000FF);
+    pack_out[48] = (uint8)(((sm_key_table_lo[sm_i]) >> 32) & 0x00000000000000FF);
+    pack_out[49] = (uint8)(((sm_key_table_lo[sm_i]) >> 24) & 0x00000000000000FF);
+    pack_out[50] = (uint8)(((sm_key_table_lo[sm_i]) >> 16) & 0x00000000000000FF);
+    pack_out[51] = (uint8)(((sm_key_table_lo[sm_i]) >> 8) & 0x00000000000000FF);
+    pack_out[52] = (uint8)((sm_key_table_lo[sm_i]) & 0x00000000000000FF);
+    
+    
+    pack_out[53] = controlReg[0];
+    pack_out[54] = controlReg[1];
+    pack_out[55] = controlReg[2];
+    pack_out[56] = controlReg[3];
+    for(i = 0; i < 57; i++)
+        pack_out[57] += pack_out[i];
+    pack_out[58] = 0x16;
     uint8 len_data = pack_out[10];
     if(flag_encry)
     {
@@ -6649,8 +6764,31 @@ static void zclCoordinator_ReadRoutingTable(uint8 sm_i)
 
     }
     usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
-
-    //usbibufPush(&usbCdcInBufferData, pack_out, 26);
+    
+    
+    //test
+    uint8 j, l, k = 0;
+    uint8 num_low_prio = 0;
+    num_low_prio = sm_max - num_high_prio;
+    
+    for(uint8 i = 0; i < 3 * NUM_SMART_METER; i++)
+        sm_routing_prio_table[i] = 0;
+    
+    for(i = 0; i < num_low_prio; i++) // number of low priority
+    {
+        for(j = 0; j < val_prio[i] / num_low_prio; j++)
+        {
+            for(l = 0; l < num_high_prio; l++)
+            {
+                sm_routing_prio_table[k++] = l;
+            }
+        }
+        sm_routing_prio_table[k++] = i + num_high_prio;
+    }
+    num_prio_sm_max = k;
+    sm_routing_prio_table[48] = (uint8)sm_max;
+    sm_routing_prio_table[49] = (uint8)num_prio_sm_max;
+    HalUART0Write ( HAL_UART_PORT_0, sm_routing_prio_table, 50);
 }
 
 /*
@@ -7045,4 +7183,11 @@ void find_end_in_routing_table(uint8 buffer[])
         end_final_key[14] = (uint8)(((final_key_table_lo[end_index]) >> 8) & 0x00000000000000FF);
         end_final_key[15] = (uint8)((final_key_table_lo[end_index]) & 0x00000000000000FF);
     }
+}
+
+
+void delete_item(int index, uint64 array[], uint8 length) {
+        for(int i = index; i < length - 1; i++)
+            array[i] = array[i + 1];
+        array[length - 1] = 0;
 }
