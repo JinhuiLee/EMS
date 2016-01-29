@@ -3023,21 +3023,7 @@ void zclSmartMeter_ProcessUART_Pkt(void)
         }
         //process power calculation start/stop command -> CHANGED INTO Reset command
         else if ((COMMAND == START))
-        {
-            /*
-            if(start  == 0)
-            {
-                start = 1;
-                CAL_OPT = 0;
-            }
-            else if(start == 1)
-            {
-                start = 0; 
-                CAL_OPT = 0;
-            }
-            */
-            
-          
+        {        
             start = 0; 
             CAL_OPT = 0;
             // send the current start value to send over the air to Coordinator
