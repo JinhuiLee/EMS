@@ -355,149 +355,28 @@ void MT_UartProcessZToolData ( uint8 port, uint8 event )
                
     }
     
-    while (Hal_UART_RxBufLen(port))
-    {
-        HalUARTRead (port, &ch, 1);
-        
-        switch (state)
+    
+    
+    if (Hal_UART_RxBufLen(port)) {
+        pMsg = (mtOSALSerialData_t *)osal_msg_allocate( sizeof ( mtOSALSerialData_t ) + 120 );
+        if (pMsg)
         {
-
-        case START1_STATE:
-            if (ch == MT_UART_START_FLAG)
+            /* Fill up what we can */
+            pMsg->hdr.event = CMD_SERIAL_MSG;
+            pMsg->msg = (uint8 *)(pMsg + 1);   
+            int tempLen = 0;
+            while (Hal_UART_RxBufLen(port))
             {
-                START_rec = ch;
-                state = A0A7_START2_STATE;
-                A0A7_Num = 0 ;
+                HalUARTRead (port, &ch, 1); 
+                pMsg->msg[tempLen++] = ch;
             }
-
-            break;
-
-
-        case A0A7_START2_STATE:
-            A0A7_Arr[A0A7_Num++] = ch;
-            if (A0A7_Num == 9)
-            {
-                state = LEN_STATE;
-                //HalLcdWriteString( "send successfully1", HAL_LCD_LINE_7 );
-            }
-            else
-                state = A0A7_START2_STATE;
-
-            break;
-
-        case LEN_STATE:
-
-            LEN_Token = ch;
-            tempDataLen = 0;          
-            state = DATA_STATE;
-            //HalLcdWriteString( "send successfully2", HAL_LCD_LINE_7 );
-                        
-            break;
-
-        case DATA_STATE:
-             
-            /*Only excute this at the first loop*/
-            if(firstloo == 0)
-            {
-              /*
-                if(ch == 0x0A)
-                {
-
-                    LEN_Token = (uint8)(LEN_Token + 49);
-                    HalLcdWriteString( "eeee", HAL_LCD_LINE_6 );
-                }
-              */
-                /* Allocate memory for the data */
-                pMsg = (mtOSALSerialData_t *)osal_msg_allocate( sizeof ( mtOSALSerialData_t ) +
-                        MT_RPC_FRAME_HDR_SZ + LEN_Token + 20 );
-                if (pMsg)
-                {
-                    /* Fill up what we can */
-                    pMsg->hdr.event = CMD_SERIAL_MSG;
-                    pMsg->msg = (uint8 *)(pMsg + 1);
-                    pMsg->msg[MT_RPC_POS_LEN] = LEN_Token ;
-                                       
-                }
-                else
-                {
-                    state = START1_STATE;
-                    break;
-                }
-            }
-            firstloo++;
-            
-            /* Fill in the buffer the first byte of the data */
-            pMsg->msg[MT_RPC_FRAME_HDR_SZI + tempDataLen++] = ch;
-
-            /* Check number of bytes left in the Rx buffer */
-            bytesInRxBuffer = Hal_UART_RxBufLen(port);
-
-            /* If the remain of the data is there, read them all, otherwise, just read enough */
-            if (bytesInRxBuffer <= LEN_Token - tempDataLen)
-            {
-                HalUARTRead (port, &pMsg->msg[MT_RPC_FRAME_HDR_SZI + tempDataLen], bytesInRxBuffer);
-                tempDataLen += bytesInRxBuffer;
-                //HalLcdWriteString( "FAILi", HAL_LCD_LINE_7 );//5
-            }
-            else
-            {
-                HalUARTRead (port, &pMsg->msg[MT_RPC_FRAME_HDR_SZI + tempDataLen], LEN_Token - tempDataLen );
-                tempDataLen += (LEN_Token - tempDataLen);
-                //HalLcdWriteString( "FAILii", HAL_LCD_LINE_7 );//5
-            }
-
-            if ( tempDataLen == LEN_Token )
-            {
-                state = CHS_STATE;
-                firstloo = 0;
-                //HalLcdWriteString( "FAILiii", HAL_LCD_LINE_4 );
-            }
-            else
-            {
-                state = DATA_STATE;
-                //HalLcdWriteString( "FAILiiii", HAL_LCD_LINE_4 );
-            }
-
-            //HalLcdWriteString( "send successfully3", HAL_LCD_LINE_7 );
-            break;
-
-        case CHS_STATE:
-
-            CHS_Token = ch;
-            CHS_1 = 0;
-            state = END_STATE;
-            pMsg->msg[MT_RPC_FRAME_HDR_SZI + LEN_Token] = CHS_Token;
-            break;
-
-        case END_STATE:
-
-            END_Token = ch;
-            //if(ch == MT_UART_END_FLAG)
-            //{
-            //    state = START1_STATE;
-            //}
-            pMsg->msg[MT_RPC_FRAME_HDR_SZI + LEN_Token + 1] = END_Token;
-            for(coor_index = 0; coor_index < 8; coor_index++)                      ////12.16
-           {
-              pMsg->msg[MT_RPC_FRAME_HDR_SZI + LEN_Token + 2 + coor_index] = A0A7_Arr[coor_index];
-           }
-            HalLcdWriteString( "receive UART1", HAL_LCD_LINE_7 );
-            
             osal_msg_send(App_TaskID, (byte *)pMsg );
-
-            /* Reset the state, send or discard the buffers at this point */
-            state = START1_STATE;            
             osal_msg_deallocate((uint8*)pMsg );
-            uart0_flag = 0;
-            uart1_flag = 1;
-            break;
-
-        default:
-            break;
         }
-        
-        
+    
     }
+    
+    
 }
 
 #if defined (ZAPP_P1) || defined (ZAPP_P2)

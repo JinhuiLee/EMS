@@ -50,6 +50,7 @@
 #include "OSAL_Clock.h"
 #include "MT.h"
 #include "MT_UART.h"
+#include "rom.h"
 /*********************************************************************
  * MACROS
  */
@@ -100,7 +101,7 @@
 
 //#define COORDINATORADDRESS 0x01                 // which coordinator to communicate
 //*****************************************************************************
-
+/*
 #define EXAMPLE_PIN_UART0_RXD            GPIO_PIN_0
 #define EXAMPLE_PIN_UART0_TXD            GPIO_PIN_1
 #define EXAMPLE_GPIO_BASE0               GPIO_A_BASE
@@ -108,7 +109,7 @@
 #define EXAMPLE_PIN_UART1_RXD            GPIO_PIN_2  //RF1.2
 #define EXAMPLE_PIN_UART1_TXD            GPIO_PIN_3  //RF1.4
 #define EXAMPLE_GPIO_BASE1               GPIO_C_BASE
-
+*/
 //*****************************************************************************
 // how often to sample ADC in millisecond
 //#define SmartMeter_PowerCal_INTERVAL   56
@@ -965,7 +966,7 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
                   second_time_in = 1;
                   
                   
-                  sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
+                  //sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
                   switch_timenew = osal_GetSystemClock();
                   //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
               }
@@ -978,7 +979,7 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
                   GPIOPinWrite(GPIO_C_BASE, GPIO_PIN_1, 0x00); 
                   len_uart1 = 0;
                   second_time_in = 0;
-                  sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
+                  //sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
                   //HalLcdWriteString( lcdString, HAL_LCD_LINE_4 );
               }
            }          
@@ -1109,8 +1110,8 @@ static void zclSmartMeter_HandleKeys( byte shift, byte keys )
 {
     if ( keys & HAL_KEY_SW_1 )
     {
-        zclSmartMeter_LcdPowerDisplayUpdate();
-        //start = 1;
+       // zclSmartMeter_LcdPowerDisplayUpdate();
+       // start = 1;
        /*
        uint8_t ui8AESKey[16] =  { 0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00,
         0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00 };
@@ -1142,6 +1143,14 @@ static void zclSmartMeter_HandleKeys( byte shift, byte keys )
         sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
         HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
         */
+        int status1 = ROM_PageErase(0x0027f800,0x800);
+        uint32_t pulData[4] = {0xffffffff, 0xf0ffffff, 0x00000001, 0x00200000};
+        int status2 = ROM_ProgramFlash(pulData, 0x0027ffd0, 16);
+        
+        //zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+        //SystemResetSoft();
+        //if (status1 == 0 && status2 == 0)
+            ROM_ResetDevice();
     }
     if ( keys & HAL_KEY_SW_2 )
     {
@@ -1987,6 +1996,7 @@ static void zclSmartMeter_SendStart(void)
         pack_out[12 + sizeof(packet)] = 0x16;
 
         len_uart1 = 13 + sizeof(packet);
+        HalLcdWriteString( "dataREG1", HAL_LCD_LINE_6 );
         //HalUART1Write ( HAL_UART_PORT_1, pack_out, 13 + sizeof(packet));
     }
 }
@@ -2830,14 +2840,14 @@ zclSmartMeter_ProcessUART_Pkt()
 ********************************************************/
 void zclSmartMeter_ProcessUART_Pkt(void)
 {
-    HalLcdWriteString( "9876", HAL_LCD_LINE_7 );
+    //HalLcdWriteString( "9876", HAL_LCD_LINE_7 );
     char  lcdString[10];
-    /*
+    
     #ifdef LCD_SUPPORTED
-        sprintf((char *)lcdString, "%d %d %d %d", (int) ((uint16)((((Msg_in[1]) & 0x00FF) << 8) + (Msg_in[2] & 0x00FF))) , (int)ADD_3, (int)Msg_in[1], (int)Msg_in[2]);
-        HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+        //sprintf((char *)lcdString, "%x %x",(int)Msg_in[11], (int)Msg_in[12]);
+        //HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
     #endif
-    */   
+    
     if (flag_end_encry)
     {
         uint8 len_data = Msg_in[10];
@@ -2863,8 +2873,8 @@ void zclSmartMeter_ProcessUART_Pkt(void)
     if(Msg_in[1] == 0xFF && Msg_in[2] == 0xFF && Msg_in[3] == 0xFF && Msg_in[4] == 0xFF &&
        Msg_in[5] == 0xFF && Msg_in[6] == 0xFF && Msg_in[7] == 0xFF && Msg_in[8] == 0xFF)
     {
-        if ((COMMAND == START))
-        {                  
+        //if ((COMMAND == START))
+        //{                  
             start = 0; 
             CAL_OPT = 0;
             // send the current start value to send over the air to Coordinator
@@ -2903,14 +2913,14 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             zclSmartMeter_SendRestart();
             zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
             SystemResetSoft();
-        }
+        //}
     }
     if(ADD_3 == ((uint16)((((Msg_in[1]) & 0x00FF) << 8) + (Msg_in[2] & 0x00FF))) && ADD_2 == ((uint16)((((Msg_in[3]) & 0x00FF) << 8) + (Msg_in[4] & 0x00FF)))
             && ADD_1 == ((uint16)((((Msg_in[5]) & 0x00FF) << 8) + (Msg_in[6] & 0x00FF))) && ADD_0 == ((uint16)((((Msg_in[7]) & 0x00FF) << 8) + (Msg_in[8] & 0x00FF))))
     {
 
-        sprintf((char *)lcdString, "%x %x", (uint8)COMMAND, (uint8)OPERATION );
-        HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+        //sprintf((char *)lcdString, "%x %x", (uint8)COMMAND, (uint8)OPERATION );
+        //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
 
         //prosecc relay control command
         if (COMMAND == RELAY)
@@ -2960,18 +2970,18 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             encry_data[6] = (uint8)((ADD_0 & 0xff00) >> 8);
             encry_data[7] = (uint8)(ADD_0 & 0x00ff);
 
-            HalUART0Write ( HAL_UART_PORT_0, end_key, 16);
-            HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+            //HalUART0Write ( HAL_UART_PORT_0, end_key, 16);
+            //HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
             AesEncryptDecrypt(end_key, encry_data, 0, ENCRYPT_AES);
-            HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+            //HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
 
             for (uint8 i = 0; i < 16; i++)
                 end_final_key[i] = romread[i];
 
-            HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
-            HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+            //HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+            //HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
             AesEncryptDecrypt(encry_data, end_final_key,  0, ENCRYPT_AES);
-            HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+            //HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
             zclSmartMeter_SendKeyAck();
 
             //flag_end_encry = true;
@@ -3267,6 +3277,7 @@ void zclSmartMeter_ProcessUART_Pkt(void)
 
         else if ((COMMAND == CALIBRATE))
         {
+            start = 1;
             //HalLcdWriteString( "cali0", HAL_LCD_LINE_4 );
             V_CAL = UINT8_TO_16(Msg_in[13], Msg_in[14]);
             I_CAL = UINT8_TO_16(Msg_in[15], Msg_in[16]);
@@ -3282,8 +3293,8 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             l_nSamples = 0;
             VrmsTemp[0] = 0;
             IrmsTemp[0] = 0;
-            sprintf((char *)lcdString, "%d %d %d %d %d %d", V_CAL, I_CAL, T_CAL, N_CAL, INPUT_1_CAL, INPUT_2_CAL);
-            HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+            //sprintf((char *)lcdString, "%d %d %d %d %d %d", V_CAL, I_CAL, T_CAL, N_CAL, INPUT_1_CAL, INPUT_2_CAL);
+            //HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
             if(V_CAL != 0 && I_CAL == 0)
             {
 
@@ -3324,24 +3335,30 @@ void zclSmartMeter_ProcessUART_Pkt(void)
             SM_CONFIG_1 = Msg_in[17];
             SM_CONFIG_0 = Msg_in[18];
             
-            //Update flash memory
-            zclSmartMeter_SendConfigAck();
+            
+            
           
             zclSmartMeter_WriteConfigReg();
-                
+            /*
             for (uint8 i = 0; i < 3; i++)
                 ConfigReg[i] = 0;
             zclSmartMeter_ReadConfigReg();
-
+            */
+/*
             SM_CONFIG_5 = (uint8)((ConfigReg[0] & 0xff00) >> 8);
             SM_CONFIG_4 = (uint8)((ConfigReg[0] & 0x00ff));
             SM_CONFIG_3 = (uint8)((ConfigReg[1] & 0xff00) >> 8);
             SM_CONFIG_2 = (uint8)((ConfigReg[1] & 0x00ff));
             SM_CONFIG_1 = (uint8)((ConfigReg[2] & 0xff00) >> 8);
             SM_CONFIG_0 = (uint8)((ConfigReg[2] & 0x00ff));
-            
+            */
+            // Initialize SmartMeter parameters
+            //zclSmartMeter_parameterInit();
+            //Initialize SmartMeter data register
+            //zclSmartMeter_dataRegInit();
             Configuration_Reg_Process();
-
+            
+            zclSmartMeter_SendConfigAck();
         }
 
     }
@@ -3542,15 +3559,15 @@ static void zclSmartMeter_calibrateInc(void)
         
         uint8 uart0show[6] = {0};
         uart0show[0] = 0xee;
-        uart0show[1] = (uint8)((senValue[0] & 0xff00) >> 8);
-        uart0show[2] = (uint8)(senValue[0] & 0x00ff);
-        uart0show[3] = (uint8)((senValue[1] & 0xff00) >> 8);
-        uart0show[4] = (uint8)(senValue[1]);
+        uart0show[1] = (uint8)((senValue[5] & 0xff00) >> 8);
+        uart0show[2] = (uint8)(senValue[5] & 0x00ff);
+        uart0show[3] = (uint8)((senValue[6] & 0xff00) >> 8);
+        uart0show[4] = (uint8)(senValue[6]);
         uart0show[5] = 0xff;
         
         //HalUART0Write ( HAL_UART_PORT_0, uart0show, 6);
-        sprintf((char *)lcdString, "%d %d %d %d", uart0show[1], uart0show[2], uart0show[3], uart0show[4] );
-        HalLcdWriteString( lcdString, HAL_LCD_LINE_5 );
+        //sprintf((char *)lcdString, " %d %d",  uart0show[3], uart0show[4] );
+        //HalLcdWriteString( lcdString, HAL_LCD_LINE_5 );
 
 
         l_nSamples ++;
@@ -3561,8 +3578,8 @@ static void zclSmartMeter_calibrateInc(void)
             {
                 time_new = osal_GetSystemClock();
 
-                sprintf((char *)lcdString, "T_EFF: %d", (time_new - time_old) );
-                HalLcdWriteString( lcdString, HAL_LCD_LINE_5 );
+                //sprintf((char *)lcdString, "T_EFF: %d", (time_new - time_old) );
+                //HalLcdWriteString( lcdString, HAL_LCD_LINE_5 );
                 run_T_EFF = (uint16)(time_new - time_old) ;
 
                 time_old = time_new;
@@ -3735,8 +3752,8 @@ static void zclSmartMeter_calibrateInc(void)
             {
                 time_new = osal_GetSystemClock();
 
-                sprintf((char *)lcdString, "time1: %d", (time_new - time_old) );
-                HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+                //sprintf((char *)lcdString, "time1: %d", (time_new - time_old) );
+                //HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
                 time_old = time_new;
                 for(uint8 i = 0; i < 8; i++)
                 {
@@ -3778,8 +3795,8 @@ static void zclSmartMeter_calibrateInc(void)
             {
                 time_new = osal_GetSystemClock();
 
-                sprintf((char *)lcdString, "time2: %d", (time_new - time_old) );
-                HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+                //sprintf((char *)lcdString, "time2: %d", (time_new - time_old) );
+                //HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
                 time_old = time_new;
                 for(uint8 i = 0; i < 8; i++)
                 {
@@ -3961,8 +3978,8 @@ static void zclSmartMeter_calibrateInc(void)
     }
     else if (flaginc == 1 && start == 1)   //check if the start value is 1(start/stop power calculation flag)
     {
-        sprintf((char *)lcdString, "s: %d %d %d %d %d", Num_phase[0], Num_phase[1], Num_phase[2], Num_phase[3], len_DataReg );
-        HalLcdWriteString( lcdString, HAL_LCD_LINE_4 );
+        //sprintf((char *)lcdString, "s: %d %d %d %d %d", Num_phase[0], Num_phase[1], Num_phase[2], Num_phase[3], len_DataReg );
+        //HalLcdWriteString( lcdString, HAL_LCD_LINE_4 );
 
         for(uint8 i = 0; i < 8; i++)
             phase_dec_flag[i] = 1;
@@ -4427,7 +4444,7 @@ uint16 analogRead(uint32 senPinValue)
 static void zclSmartMeter_dataRegInit(void)
 {
     uint8 i;
-    for (i = 0; i < 13; i++)
+    for (i = 0; i < 30; i++)
         dataReg[i] = 0;
 }
 

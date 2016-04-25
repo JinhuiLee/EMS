@@ -72,6 +72,17 @@ Filename:       _hal_uart_isr.c
 //#define EXAMPLE_PIN_TXD            GPIO_PIN_0  //RF2.11
 #define EXAMPLE_GPIO_BASE1               GPIO_C_BASE
 
+/*
+#define EXAMPLE_PIN_UART1_RXD            GPIO_PIN_0
+#define EXAMPLE_PIN_UART1_TXD            GPIO_PIN_1
+#define EXAMPLE_GPIO_BASE1               GPIO_A_BASE
+//#define EXAMPLE_GPIO_BASE0               GPIO_B_BASE
+
+#define EXAMPLE_PIN_UART0_RXD            GPIO_PIN_2  //RF1.2
+#define EXAMPLE_PIN_UART0_TXD            GPIO_PIN_3  //RF1.4
+//#define EXAMPLE_PIN_TXD            GPIO_PIN_0  //RF2.11
+#define EXAMPLE_GPIO_BASE0               GPIO_C_BASE
+*/
 //*****************************************************************************
 
    

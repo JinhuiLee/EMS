@@ -37,7 +37,7 @@ void USB_Poll(void)
     {
         //////////////////////////////////////////////////////////////////////////////////
         if(usb_start_flag == 0) {
-            usb_alloc_buf = (uint8*) osal_mem_alloc(sizeof(uint8)*500);
+            usb_alloc_buf = (uint8*) osal_mem_alloc(sizeof(uint8)*200);
         }
         //////////////////////////////////////////////////////////////////////////////////
         usbobufPop(&usbCdcOutBufferData, pAppBuffer, count); // receive function

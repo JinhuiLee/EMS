@@ -79,7 +79,8 @@ define region FLASH_LCK = mem:[from 0x0027FFE0 to 0x0027FFFF];
 // Define a region for the on-chip SRAM.
 //
 // define region SRAM = mem:[from 0x20004000 to 0x20007FFF];
-define region SRAM = mem:[from 0x20004000 to 0x20008FFF];  //lhy
+// define region SRAM = mem:[from 0x20004000 to 0x20008FFF];  //lhy
+define region SRAM = mem:[from 0x20004000 to 0x2000BFFF];
 
 //
 // Define a block for the heap.  The size should be set to something other

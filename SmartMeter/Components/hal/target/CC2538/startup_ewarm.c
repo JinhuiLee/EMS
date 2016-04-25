@@ -144,7 +144,8 @@ typedef struct
 
 __root const lockPageCCA_t __cca @ ".cca" =
 {
-  BOOTLOADER_BACKDOOR_DISABLE,  // Bootloader backdoor disabled
+  //BOOTLOADER_BACKDOOR_DISABLE,  // Bootloader backdoor disabled
+  0xF0FFFFFF,
   0,                            // Image valid bytes
   FLASH_START_ADDR // Vector table located at flash start address
 };

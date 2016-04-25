@@ -23,6 +23,7 @@
 /*********************************************************************
 * Pin Definition
 */
+/*
 #define EXAMPLE_PIN_UART0_RXD            GPIO_PIN_0
 #define EXAMPLE_PIN_UART0_TXD            GPIO_PIN_1
 #define EXAMPLE_GPIO_BASE0               GPIO_A_BASE
@@ -30,7 +31,7 @@
 #define EXAMPLE_PIN_UART1_RXD            GPIO_PIN_2  //RF1.2
 #define EXAMPLE_PIN_UART1_TXD            GPIO_PIN_3  //RF1.4
 #define EXAMPLE_GPIO_BASE1               GPIO_C_BASE
-
+*/
 //*****************************************************************************
 
 /*********************************************************************
@@ -95,6 +96,8 @@
 #include "usb_cdc.h"
 #include "usb_in_buffer.h"
 #include "usb_out_buffer.h"
+#include "rom.h"
+
 /*********************************************************************
  * CONSTANTS
  */
@@ -133,7 +136,7 @@
 #define Connect_Mode WIRED_CONNECTION
 //#define Connect_Mode WIRELESS_CONNECTION
 
-#define NUM_SMART_METER  20
+#define NUM_SMART_METER  5
 /*********************************************************************
  * GLOBAL VARIABLES
  */
@@ -152,19 +155,34 @@ uint16 dataReg_Ping[29] = {0};
 uint16 dataReg_Pong[29] = {0};
 uint8 dataRegSel = 1;
 uint8 PowSpCal = 0;
-uint64 sm_ADD[NUM_SMART_METER] = {0}; //smart meter address registers --350 max
 uint8 smart_auth_index = 0;
+
+typedef struct
+{
+    uint64 sm_ADD;
+    uint8 sm_ADD_status;
+    uint8 freq;
+    uint64 sm_key_table_hi;
+    uint64 sm_key_table_lo;
+    uint64 sm_rom_table_hi;
+    uint64 sm_rom_table_lo;
+    uint64 final_key_table_hi;
+    uint64 final_key_table_lo;
+    bool flag_end_encry;
+} r_table;
+r_table routing_table[NUM_SMART_METER];
+/*
+uint64 sm_ADD[NUM_SMART_METER] = {0}; //smart meter address registers --350 max
 uint8 sm_ADD_status[NUM_SMART_METER];
-uint8 val_prio[NUM_SMART_METER] = {0};
+uint8 freq[NUM_SMART_METER] = {0};
 uint64 final_key_table_hi[NUM_SMART_METER] = {0};
 uint64 final_key_table_lo[NUM_SMART_METER] = {0};
-
 uint64 sm_rom_table_hi[NUM_SMART_METER] = {0};
 uint64 sm_rom_table_lo[NUM_SMART_METER] = {0};
-
 uint64 sm_key_table_hi[NUM_SMART_METER] = {0};
 uint64 sm_key_table_lo[NUM_SMART_METER] = {0};
-
+bool flag_end_encry[NUM_SMART_METER] = {false};
+*/
 uint8 coor_addrRegister[8];
 uint64 sm_ADD_reg = 0;
 uint8 V_CAL = 0;
@@ -182,7 +200,7 @@ uint32 sys_timenew = 0;
 
 uint8 sm_ROM_index = 0;
 uint16 sm_id;
-uint16 sm_index = 0;  //index for sm_Add[index]
+uint16 sm_index = 0;  //index for routing_table[index].sm_ADD
 uint16 index;  //general purpose index
 uint8 sm_max = 0; //total number of smart meter
 uint16 num_prio_sm_max = 0;
@@ -236,7 +254,7 @@ uint8 coor_key[16] = {0x00};
 uint8 romread[16] = {0x00};
 uint8 coor_final_key[16] = {0x00};
 uint8 end_final_key[16] = {0x00};
-bool flag_end_encry = false;
+
 bool flag_auth = false;
 
 uint16 MIN_ADC;
@@ -328,6 +346,10 @@ uint8_t pOutBuffer[128];
 uint8_t pAppBuffer[128];
 
 //uint8_t ui8AESKey[16] = {0};
+uint8 end_index = 0;
+uint8 end_i = 0;
+bool flag_reset_all_smart_meter = false;
+bool flag_reset_smart_meter = false;
 /*********************************************************************
  * GLOBAL FUNCTIONS
  */
@@ -419,8 +441,8 @@ static void zclCoordinator_nvReadParam( void );
 static void zclCoordinator_SendAck( void );
 static void zclCoordinator_SendRestart( void );
 static void Process_Wired_Cmd(void);
-static void delete_item(int index, uint64 array[], uint8 length);
-
+static void route_table_add(r_table *routing_table, r_table routing_single);
+static void route_table_delete(r_table *routing_table, r_table routing_single);
 static void zclCoordinator_SendReset(void);
 static void zclCoordinator_SendRelay(void);
 static void zclCoordinator_SendCalibrate(void);
@@ -629,13 +651,19 @@ void zclCoordinator_Init( byte task_id )
     ADD_0 = (uint16)saveExtAddr[0] + ((((uint16)saveExtAddr[1]) << 8) & 0xFF00);
     coordinator_extAddr = ((uint64)ADD_0 & 0xFFFF) + ((((uint64)ADD_1) << 16) & 0xFFFF0000) + ((((uint64)ADD_2) << 32) & 0xFFFF00000000) + ((((uint64)ADD_3) << 48) & 0xFFFF000000000000);
 
-    //Initialize routing table sm_ADD[index]
-    for (sm_index = 0; sm_index < 20; sm_index++)
+    for(uint8 i = 0; i < NUM_SMART_METER; i++)
     {
-        sm_ADD[sm_index] = 0;
+        routing_table[i].sm_ADD_status = 0;
+        routing_table[i].sm_ADD = 0;
+        routing_table[i].freq = 0;
+        routing_table[i].sm_key_table_hi = 0;
+        routing_table[i].sm_key_table_lo = 0;
+	routing_table[i].sm_rom_table_hi = 0;
+        routing_table[i].sm_rom_table_lo = 0;
+        routing_table[i].final_key_table_hi = 0;
+        routing_table[i].final_key_table_lo = 0;
+        routing_table[i].flag_end_encry = 0;
     }
-    sm_index = 0;
-
     controlReg[0] = 0x08;
     controlReg[1] = 0x03;
     controlReg[2] = 0x00;
@@ -679,18 +707,14 @@ void ProcessUartData( mtOSALSerialData_t *Uart_Msg)
 {
 
     uint8 index;
+    /*
     dataLen = Uart_Msg->msg[0];
 
     USB_Msg_in[0] = 0x68;
     for (index = 1; index <= 8; index++)
         USB_Msg_in[index] = Uart_Msg->msg[index + dataLen + 2];
     USB_Msg_in[9] = 0x68;
-    /*
-        if(dataLen == 0x50)
-            USB_Msg_in[10] = 0x1F;
-        else
-            USB_Msg_in[10] = dataLen;
-    */
+
     USB_Msg_in[10] = dataLen;
     USB_Msg_in[11] = Uart_Msg->msg[1] ;
 
@@ -698,11 +722,26 @@ void ProcessUartData( mtOSALSerialData_t *Uart_Msg)
     {
         USB_Msg_in[index + 11] = Uart_Msg->msg[index + 1] ;
     }
-
-    /*
-    if(dataLen == 0x50)
-        dataLen = 0x1F;
     */
+    if (Uart_Msg->msg[0] == 0x68)
+    {
+        dataLen = Uart_Msg->msg[10];
+        for (index = 0; index < (int)(dataLen + 13); index++)
+        {
+            USB_Msg_in[index] = Uart_Msg->msg[index] ;
+        }
+        //HalUART0Write ( HAL_UART_PORT_0, USB_Msg_in, dataLen + 13);
+    }
+    else
+    {
+        for (index = 0; index < 10; index++)
+        {
+            USB_Msg_in[index] = Uart_Msg->msg[index] ;
+        }
+        //HalUART0Write ( HAL_UART_PORT_0, USB_Msg_in, 10);
+    }
+    //HalUART0Write ( HAL_UART_PORT_0, USB_Msg_in, dataLen + 13);
+
 }
 
 /*********************************************************************
@@ -893,10 +932,10 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
 
                     /////////////////////////////////////////////////////////////////////
-                    if (flag_end_encry)
+                    find_end_in_routing_table(send_buffer);
+                    if (routing_table[end_index].flag_end_encry)
                     {
-                        find_end_in_routing_table(send_buffer);
-
+                        //find_end_in_routing_table(send_buffer);
 
                         uint8 encry_data[70] = {0};
 
@@ -910,7 +949,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         for(uint8 i = 0; i < (len_data / 16) ; i++)
                             AesEncryptDecrypt(end_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
 
-                        HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+                        //HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
                         //HalUART0Write ( HAL_UART_PORT_0, encry_data, len_data);
                         send_buffer[10] = len_data;
                         for (uint8 i = 0; i < len_data; i++)
@@ -924,16 +963,30 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     ///////////////////////////////////////////////////////////////////////
 
 
+                    sprintf((char *)lcdString, "%d %d", routing_table[0].flag_end_encry, routing_table[1].flag_end_encry);
+                    HalLcdWriteString( lcdString, HAL_LCD_LINE_4 );
+
+
                     HalUART1Write ( HAL_UART_PORT_1, send_buffer, len_data + 13);
                     //HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
                     for( uint8 i = 0; i < 70; i++)
                         send_buffer[i] = 0;
                     second_time_in = 1;
 
-
-                    sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
+                    if (flag_reset_all_smart_meter)
+                    {
+                        for(uint8 i = 0; i < NUM_SMART_METER; i++)
+                            routing_table[i].flag_end_encry = false;
+                        flag_reset_all_smart_meter = false;
+                    }
+                    if (flag_reset_smart_meter)
+                    {
+                        routing_table[end_i].flag_end_encry = false;
+                        flag_reset_smart_meter = false;
+                    }
+                    //sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
                     switch_timenew = osal_GetSystemClock();
-                    HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+                    //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
                 }
             }
             else if (second_time_in)
@@ -945,8 +998,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     GPIOPinWrite(GPIO_C_BASE, GPIO_PIN_1, 0x00);
                     len_uart1 = 0;
                     second_time_in = 0;
-                    sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
-                    HalLcdWriteString( lcdString, HAL_LCD_LINE_4 );
+                    //sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
+                    //HalLcdWriteString( lcdString, HAL_LCD_LINE_4 );
                 }
             }
         }
@@ -1001,9 +1054,13 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             pack_out[16] = 0x16;
 
             uint8 len_data = pack_out[10];
+            /*
             if(flag_encry)
             {
                 uint8 encry_data[70] = {0};
+
+                for (uint8 i = 0; i < 70; i++)
+                    encry_data[i] = 0xFF;
 
                 for (uint8 i = 0; i < len_data; i++)
                     encry_data[i] = pack_out[i + 11];
@@ -1024,14 +1081,9 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                 //HalUART1Write ( HAL_UART_PORT_1, send_buffer, len_data + 13);
             }
+            */
 
             usbibufPush(&usbCdcInBufferData, pack_out, len_data + 13);
-
-            write_energy_index = 0;
-            setpower_index = 0;
-            sm_index = 0;
-            ack_index = 0;
-            routing_index = 0;
 
 
             controlReg[0] = 0x08;
@@ -1040,6 +1092,38 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             controlReg[3] = 0x00;
             for(i = 4; i < 45; i++)
                 controlReg[i] = 0x00;
+
+
+            flag_encry = false;
+            for(uint8 i = 0; i < 3 * NUM_SMART_METER; i++)
+                sm_routing_prio_table[i] = 0;
+
+            sm_max = 0;
+            num_high_prio = 0;
+
+            for(uint8 i = 0; i < NUM_SMART_METER; i++)
+            {
+                routing_table[i].sm_ADD_status = 0;
+                routing_table[i].sm_ADD = 0;
+                routing_table[i].freq = 0;
+                routing_table[i].final_key_table_hi = 0;
+                routing_table[i].final_key_table_lo = 0;
+                routing_table[i].flag_end_encry = 0;
+            }
+
+            start = 0;
+            ack_index = 0;
+            end_index = 0;
+            sm_ROM_index = 0;
+            end_i = 0;
+
+
+            write_energy_index = 0;
+            sm_index = 0;
+            ack_index = 0;
+            routing_index = 0;
+            smart_auth_index = 0;
+            zclCoordinator_SetPowerCalculation();
         }
 
         else if((ADD_3 == (uint16)(((uint16)USB_Msg_in[1] << 8) + (uint16)USB_Msg_in[2])) && (ADD_2 == (uint16)(((uint16)USB_Msg_in[3] << 8) + (uint16)USB_Msg_in[4]))
@@ -1113,13 +1197,32 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                         else   //if no problem with the package, get parameter out
                         {
-                            for(uint8 i = 0; i < len_data + 13; i++)
-                                parameter_in[i] = *(usb_alloc_buf + i + 13 + len_data0);
+                            if (flag_encry)
+                            {
+                                uint8 len_data = *(usb_alloc_buf + 23 + len_data0);
+                                uint8 encry_data[70] = {0};
+
+                                for (uint8 i = 0; i < len_data; i++)
+                                    encry_data[i] = *(usb_alloc_buf + i + 24 + len_data0);
+
+
+                                for(uint8 i = 0; i < ((len_data % 16) ? (len_data / 16 + 1) : (len_data / 16)) ; i++)
+                                    AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, DECRYPT_AES);
+
+                                for (uint8 i = 0; i < len_data; i++)
+                                    *(usb_alloc_buf + i + 24 + len_data0) = encry_data[i];
+
+                                //HalUART0Write ( HAL_UART_PORT_0, usb_alloc_buf, 100);
+                                //HalUART0Write ( HAL_UART_PORT_0, encry_data, 70);
+                            }
+                            
+                            for(uint8 i = 0; i < len_data; i++)
+                                parameter_in[i] = *(usb_alloc_buf + i + 24 + len_data0);
                         }
                     }
                     else if ((USB_Msg_in[13] & 0x01) == 1)             //ROUTING table write
                     {
-                                              
+
                         checksum = 0;
 
                         uint8 len_data0 = USB_Msg_in[10];
@@ -1139,16 +1242,16 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                             for (uint8 i = 0; i < len_data; i++)
                                 encry_data[i] = *(usb_alloc_buf + i + 24 + len_data0);
-                            
+
 
                             for(uint8 i = 0; i < ((len_data % 16) ? (len_data / 16 + 1) : (len_data / 16)) ; i++)
                                 AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, DECRYPT_AES);
 
                             for (uint8 i = 0; i < len_data; i++)
                                 *(usb_alloc_buf + i + 24 + len_data0) = encry_data[i];
-                            
-                            HalUART0Write ( HAL_UART_PORT_0, usb_alloc_buf, 100);
-                            HalUART0Write ( HAL_UART_PORT_0, encry_data, 70);
+
+                            //HalUART0Write ( HAL_UART_PORT_0, usb_alloc_buf, 100);
+                            //HalUART0Write ( HAL_UART_PORT_0, encry_data, 70);
                         }
                         //if((uint8)(checksum & 0xFF) != *(usb_alloc_buf + 13 + len_data0 + 11 + len_data) || *(usb_alloc_buf + 13 + len_data0 + 12 + len_data) != 0x16)
                         //if((uint8)(checksum & 0xFF) != USB_Msg_in[len_addr + 64] || USB_Msg_in[len_addr + 65] != 0x16)  //if sum is wrong or end flag is not 0x16
@@ -1164,202 +1267,61 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                         else   //if no problem with the package, only can have 1 high priority value!!!
                         {
-                            /*
-                              uint8 i;
-                              for(i = 0; i < 3 * NUM_SMART_METER; i++)
-                                  sm_routing_prio_table[i] = 0;
-
-                              sm_max = len_addr / 9;
-                              uint8 num_high_prio = 0; //uint8
-                              uint8 val_high_prio = 0;
-                              uint8 sm_routing_id_table[NUM_SMART_METER] = {0};
-
-                              val_high_prio = USB_Msg_in[72];
-
-
-                              for(i = 0; i < sm_max; i++)
-                              {
-                                  sm_ADD[i] = BUILD_UINT64_8(USB_Msg_in[64 + i * 9], USB_Msg_in[65 + i * 9], USB_Msg_in[66 + i * 9], USB_Msg_in[67 + i * 9],
-                                                             USB_Msg_in[68 + i * 9], USB_Msg_in[69 + i * 9], USB_Msg_in[70 + i * 9], USB_Msg_in[71 + i * 9]);
-
-                                  sm_routing_id_table[i] = zclCoordinator_smIEEE_to_id(sm_ADD[i]); //uint8
-                                  if(USB_Msg_in[72 + i * 9] == USB_Msg_in[72] && val_high_prio != 1)
-                                  {
-                                      num_high_prio ++;
-                                  }
-                              }
-
-
-                              uint8 j, l;
-                              uint8 k = 0;
-                              uint8 num_low_prio = 0;
-                              num_low_prio = sm_max - num_high_prio;
-                              for(i = 0; i < num_low_prio; i++) // number of low priority
-                              {
-                                  for(j = 0; j < val_high_prio / num_low_prio; j++)
-                                  {
-                                      for(l = 0; l < num_high_prio; l++)
-                                      {
-                                          sm_routing_prio_table[k++] = sm_routing_id_table[l];
-                                      }
-                                  }
-                                  sm_routing_prio_table[k++] = sm_routing_id_table[i + num_high_prio];
-                              }
-
-                              num_prio_sm_max = k;
-                              routing_all_flag = 1;
-                              */
-                            /*
-                            uint8 i;
-                            for(i = 0; i < 3 * NUM_SMART_METER; i++)
-                                sm_routing_prio_table[i] = 0;
-
-                            sm_max = len_addr / 41;
-                            uint8 num_high_prio = 0; //uint8
-
-
-
-
-                            for(i = 0; i < sm_max; i++)
+                            r_table routing_single;
+                            routing_single.sm_ADD_status = *(usb_alloc_buf + 32 + len_data0);
+                            if (routing_single.sm_ADD_status)
                             {
-
-                                sm_ADD[i] = BUILD_UINT64_8(*(usb_alloc_buf + 24 + len_data0 + i * 41), *(usb_alloc_buf + 25 + len_data0 + i * 41), *(usb_alloc_buf + 26 + len_data0 + i * 41), *(usb_alloc_buf + 27 + len_data0 + i * 41),
-                                                           *(usb_alloc_buf + 28 + len_data0 + i * 41), *(usb_alloc_buf + 29 + len_data0 + i * 41), *(usb_alloc_buf + 30 + len_data0 + i * 41), *(usb_alloc_buf + 31 + len_data0 + i * 41));
-                                val_prio[i] = *(usb_alloc_buf + 32 + len_data0 + i * 41);
-
-                                uint8 sm_IEEE_data[16] = {0};
-                                uint8 sm_ROM_data[16] = {0};
-                                uint8 sm_key_data[16] = {0};
-                                for (int index = 0; index < 8; index++)
-                                    sm_IEEE_data[index] = *(usb_alloc_buf + 24 + len_data0 + i * 41 + index);
-                                for (int index = 0; index < 16; index++)
-                                {
-                                    sm_ROM_data[index] = *(usb_alloc_buf + 33 + len_data0 + i * 41 + index);
-                                    sm_key_data[index] = *(usb_alloc_buf + 49 + len_data0 + i * 41 + index);
-                                }
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_key_data, 16);
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
-                                AesEncryptDecrypt(sm_key_data, sm_IEEE_data, 0, ENCRYPT_AES);
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
-
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_ROM_data, 16);
-                                AesEncryptDecrypt(sm_IEEE_data, sm_ROM_data,  0, ENCRYPT_AES);
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_ROM_data, 16);
-
-                                final_key_table_hi[i] = BUILD_UINT64_8(sm_ROM_data[0], sm_ROM_data[1], sm_ROM_data[2], sm_ROM_data[3], sm_ROM_data[4], sm_ROM_data[5], sm_ROM_data[6], sm_ROM_data[7]);
-                                final_key_table_lo[i] = BUILD_UINT64_8(sm_ROM_data[8], sm_ROM_data[9], sm_ROM_data[10], sm_ROM_data[11], sm_ROM_data[12], sm_ROM_data[13], sm_ROM_data[14], sm_ROM_data[15]);
-                                if(val_prio[i] != 1)
-                                {
-                                    num_high_prio ++;
-                                }
-                            }
-
-
-
-                            uint8 j, l;
-                            uint8 k = 0;
-                            uint8 num_low_prio = 0;
-                            num_low_prio = sm_max - num_high_prio;
-                            for(i = 0; i < num_low_prio; i++) // number of low priority
-                            {
-                                for(j = 0; j < val_prio[i] / num_low_prio; j++)
-                                {
-                                    for(l = 0; l < num_high_prio; l++)
-                                    {
-                                        sm_routing_prio_table[k++] = l;
-                                    }
-                                }
-                                sm_routing_prio_table[k++] = i + num_high_prio;
-                            }
-
-                            num_prio_sm_max = k;
-                            routing_all_flag = 1;
-                            //test
-                            sm_routing_prio_table[48] = (uint8)sm_max;
-                            sm_routing_prio_table[49] = (uint8)num_prio_sm_max;
-                            HalUART0Write ( HAL_UART_PORT_0, sm_routing_prio_table, 50);
-                            */
-
-                            uint8 flag_valid = *(usb_alloc_buf + 32 + len_data0);
-                            if (flag_valid)
-                            {
-                                sm_max ++;
-                                sm_ADD_status[sm_max - 1] = flag_valid;
-                                sm_ADD[sm_max - 1] = BUILD_UINT64_8(*(usb_alloc_buf + 24 + len_data0), *(usb_alloc_buf + 25 + len_data0), *(usb_alloc_buf + 26 + len_data0), *(usb_alloc_buf + 27 + len_data0),
-                                                                    *(usb_alloc_buf + 28 + len_data0), *(usb_alloc_buf + 29 + len_data0), *(usb_alloc_buf + 30 + len_data0), *(usb_alloc_buf + 31 + len_data0));
-                                val_prio[sm_max - 1] = *(usb_alloc_buf + 33 + len_data0);
+                                //sm_ADD_status[sm_max - 1] = flag_valid;
+                                //freq[sm_max - 1] = *(usb_alloc_buf + 33 + len_data0);
+                                routing_single.freq = *(usb_alloc_buf + 33 + len_data0);
 
                                 uint8 sm_IEEE_data[16] = {0};
                                 uint8 sm_ROM_data[16] = {0};
                                 uint8 sm_key_data[16] = {0};
                                 for (int index = 0; index < 8; index++)
                                     sm_IEEE_data[index] = *(usb_alloc_buf + 24 + len_data0 + index);
+
+                                routing_single.sm_ADD = BUILD_UINT64_8(sm_IEEE_data[0], sm_IEEE_data[1], sm_IEEE_data[2], sm_IEEE_data[3],
+                                                                       sm_IEEE_data[4], sm_IEEE_data[5], sm_IEEE_data[6], sm_IEEE_data[7]);
                                 for (int index = 0; index < 16; index++)
                                 {
                                     sm_ROM_data[index] = *(usb_alloc_buf + 34 + len_data0 + index);
                                     sm_key_data[index] = *(usb_alloc_buf + 50 + len_data0 + index);
                                 }
 
-                                sm_rom_table_hi[sm_max - 1] = BUILD_UINT64_8(sm_ROM_data[0], sm_ROM_data[1], sm_ROM_data[2], sm_ROM_data[3], sm_ROM_data[4], sm_ROM_data[5], sm_ROM_data[6], sm_ROM_data[7]);
-                                sm_rom_table_lo[sm_max - 1] = BUILD_UINT64_8(sm_ROM_data[8], sm_ROM_data[9], sm_ROM_data[10], sm_ROM_data[11], sm_ROM_data[12], sm_ROM_data[13], sm_ROM_data[14], sm_ROM_data[15]);
+                                routing_single.sm_rom_table_hi = BUILD_UINT64_8(sm_ROM_data[0], sm_ROM_data[1], sm_ROM_data[2], sm_ROM_data[3], sm_ROM_data[4], sm_ROM_data[5], sm_ROM_data[6], sm_ROM_data[7]);
+                                routing_single.sm_rom_table_lo = BUILD_UINT64_8(sm_ROM_data[8], sm_ROM_data[9], sm_ROM_data[10], sm_ROM_data[11], sm_ROM_data[12], sm_ROM_data[13], sm_ROM_data[14], sm_ROM_data[15]);
 
-                                sm_key_table_hi[sm_max - 1] = BUILD_UINT64_8(sm_key_data[0], sm_key_data[1], sm_key_data[2], sm_key_data[3], sm_key_data[4], sm_key_data[5], sm_key_data[6], sm_key_data[7]);
-                                sm_key_table_lo[sm_max - 1] = BUILD_UINT64_8(sm_key_data[8], sm_key_data[9], sm_key_data[10], sm_key_data[11], sm_key_data[12], sm_key_data[13], sm_key_data[14], sm_key_data[15]);
+                                routing_single.sm_key_table_hi = BUILD_UINT64_8(sm_key_data[0], sm_key_data[1], sm_key_data[2], sm_key_data[3], sm_key_data[4], sm_key_data[5], sm_key_data[6], sm_key_data[7]);
+                                routing_single.sm_key_table_lo = BUILD_UINT64_8(sm_key_data[8], sm_key_data[9], sm_key_data[10], sm_key_data[11], sm_key_data[12], sm_key_data[13], sm_key_data[14], sm_key_data[15]);
 
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_key_data, 16);
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
                                 AesEncryptDecrypt(sm_key_data, sm_IEEE_data, 0, ENCRYPT_AES);
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
+                                AesEncryptDecrypt(sm_IEEE_data, sm_ROM_data, 0, ENCRYPT_AES);
 
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_IEEE_data, 16);
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_ROM_data, 16);
-                                AesEncryptDecrypt(sm_IEEE_data, sm_ROM_data,  0, ENCRYPT_AES);
-                                //HalUART0Write ( HAL_UART_PORT_0, sm_ROM_data, 16);
+                                routing_single.final_key_table_hi = BUILD_UINT64_8(sm_ROM_data[0], sm_ROM_data[1], sm_ROM_data[2], sm_ROM_data[3], sm_ROM_data[4], sm_ROM_data[5], sm_ROM_data[6], sm_ROM_data[7]);
+                                routing_single.final_key_table_lo = BUILD_UINT64_8(sm_ROM_data[8], sm_ROM_data[9], sm_ROM_data[10], sm_ROM_data[11], sm_ROM_data[12], sm_ROM_data[13], sm_ROM_data[14], sm_ROM_data[15]);
 
-                                final_key_table_hi[sm_max - 1] = BUILD_UINT64_8(sm_ROM_data[0], sm_ROM_data[1], sm_ROM_data[2], sm_ROM_data[3], sm_ROM_data[4], sm_ROM_data[5], sm_ROM_data[6], sm_ROM_data[7]);
-                                final_key_table_lo[sm_max - 1] = BUILD_UINT64_8(sm_ROM_data[8], sm_ROM_data[9], sm_ROM_data[10], sm_ROM_data[11], sm_ROM_data[12], sm_ROM_data[13], sm_ROM_data[14], sm_ROM_data[15]);
-                                if(val_prio[sm_max - 1] != 1)
+                                routing_single.flag_end_encry = false;
+                                if(routing_single.freq != 1)
                                 {
                                     num_high_prio ++;
                                 }
+                                route_table_add(routing_table, routing_single);
                             }
                             else
                             {
-                                uint64 sm_invalid_ADD = BUILD_UINT64_8(*(usb_alloc_buf + 24 + len_data0), *(usb_alloc_buf + 25 + len_data0), *(usb_alloc_buf + 26 + len_data0), *(usb_alloc_buf + 27 + len_data0),
+                                routing_single.sm_ADD = BUILD_UINT64_8(*(usb_alloc_buf + 24 + len_data0), *(usb_alloc_buf + 25 + len_data0), *(usb_alloc_buf + 26 + len_data0), *(usb_alloc_buf + 27 + len_data0),
                                                                        *(usb_alloc_buf + 28 + len_data0), *(usb_alloc_buf + 29 + len_data0), *(usb_alloc_buf + 30 + len_data0), *(usb_alloc_buf + 31 + len_data0));
-                                uint8 invalid_index = sm_max;
-                                for(uint8 i = 0; i < sm_max; i++)
-                                    if(sm_invalid_ADD == sm_ADD[i])
-                                    {
-                                        invalid_index = i;
-                                        break;
-                                    }
-                                if(val_prio[invalid_index] != 1)
+                                routing_single.freq = *(usb_alloc_buf + 33 + len_data0);
+                                if(routing_single.freq != 1)
                                 {
                                     num_high_prio --;
                                 }
+                                route_table_delete(routing_table, routing_single);
 
-                                delete_item(invalid_index, sm_ADD, sm_max);
-                                //delete_item(invalid_index, sm_ADD_status, sm_max);
-                                //delete_item(invalid_index, val_prio, sm_max);
-                                delete_item(invalid_index, sm_rom_table_hi, sm_max);
-                                delete_item(invalid_index, sm_rom_table_lo, sm_max);
-
-                                delete_item(invalid_index, sm_key_table_hi, sm_max);
-                                delete_item(invalid_index, sm_key_table_lo, sm_max);
-
-                                delete_item(invalid_index, final_key_table_hi, sm_max);
-                                delete_item(invalid_index, final_key_table_lo, sm_max);
-
-                                for(int i = invalid_index; i < sm_max - 1; i++)
-                                {
-                                    sm_ADD_status[i] = sm_ADD_status[i + 1];
-                                    val_prio[i] = val_prio[i + 1];
-                                }
-
-                                sm_max --;
                             }
+
+                            //osal_mem_free(routing_single);
 
                         }
                     }
@@ -1448,6 +1410,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     {
                         uint8 encry_data[70] = {0};
 
+                        for (uint8 i = 0; i < 70; i++)
+                            encry_data[i] = 0xFF;
                         for (uint8 i = 0; i < len_data; i++)
                             encry_data[i] = pack_out[i + 11];
 
@@ -1525,25 +1489,46 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 // command: smart meter authentication
                 else if (controlReg[2] == 0x20)
                 {
-                    sm_ROM_index = smart_auth_index;
-                    if(((controlReg[3] >> 3) & 0x01) == 0) {
+                    //sm_ROM_index = smart_auth_index;
+                    if(((controlReg[3] >> 3) & 0x01) == 0)
+                    {
                         smart_auth_index = 0;
-                    }
-                    else {
-                        if(controlReg[8] != 0xFF) {
+                        if(controlReg[8] != 0xFF)
+                        {
                             uint64 rom_sm_ADD = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11],
-                                                           controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
+                                                               controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
 
                             for(uint8 i = 0; i < sm_max; i++)
-                                if(rom_sm_ADD == sm_ADD[i])
+                                if(rom_sm_ADD == routing_table[i].sm_ADD)
                                 {
                                     sm_ROM_index = i;
                                     break;
                                 }
                         }
-                        else {
-                            sm_ROM_index = smart_auth_index;
+                        else
+                        {
+                            sm_ROM_index = 0;
                         }
+                    }
+                    else
+                    {
+                        /*
+                          if(controlReg[8] != 0xFF) {
+                              uint64 rom_sm_ADD = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11],
+                                                             controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
+
+                              for(uint8 i = 0; i < sm_max; i++)
+                                  if(rom_sm_ADD == routing_table[i].sm_ADD)
+                                  {
+                                      sm_ROM_index = i;
+                                      break;
+                                  }
+                          }
+                          else {
+                              sm_ROM_index = smart_auth_index;
+                          }
+                        */
+                        sm_ROM_index = smart_auth_index;
                     }
                     flag_auth = false;
                     zclCoordinator_SendAuth();
@@ -1565,7 +1550,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     for(i = 0; i < 8; i++)
                         zclCoordinator_DstAddr.addr.extAddr[i] = controlReg[15 - i];
 
-                    if (controlReg[0] & 0x08)
+                    if (controlReg[0] == 0x08)
                         flagrelay = 1;
                     else
                         flagrelay = 0;
@@ -1590,7 +1575,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                     for (i = 0; i < 18; i++)
                     {
-                        paramReg[i] = (uint16)(((uint16)(parameter_in[i * 2 + 11])) << 8) + (uint16)(parameter_in[i * 2 + 12]);
+                        paramReg[i] = (uint16)(((uint16)(parameter_in[i * 2])) << 8) + (uint16)(parameter_in[i * 2 + 1]);
                     }
 
                     //write parameters into FLASH memory of coordaintor
@@ -1601,14 +1586,14 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         //write parameters to all the smart meters
                         for (sm_id = 0; sm_id < sm_max; sm_id++)
                         {
-                            zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_id]) >> 56) & 0x00000000000000FF); //AF.h; highest
-                            zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_id]) >> 48) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_id]) >> 40) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_id]) >> 32) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_id]) >> 24) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_id]) >> 16) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_id]) >> 8) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_id]) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((routing_table[sm_id].sm_ADD) >> 56) & 0x00000000000000FF); //AF.h; highest
+                            zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((routing_table[sm_id].sm_ADD) >> 48) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((routing_table[sm_id].sm_ADD) >> 40) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((routing_table[sm_id].sm_ADD) >> 32) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((routing_table[sm_id].sm_ADD) >> 24) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((routing_table[sm_id].sm_ADD) >> 16) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((routing_table[sm_id].sm_ADD) >> 8) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((routing_table[sm_id].sm_ADD) & 0x00000000000000FF);
 
                             zclCoordinator_SetParam();
                         }
@@ -1695,9 +1680,10 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 }
 
                 // command: system reset
-                else if (((controlReg[0] >> 7) & 0x01) == 0 && ((controlReg[1] >> 1) & 0x01) == 0)
+                //else if (((controlReg[0] >> 7) & 0x01) == 0 && ((controlReg[1] >> 1) & 0x01) == 0)
+                else if(controlReg[0] == 0x08 && controlReg[1] == 0x00 && controlReg[2] == 0x00 && controlReg[3] == 0x00)
                 {
-                  
+                    /*
                     for(uint8 i = 0; i < 3 * NUM_SMART_METER; i++)
                         sm_routing_prio_table[i] = 0;
 
@@ -1705,9 +1691,9 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     num_high_prio = 0;
                     for(uint8 i = 0; i < NUM_SMART_METER; i++)
                     {
-                        sm_ADD_status[i] = 1;
-                        sm_ADD[i] = 0;
-                        val_prio[i] = 0;
+                        routing_table[i].sm_ADD_status = 1;
+                        routing_table[i].sm_ADD = 0;
+                        routing_table[i].freq = 0;
                         final_key_table_hi[i] = 0;
                         final_key_table_lo[i] = 0;
                     }
@@ -1718,7 +1704,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     routing_index = 0;
                     smart_auth_index = 0;
 
-                    
+
                     if(((controlReg[3] >> 3) & 0x01) == 0)
                         setpower_index = 0;
 
@@ -1726,6 +1712,71 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     zclCoordinator_SetPowerCalculation();
 
                     zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                    */
+
+
+                    //reset all smart meters
+                    if (controlReg[9] == 0xFF)
+                    {
+                        zclCoordinator_SetPowerCalculation();
+
+                        flag_reset_all_smart_meter = true;
+                        zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                    }
+                    //reset coordinator
+                    else if (controlReg[9] == 0x00)
+                    {
+
+                        zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                        flag_encry = false;
+                        for(uint8 i = 0; i < 3 * NUM_SMART_METER; i++)
+                            sm_routing_prio_table[i] = 0;
+
+                        sm_max = 0;
+                        num_high_prio = 0;
+
+                        for(uint8 i = 0; i < NUM_SMART_METER; i++)
+                        {
+                            routing_table[i].sm_ADD_status = 0;
+                            routing_table[i].sm_ADD = 0;
+                            routing_table[i].freq = 0;
+                            routing_table[i].final_key_table_hi = 0;
+                            routing_table[i].final_key_table_lo = 0;
+                            routing_table[i].flag_end_encry = 0;
+                        }
+
+                        start = 0;
+                        ack_index = 0;
+                        end_index = 0;
+                        sm_ROM_index = 0;
+                        end_i = 0;
+
+
+                        write_energy_index = 0;
+                        sm_index = 0;
+                        ack_index = 0;
+                        routing_index = 0;
+                        smart_auth_index = 0;
+
+                        //if(((controlReg[3] >> 3) & 0x01) == 0)
+                        //    setpower_index = 0;
+
+                    }
+                    else
+                    {
+                        zclCoordinator_SetPowerCalculation();
+                        uint64 IEEE_id = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
+
+
+                        for (end_i = 0; end_i < sm_max; end_i++)
+                        {
+                            if (IEEE_id == routing_table[end_i].sm_ADD)
+                                break;
+                        }
+
+                        flag_reset_smart_meter = true;
+                        zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                    }
                     /*
                     WAIT_EVT_INDEX = setPowerCalculation_WAIT;
                     osal_set_event(task_id, Coordinator_WAIT_SERIES_EVT);
@@ -1815,7 +1866,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     if(routing_all_flag == 1)
                     {
                         for(uint8 i = 0; i < NUM_SMART_METER; i++)
-                            sm_ADD_status[i] = 1;
+                            routing_table[i].sm_ADD_status = 1;
                     }
                     routing_all_flag = 0;
 
@@ -1865,6 +1916,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     {
                         uint8 encry_data[70] = {0};
 
+                        for (uint8 i = 0; i < 70; i++)
+                            encry_data[i] = 0xFF;
                         for (uint8 i = 0; i < len_data; i++)
                             encry_data[i] = pack_out[i + 11];
 
@@ -1911,14 +1964,14 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         //write parameters to all the smart meters
                         for (sm_id = 0; sm_id < sm_max; sm_id++)
                         {
-                            zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_id]) >> 56) & 0x00000000000000FF); //AF.h; highest
-                            zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_id]) >> 48) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_id]) >> 40) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_id]) >> 32) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_id]) >> 24) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_id]) >> 16) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_id]) >> 8) & 0x00000000000000FF);
-                            zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_id]) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((routing_table[sm_id].sm_ADD) >> 56) & 0x00000000000000FF); //AF.h; highest
+                            zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((routing_table[sm_id].sm_ADD) >> 48) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((routing_table[sm_id].sm_ADD) >> 40) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((routing_table[sm_id].sm_ADD) >> 32) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((routing_table[sm_id].sm_ADD) >> 24) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((routing_table[sm_id].sm_ADD) >> 16) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((routing_table[sm_id].sm_ADD) >> 8) & 0x00000000000000FF);
+                            zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((routing_table[sm_id].sm_ADD) & 0x00000000000000FF);
                             zclCoordinator_SetTime();
                         }
                     }
@@ -1952,7 +2005,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     time_new = time_old;
                 }
 
-                //command: CONFIGURATION register read
+                //command: CONFIGURATION register write
                 else if (((controlReg[1] >> 7) & 0x01) == 1)
                 {
                     int i;
@@ -1976,7 +2029,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 //command: data register read
                 //Send request for smart meter data using round robin method
                 //Specify which smart meter to request data
-                //&zclCoordinator_DstAddr = &sm_ADD[sm_index];
+                //&zclCoordinator_DstAddr = &routing_table[sm_index].sm_ADD;
                 //else if (((controlReg[0] >> 7) & 0x01) == 1 && Drr_flag == 1 && (((controlReg[3] >> 3) & 0x01) == 0))
                 else if (((controlReg[0] >> 7) & 0x01) == 1 && (((controlReg[3] >> 3) & 0x01) == 0))
                 {
@@ -1990,7 +2043,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                     for(i = 0; i < num_low_prio; i++) // number of low priority
                     {
-                        for(j = 0; j < val_prio[i] / num_low_prio; j++)
+                        for(j = 0; j < routing_table[i].freq / num_low_prio; j++)
                         {
                             for(l = 0; l < num_high_prio; l++)
                             {
@@ -2014,14 +2067,14 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     */
 
                     //zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
-                    zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 56) & 0x00000000000000FF); //AF.h; highest
-                    zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 48) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 40) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 32) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 24) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 16) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 8) & 0x00000000000000FF);
-                    zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_routing_prio_table[ack_index]]) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 56) & 0x00000000000000FF); //AF.h; highest
+                    zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 48) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 40) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 32) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 24) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 16) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 8) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) & 0x00000000000000FF);
 
                     //Stop power calculation
                     flaginc = 0;
@@ -2042,7 +2095,9 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                 //ACKcommand
                 //else if((((controlReg[3] >> 3) & 0x01) == 1) && (((controlReg[0] >> 7) & 0x01) == 1) && ACK_flag == 1)
-                else if((((controlReg[3] >> 3) & 0x01) == 1) && (((controlReg[0] >> 7) & 0x01) == 1))
+                //else if((((controlReg[3] >> 3) & 0x01) == 1) && (((controlReg[0] >> 7) & 0x01) == 1))
+                else if((controlReg[0] == 0x88 && controlReg[1] == 0x02 && controlReg[2] == 0x00 && controlReg[3] == 0x08) ||
+                        (controlReg[0] == 0x08 && controlReg[1] == 0x02 && controlReg[2] == 0x00 && controlReg[3] == 0x08))
                 {
                     if((controlReg[3] & 0x01) == 1)//check is retry or not!
                     {
@@ -2051,10 +2106,30 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     }
                     else
                     {
-                        if(((controlReg[1] >> 1) & 0x01) == 0)
+                        uint8 j, l, k = 0;
+                        uint8 num_low_prio = 0;
+                        num_low_prio = sm_max - num_high_prio;
+
+                        for(uint8 i = 0; i < 3 * NUM_SMART_METER; i++)
+                            sm_routing_prio_table[i] = 0;
+
+                        for(i = 0; i < num_low_prio; i++) // number of low priority
+                        {
+                            for(j = 0; j < routing_table[i].freq / num_low_prio; j++)
+                            {
+                                for(l = 0; l < num_high_prio; l++)
+                                {
+                                    sm_routing_prio_table[k++] = l;
+                                }
+                            }
+                            sm_routing_prio_table[k++] = i + num_high_prio;
+                        }
+                        num_prio_sm_max = k;
+
+                        if((controlReg[0] == 0x08))
                         {
                             PowSpCal = 1;
-                            zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                            zclCoordinator_sendACK(0x88, 0x03, 0x00, 0x00);
                         }
                         else
                             osal_set_event(task_id, ACK_WAIT_EVT);
@@ -2148,7 +2223,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 /*
                 uint16 i;
                 for(i = ack_index + 1; i < sm_max; i++)
-                    smvalid_flag = smvalid_flag || sm_ADD_status[i];
+                    smvalid_flag = smvalid_flag || routing_table[i].sm_ADD_status;
 
                 if(smvalid_flag == 0)
                 {
@@ -2185,7 +2260,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         {
             int m = 0;
             for(m = 0; m < sm_max; m++)
-                all_smvalid_flag = all_smvalid_flag || sm_ADD_status[m];
+                all_smvalid_flag = all_smvalid_flag || routing_table[m].sm_ADD_status;
             if(all_smvalid_flag == 0)
             {
                 Round_end_flag = 1;
@@ -2356,6 +2431,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         {
             uint8 encry_data[70] = {0};
 
+            for (uint8 i = 0; i < 70; i++)
+                encry_data[i] = 0xFF;
             for (uint8 i = 0; i < len_data; i++)
                 encry_data[i] = pack_out[i + 11];
 
@@ -2383,8 +2460,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         first_complete = 0;
 
         char lcdString[10];
-        sprintf((char *)lcdString, "DATAREGpackout0: %d", pack_out[0]);
-        HalLcdWriteString( lcdString, HAL_LCD_LINE_7 );
+        //sprintf((char *)lcdString, "DATAREGpackout0: %d", pack_out[0]);
+        //HalLcdWriteString( lcdString, HAL_LCD_LINE_7 );
 
         return ( events ^ DATA_CL_EVT );
 
@@ -2404,15 +2481,21 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD_prio) >> 8) & 0x00000000000000FF);
         zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD_prio) & 0x00000000000000FF);
         */
-        zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 56) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 48) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 40) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 32) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 24) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 16) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 8) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_routing_prio_table[ack_index]]) & 0x00000000000000FF);
-        if(sm_ADD_status[ack_index] == 1)
+        zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 56) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 48) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 40) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 32) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 24) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 16) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 8) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) & 0x00000000000000FF);
+
+        //sm_routing_prio_table[18] = (uint8)sm_routing_prio_table[ack_index];
+        //sm_routing_prio_table[19] = (uint8)num_prio_sm_max;
+        //HalUART0Write ( HAL_UART_PORT_0, sm_routing_prio_table, 20);
+
+        //if(sm_ADD_status[ack_index] == 1)
+        if(routing_table[sm_routing_prio_table[ack_index]].sm_ADD_status == 1)
         {
             //Stop power calculation
             flaginc = 0;
@@ -2433,7 +2516,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             int i;
             all_invaild_flag = 0;
             for(i = 0; i < sm_max; i++)
-                all_invaild_flag = all_invaild_flag || sm_ADD_status[i];
+                all_invaild_flag = all_invaild_flag || routing_table[i].sm_ADD_status;
             if(all_invaild_flag != 0)
                 osal_set_event(task_id, ACK_WAIT_EVT);
             else
@@ -2461,7 +2544,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
                           {
                               sm_receive_flag[index] = 3; //Change status to ignore status
-                              //sm_ADD_status[index] = 0;   //The address is invalid
+                              //routing_table[index].sm_ADD_status = 0;   //The address is invalid
                               ;
 
                           }
@@ -2482,7 +2565,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                       for(index = 0; index < sm_max; index++)
                       {
 
-                          if(sm_ADD_status[index] == 1)
+                          if(routing_table[index].sm_ADD_status == 1)
 
                               sm_flag_and = sm_flag_and && sm_receive_flag[index];
                       }
@@ -2521,8 +2604,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                     for(index = 0; index < sm_max; index++)
                     {
-                        if(sm_ADD_reg == sm_ADD[index])
-                            //sm_ADD_status[index] = 0;  //The address is invalid
+                        if(sm_ADD_reg == routing_table[index].sm_ADD)
+                            //routing_table[index].sm_ADD_status = 0;  //The address is invalid
                             ;
                     }
                     sm_ADD_reg = 0;
@@ -2567,8 +2650,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
                 {
-                    if(sm_ADD_reg == sm_ADD[index])
-                        //sm_ADD_status[index] = 0;  //The address is invalid
+                    if(sm_ADD_reg == routing_table[index].sm_ADD)
+                        //routing_table[index].sm_ADD_status = 0;  //The address is invalid
                         ;
                 }
                 sm_ADD_reg = 0;
@@ -2642,17 +2725,17 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         {
             int index;
             time_new = osal_GetSystemClock();
-            if((time_new - time_old) > 0x0000013B)
+            if((time_new - time_old) > 0x00000258)
             {
                 if(controlReg[8] != 0xFF)
-                        sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
-                    else
-                        sm_ADD_reg = sm_ADD[smart_auth_index];
+                    sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
+                else
+                    sm_ADD_reg = routing_table[smart_auth_index].sm_ADD;
 
                 for(index = 0; index < sm_max; index++)
                 {
-                    if(sm_ADD_reg == sm_ADD[index])
-                        //sm_ADD_status[index] = 0;  //The address is invalid
+                    if(sm_ADD_reg == routing_table[index].sm_ADD)
+                        //routing_table[index].sm_ADD_status = 0;  //The address is invalid
                         ;
                 }
                 sm_ADD_reg = 0;
@@ -2666,13 +2749,15 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     if(smart_auth_index < sm_max - 1)
                     {
                         zclCoordinator_sendACK(0x08, 0x03, 0x20, 0x02);//time out
-                        routing_index++;
+                        //routing_index++;
+                        smart_auth_index++;
                     }
 
                     else if(smart_auth_index == sm_max - 1)
                     {
                         zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x02);//time out
-                        routing_index = 0;
+                        //routing_index = 0;
+                        smart_auth_index = 0;
                     }
                 }
 
@@ -2689,22 +2774,22 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 if (flag_auth && flag_key_set)
                 {
                     if(controlReg[8] != 0xFF)
+                    {
+                        zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                    }
+                    else
+                    {
+                        if(smart_auth_index < sm_max - 1)
+                        {
+                            zclCoordinator_sendACK(0x08, 0x03, 0x20, 0x00);
+                            smart_auth_index++;
+                        }
+                        else if(smart_auth_index == sm_max - 1)
                         {
                             zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
+                            smart_auth_index = 0;
                         }
-                        else
-                        {
-                            if(smart_auth_index < sm_max - 1)
-                            {
-                                zclCoordinator_sendACK(0x08, 0x03, 0x20, 0x00);
-                                smart_auth_index++;
-                            }
-                            else if(smart_auth_index == sm_max - 1)
-                            {
-                                zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
-                                smart_auth_index = 0;
-                            }
-                        }
+                    }
 
                     flag_auth = false;
                     flag_key_set = false;
@@ -2729,8 +2814,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
                 {
-                    if(sm_ADD_reg == sm_ADD[index])
-                        //sm_ADD_status[index] = 0;  //The address is invalid
+                    if(sm_ADD_reg == routing_table[index].sm_ADD)
+                        //routing_table[index].sm_ADD_status = 0;  //The address is invalid
                         ;
                 }
                 sm_ADD_reg = 0;
@@ -2771,8 +2856,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
                 {
-                    if(sm_ADD_reg == sm_ADD[index])
-                        //sm_ADD_status[index] = 0;  //The address is invalid
+                    if(sm_ADD_reg == routing_table[index].sm_ADD)
+                        //routing_table[index].sm_ADD_status = 0;  //The address is invalid
                         ;
                 }
                 sm_ADD_reg = 0;
@@ -2791,11 +2876,13 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 {
                     //zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
 
-                    if(SmartMeter_relay == 1)
+                    //if(SmartMeter_relay == 1)
+                    if(flagrelay == 1)
                         zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x10);
-                    else if (SmartMeter_relay == 0)
+                    else if(flagrelay == 0)
                         zclCoordinator_sendACK(0x08, 0x03, 0x00, 0x00);
 
+                    flagrelay = 2;
                     relay_receive_flag = 0;
                     time_new = 0;
                     time_old = 0;
@@ -2818,12 +2905,12 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 if(controlReg[8] != 0xFF)
                     sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 else
-                    sm_ADD_reg = sm_ADD[setpower_index];
+                    sm_ADD_reg = routing_table[setpower_index].sm_ADD;
 
                 for(index = 0; index < sm_max; index++)
                 {
-                    if(sm_ADD_reg == sm_ADD[index])
-                        //sm_ADD_status[index] = 0;  //The address is invalid
+                    if(sm_ADD_reg == routing_table[index].sm_ADD)
+                        //routing_table[index].sm_ADD_status = 0;  //The address is invalid
                         ;
                 }
                 sm_ADD_reg = 0;
@@ -2922,8 +3009,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
                 {
-                    if(sm_ADD_reg == sm_ADD[index])
-                        //sm_ADD_status[index] = 0;  //The address is invalid
+                    if(sm_ADD_reg == routing_table[index].sm_ADD)
+                        //routing_table[index].sm_ADD_status = 0;  //The address is invalid
                         ;
                 }
                 sm_ADD_reg = 0;
@@ -2998,6 +3085,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     {
                         uint8 encry_data[70] = {0};
 
+                        for (uint8 i = 0; i < 70; i++)
+                            encry_data[i] = 0xFF;
                         for (uint8 i = 0; i < len_data; i++)
                             encry_data[i] = pack_out[i + 11];
 
@@ -3037,12 +3126,12 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     if(controlReg[8] != 0xFF)
                         sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                     else
-                        sm_ADD_reg = sm_ADD[routing_index];
+                        sm_ADD_reg = routing_table[routing_index].sm_ADD;
 
                     for(index = 0; index < sm_max; index++)
                     {
-                        if(sm_ADD_reg == sm_ADD[index])
-                            sm_ADD_status[index] = 0;  //The address is invalid
+                        if(sm_ADD_reg == routing_table[index].sm_ADD)
+                            routing_table[index].sm_ADD_status = 0;  //The address is invalid
                     }
                     sm_ADD_reg = 0;
 
@@ -3082,7 +3171,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         }
                         else
                         {
-                            sm_ADD_reg = sm_ADD[routing_index];
+                            sm_ADD_reg = routing_table[routing_index].sm_ADD;
                             if(routing_index < sm_max - 1)
                             {
                                 zclCoordinator_sendACK(0x18, 0x03, 0x00, 0x00);
@@ -3096,8 +3185,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                         }
                         for(index = 0; index < sm_max; index++)
                         {
-                            if(sm_ADD_reg == sm_ADD[index])
-                                sm_ADD_status[index] = 1;  //The address is valid
+                            if(sm_ADD_reg == routing_table[index].sm_ADD)
+                                routing_table[index].sm_ADD_status = 1;  //The address is valid
                         }
                         sm_ADD_reg = 0;
 
@@ -3118,10 +3207,10 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
 
         else if ( WAIT_EVT_INDEX == DATA_WAIT )
         {
-            //HalLcdWriteString( "datawait1", HAL_LCD_LINE_6 );
+            HalLcdWriteString( "datawait1", HAL_LCD_LINE_6 );
             time_new = osal_GetSystemClock();
 
-            if((time_new - time_old) > 0x000001E0)//750ms
+            if((time_new - time_old) > 0x00000320)//750ms
             {
                 HalLcdWriteString( "timeout", HAL_LCD_LINE_1 );
                 sys_timenew = osal_GetSystemClock();
@@ -3159,10 +3248,10 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     }
 
                     //zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
-                    dataReg_Ping[0] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 48) & 0x000000000000FFFF); //ADD_3
-                    dataReg_Ping[1] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 32) & 0x000000000000FFFF); //ADD_2
-                    dataReg_Ping[2] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 16) & 0x000000000000FFFF); //ADD_1
-                    dataReg_Ping[3] = (uint16)((sm_ADD[sm_routing_prio_table[ack_index]]) & 0x000000000000FFFF); //ADD_0
+                    dataReg_Ping[0] = (uint16)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 48) & 0x000000000000FFFF); //ADD_3
+                    dataReg_Ping[1] = (uint16)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 32) & 0x000000000000FFFF); //ADD_2
+                    dataReg_Ping[2] = (uint16)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 16) & 0x000000000000FFFF); //ADD_1
+                    dataReg_Ping[3] = (uint16)((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) & 0x000000000000FFFF); //ADD_0
                     dataReg_Ping[4] = 0;
                     dataReg_Ping[5] = 0;
                     dataReg_Ping[6] = 0;
@@ -3181,10 +3270,10 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     dataReg_Ping[13 + len_DataReg] = (uint16)TimeStruct.seconds;
 
                     //zclCoordinator_id_to_smIEEE(sm_routing_prio_table[ack_index]);
-                    dataReg_Pong[0] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 48) & 0x000000000000FFFF); //ADD_3
-                    dataReg_Pong[1] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 32) & 0x000000000000FFFF); //ADD_2
-                    dataReg_Pong[2] = (uint16)(((sm_ADD[sm_routing_prio_table[ack_index]]) >> 16) & 0x000000000000FFFF); //ADD_1
-                    dataReg_Pong[3] = (uint16)((sm_ADD[sm_routing_prio_table[ack_index]]) & 0x000000000000FFFF); //ADD_0
+                    dataReg_Pong[0] = (uint16)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 48) & 0x000000000000FFFF); //ADD_3
+                    dataReg_Pong[1] = (uint16)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 32) & 0x000000000000FFFF); //ADD_2
+                    dataReg_Pong[2] = (uint16)(((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) >> 16) & 0x000000000000FFFF); //ADD_1
+                    dataReg_Pong[3] = (uint16)((routing_table[sm_routing_prio_table[ack_index]].sm_ADD) & 0x000000000000FFFF); //ADD_0
                     dataReg_Pong[4] = 0;
                     dataReg_Pong[5] = 0;
                     dataReg_Pong[6] = 0;
@@ -3272,9 +3361,10 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             {
                 if(datain_complete == 1)
                 {
+                    HalLcdWriteString( "datawait2", HAL_LCD_LINE_6 );
                     if(first_complete == 1)
                     {
-                        //HalLcdWriteString( "datawait2", HAL_LCD_LINE_6 );
+                        HalLcdWriteString( "datawait3", HAL_LCD_LINE_6 );
                         if(ack_index < (num_prio_sm_max - 1))
                         {
                             ack_index++;                                 //at first, the DRR command actually will send request to two Smart Meter, so the Smart Meter address need update.
@@ -3350,8 +3440,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
                 {
-                    if(sm_ADD_reg == sm_ADD[index])
-                        //sm_ADD_status[index] = 0;  //The address is invalid
+                    if(sm_ADD_reg == routing_table[index].sm_ADD)
+                        //routing_table[index].sm_ADD_status = 0;  //The address is invalid
                         ;
                 }
                 sm_ADD_reg = 0;
@@ -3391,8 +3481,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
                 {
-                    if(sm_ADD_reg == sm_ADD[index])
-                        //sm_ADD_status[index] = 0;  //The address is invalid
+                    if(sm_ADD_reg == routing_table[index].sm_ADD)
+                        //routing_table[index].sm_ADD_status = 0;  //The address is invalid
                         ;
                 }
                 sm_ADD_reg = 0;
@@ -3449,6 +3539,36 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
     if ( keys & HAL_KEY_SW_1 )
     {
         /*
+          uint8 send_buffer[] = {
+                                   0x68, 0x00, 0x12, 0x4B, 0x00, 0x04, 0x13, 0x31,
+                                   0x76, 0x68, 0x10, 0xDD, 0xB2, 0x1E, 0xAE, 0x59,
+                                   0x63, 0x59, 0x68, 0x98, 0xA5, 0xDF, 0x67, 0xFD,
+                                   0x53, 0x1F, 0x82, 0x47, 0x16
+                                };
+
+            uint8 encry_data[60] = {0};
+
+            uint8 len_data = send_buffer[10];
+            for (uint8 i = 0; i < len_data; i++)
+                 encry_data[i] = send_buffer[i + 11];
+
+            len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+            for(uint8 i = 0; i < (len_data / 16) ; i++)
+                AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, DECRYPT_AES);
+
+            send_buffer[10] = len_data;
+            for (uint8 i = 0; i < len_data; i++)
+                send_buffer[i + 11] = encry_data[i];
+
+            send_buffer[len_data + 11] = 0x00;
+            for (uint8 i = 0; i < len_data + 11; i++ )
+                send_buffer[len_data + 11] +=  send_buffer[i];
+            send_buffer[len_data + 12] = 0x16;
+
+            HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+          */
+        /*
         //routing table write 1
         //68 00 12 4B 00 04 13 31
         //  76 68 38 08 02 01 00 00
@@ -3460,7 +3580,7 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
         //  00 00 00 00 00 00 00 00
         // 00 00 00 9E 16
         uint8 send_buffer[] = {  0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
-                                 0x76, 0x68, 0x08, 0x08, 0x02, 0x01, 0x00, 0x00,                                 
+                                 0x76, 0x68, 0x08, 0x08, 0x02, 0x01, 0x00, 0x00,
                                  0x00, 0x00, 0x00, 0x9e, 0x16
                              };
 
@@ -3486,7 +3606,7 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
 
           HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
         */
-/*
+
         //routing table write 2
         //68 00 12 4B 00 04 13 31
         //76 68 2A 00 12 4B 00 04
@@ -3495,10 +3615,10 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
         //DD EE FF 00 11 11 22 33
         //44 55 66 77 88 11 22 33
         //44 55 66 77 88 55 16
-        
+        /*
          uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
                                  0x76, 0x68, 0x2A, 0x00, 0x12, 0x4B, 0x00, 0x04,
-                                 0x13, 0x31, 0xbf, 0x01, 0x01, 0x11, 0x12, 0x13,
+                                 0x13, 0x36, 0x98, 0x01, 0x01, 0x11, 0x12, 0x13,
                                  0x14, 0x15, 0x16, 0x17, 0x18, 0xAA, 0xBB, 0xCC,
                                  0xDD, 0xEE, 0xFF, 0x00, 0x11, 0x11, 0x22, 0x33,
                                  0x44, 0x55, 0x66, 0x77, 0x88, 0x11, 0x22, 0x33,
@@ -3529,15 +3649,16 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
           */
 
         //Authenticate smart
-        //68 00 12 4B 00 04 13 31 
-        //76 68 38 08 02 20 00 00 
-        //00 00 00 00 12 4B 00 04 
-        //13 31 BF 00 00 00 00 00 
-        //00 00 00 00 00 00 00 00 
-        //00 00 00 00 00 00 00 00 
-        //00 00 00 00 00 00 00 00 
-        //00 00 00 00 00 00 00 00 
+        //68 00 12 4B 00 04 13 31
+        //76 68 38 08 02 20 00 00
+        //00 00 00 00 12 4B 00 04
+        //13 31 BF 00 00 00 00 00
+        //00 00 00 00 00 00 00 00
+        //00 00 00 00 00 00 00 00
+        //00 00 00 00 00 00 00 00
+        //00 00 00 00 00 00 00 00
         //00 00 00 9E 16
+        /*
         uint8 send_buffer[69] = {0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
                                0x76, 0x68, 0x38, 0x08, 0x02, 0x20, 0x00, 0x00,
                                0x00, 0x00, 0x00, 0x00, 0x12, 0x4B, 0x00, 0x04,
@@ -3569,52 +3690,52 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
             send_buffer[len_data + 11] +=  send_buffer[i];
         send_buffer[len_data + 12] = 0x16;
         HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
-        
-        
-/*
-        //network discovery
-        //68 00 12 4B 00 04 13 31
-        //76 68 38 18 02 00 00 00
-        //00 00 00 00 12 4B 00 04
-        //13 31 BF 00 00 00 00 00
-        //00 00 00 00 00 00 00 00
-        //00 00 00 00 00 00 00 00
-        //00 00 00 00 00 00 00 00
-        //00 00 00 00 00 00 00 00
-        //00 00 00 9E 16
-        uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
-                                0x76, 0x68, 0x38, 0x18, 0x02, 0x00, 0x00, 0x00,
-                                0x00, 0x00, 0x00, 0x00, 0x12, 0x4b, 0x00, 0x04,
-                                0x13, 0x31, 0xbf, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                0x00, 0x00, 0x00, 0x9e, 0x16
-                              };
+        */
 
-        uint8 encry_data[70] = {0};
+        /*
+                //network discovery
+                //68 00 12 4B 00 04 13 31
+                //76 68 38 18 02 00 00 00
+                //00 00 00 00 12 4B 00 04
+                //13 31 BF 00 00 00 00 00
+                //00 00 00 00 00 00 00 00
+                //00 00 00 00 00 00 00 00
+                //00 00 00 00 00 00 00 00
+                //00 00 00 00 00 00 00 00
+                //00 00 00 9E 16
+                uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
+                                        0x76, 0x68, 0x38, 0x18, 0x02, 0x00, 0x00, 0x00,
+                                        0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                        0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                        0x00, 0x00, 0x00, 0x9e, 0x16
+                                      };
 
-        uint8 len_data = send_buffer[10];
-        for (uint8 i = 0; i < len_data; i++)
-            encry_data[i] = send_buffer[i + 11];
+                uint8 encry_data[70] = {0};
 
-        len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
+                uint8 len_data = send_buffer[10];
+                for (uint8 i = 0; i < len_data; i++)
+                    encry_data[i] = send_buffer[i + 11];
 
-        for(uint8 i = 0; i < (len_data / 16) ; i++)
-            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+                len_data = (len_data % 16) ? ((len_data / 16 + 1) * 16) : len_data;
 
-        send_buffer[10] = len_data;
-        for (uint8 i = 0; i < len_data; i++)
-            send_buffer[i + 11] = encry_data[i];
+                for(uint8 i = 0; i < (len_data / 16) ; i++)
+                    AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
 
-        send_buffer[len_data + 11] = 0x00;
-        for (uint8 i = 0; i < len_data + 11; i++ )
-            send_buffer[len_data + 11] +=  send_buffer[i];
-        send_buffer[len_data + 12] = 0x16;
+                send_buffer[10] = len_data;
+                for (uint8 i = 0; i < len_data; i++)
+                    send_buffer[i + 11] = encry_data[i];
 
-        HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
-*/
+                send_buffer[len_data + 11] = 0x00;
+                for (uint8 i = 0; i < len_data + 11; i++ )
+                    send_buffer[len_data + 11] +=  send_buffer[i];
+                send_buffer[len_data + 12] = 0x16;
+
+                HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        */
         //////////////////////////////////////////////////////////////////////////////////////////////////
         //68 00 12 4B 00 04 13 31
         //76 68 10 2B 75 2F 60 22
@@ -3648,53 +3769,54 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
           send_buffer[len_data + 12] = 0x16;
 
           //HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        */
 
-
-          //Authenticate smart
-          //68 00 12 4B 00 04 13 31
-          //76 68 38 08 02 10 00 00
-          //00 00 00 00 12 4B 00 04
-          //13 31 BF 00 00 00 00 00
-          //00 00 00 00 00 00 00 00
-          //00 00 00 00 00 00 00 00
-          //00 00 00 00 00 00 00 00
-          //00 00 00 00 00 00 00 00
-          //00 00 00 9E 16
-          uint8 send_buffer[69] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
-                                 0x76, 0x68, 0x38, 0x08, 0x02, 0x20, 0x00, 0x00,
-                                 0x00, 0x00, 0x00, 0x00, 0x12, 0x4b, 0x00, 0x04,
-                                 0x13, 0x31, 0xbf, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                 0x00, 0x00, 0x00, 0x9e, 0x16
-                             };
-
-          uint8 encry_data[70] = {0};
-
-          uint8 len_data = send_buffer[10];
-          for (uint8 i = 0; i < len_data; i++)
-               encry_data[i] = send_buffer[i + 11];
-
-          len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
-
-          for(uint8 i = 0; i < (len_data / 16) ; i++)
-              AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
-
-          send_buffer[10] = len_data;
-          for (uint8 i = 0; i < len_data; i++)
-              send_buffer[i + 11] = encry_data[i];
-
-          send_buffer[len_data + 11] = 0x00;
-          for (uint8 i = 0; i < len_data + 11; i++ )
-              send_buffer[len_data + 11] +=  send_buffer[i];
-          send_buffer[len_data + 12] = 0x16;
-
-          HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
-
-          */
+        //Authenticate smart
+        //68 00 12 4B 00 04 13 31
+        //76 68 38 08 02 10 00 00
+        //00 00 00 00 12 4B 00 04
+        //13 31 BF 00 00 00 00 00
+        //00 00 00 00 00 00 00 00
+        //00 00 00 00 00 00 00 00
+        //00 00 00 00 00 00 00 00
+        //00 00 00 00 00 00 00 00
+        //00 00 00 9E 16
         /*
+            uint8 send_buffer[69] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
+                                   0x76, 0x68, 0x38, 0x08, 0x02, 0x20, 0x00, 0x00,
+                                   0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                   0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                   0x00, 0x00, 0x00, 0x9e, 0x16
+                               };
+
+            uint8 encry_data[70] = {0};
+
+            uint8 len_data = send_buffer[10];
+            for (uint8 i = 0; i < len_data; i++)
+                 encry_data[i] = send_buffer[i + 11];
+
+            len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+            for(uint8 i = 0; i < (len_data / 16) ; i++)
+                AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+            send_buffer[10] = len_data;
+            for (uint8 i = 0; i < len_data; i++)
+                send_buffer[i + 11] = encry_data[i];
+
+            send_buffer[len_data + 11] = 0x00;
+            for (uint8 i = 0; i < len_data + 11; i++ )
+                send_buffer[len_data + 11] +=  send_buffer[i];
+            send_buffer[len_data + 12] = 0x16;
+
+            HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        */
+
+
         //data register read
         //68 00 12 4B 00 04 13 31
         //76 68 38 88 02 00 00 00
@@ -3705,46 +3827,47 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
         //00 00 00 00 00 00 00 00
         //00 00 00 00 00 00 00 00
         //00 00 00 E6 16
-
-        uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
-                               0x76, 0x68, 0x38, 0x88, 0x02, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x8c, 0x16
-                           };
-
-        uint8 encry_data[60] = {0};
-
-        uint8 len_data = send_buffer[10];
-        for (uint8 i = 0; i < len_data; i++)
-             encry_data[i] = send_buffer[i + 11];
-
-        len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
-
-        for(uint8 i = 0; i < (len_data / 16) ; i++)
-            AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
-
-        send_buffer[10] = len_data;
-        for (uint8 i = 0; i < len_data; i++)
-            send_buffer[i + 11] = encry_data[i];
-
-        send_buffer[len_data + 11] = 0x00;
-        for (uint8 i = 0; i < len_data + 11; i++ )
-            send_buffer[len_data + 11] +=  send_buffer[i];
-        send_buffer[len_data + 12] = 0x16;
-        HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
-        */
         /*
+                uint8 send_buffer[69] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
+                                       0x76, 0x68, 0x38, 0x08, 0x00, 0x00, 0x08, 0x00,
+                                       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                       0x00, 0x00, 0x00, 0x8c, 0x16
+                                   };
+
+                uint8 encry_data[60] = {0};
+
+                uint8 len_data = send_buffer[10];
+                for (uint8 i = 0; i < len_data; i++)
+                     encry_data[i] = send_buffer[i + 11];
+
+                len_data = (len_data%16) ? ((len_data / 16 + 1) * 16) : len_data;
+
+                for(uint8 i = 0; i < (len_data / 16) ; i++)
+                    AesEncryptDecrypt(coor_final_key, encry_data + 16 * i, 0, ENCRYPT_AES);
+
+                send_buffer[10] = len_data;
+                for (uint8 i = 0; i < len_data; i++)
+                    send_buffer[i + 11] = encry_data[i];
+
+                send_buffer[len_data + 11] = 0x00;
+                for (uint8 i = 0; i < len_data + 11; i++ )
+                    send_buffer[len_data + 11] +=  send_buffer[i];
+                send_buffer[len_data + 12] = 0x16;
+                HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+                */
+
         //ack
         //68 00 12 4B 00 04 13 31
         //76 68 04 88 02 00 08 CA
         //16
+        /*
         uint8 send_buffer[] = { 0x68, 0x00, 0x12, 0x4b, 0x00, 0x04, 0x13, 0x31,
-                               0x76, 0x68, 0x04, 0x88, 0x02, 0x00, 0x08, 0x8c,
+                                0x76, 0x68, 0x04, 0x08, 0x02, 0x20, 0x08, 0x8c,
                                 0x16
                            };
 
@@ -3768,6 +3891,23 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
             send_buffer[len_data + 11] +=  send_buffer[i];
         send_buffer[len_data + 12] = 0x16;
         HalUART0Write ( HAL_UART_PORT_0, send_buffer, len_data + 13);
+        */
+        //zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+        //SystemResetSoft();
+        //ROM_ResetDevice();
+        /*
+        int status1 = ROM_PageErase(0x0027f800,0x800);
+        uint32_t pulData[4] = {0xffffffff, 0xf0ffffff, 0x00000001, 0x00200000};
+        int status2 = ROM_ProgramFlash(pulData, 0x0027ffd0, 16);
+
+        //zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+        //SystemResetSoft();
+        if (status1 == 0 && status2 == 0)
+            ROM_ResetDevice();
+        */
+        /*
+        uint8 send_buffer[2] = {0x55, 0x55};
+        HalUART1Write ( HAL_UART_PORT_1, send_buffer, 2);
         */
     }
 
@@ -3901,7 +4041,7 @@ void zclCoordinator_LcdDisplayTestMode_smaddr( void )
     // display coordinator IEEE addr
     osal_memcpy(sDisplayCoIEEEaddr, "IEEE:", 5);
     //if ( (sm_ADD_0[sm_index] == NULL) || (sm_ADD_1[sm_index] == NULL) || (sm_ADD_2[sm_index] == NULL) || (sm_ADD_3[sm_index] == NULL))
-    if(sm_ADD[sm_index] == NULL)
+    if(routing_table[sm_index].sm_ADD == NULL)
     {
         osal_memcpy( &sDisplayCoIEEEaddr[5], "N/A", 4 );
     }
@@ -3918,14 +4058,14 @@ void zclCoordinator_LcdDisplayTestMode_smaddr( void )
         IEEEaddr[6] = (sm_ADD_0[sm_index] >> 8) & 0x00FF;
         IEEEaddr[7] = sm_ADD_0[sm_index] & 0x00FF;
         */
-        IEEEaddr[0] = (uint8)(((sm_ADD[sm_index]) >> 56) & 0x00000000000000FF);
-        IEEEaddr[1] = (uint8)(((sm_ADD[sm_index]) >> 48) & 0x00000000000000FF);
-        IEEEaddr[2] = (uint8)(((sm_ADD[sm_index]) >> 40) & 0x00000000000000FF);
-        IEEEaddr[3] = (uint8)(((sm_ADD[sm_index]) >> 32) & 0x00000000000000FF);
-        IEEEaddr[4] = (uint8)(((sm_ADD[sm_index]) >> 24) & 0x00000000000000FF);
-        IEEEaddr[5] = (uint8)(((sm_ADD[sm_index]) >> 16) & 0x00000000000000FF);
-        IEEEaddr[6] = (uint8)(((sm_ADD[sm_index]) >> 8) & 0x00000000000000FF);
-        IEEEaddr[7] = (uint8)((sm_ADD[sm_index]) & 0x00000000000000FF);
+        IEEEaddr[0] = (uint8)(((routing_table[sm_index].sm_ADD) >> 56) & 0x00000000000000FF);
+        IEEEaddr[1] = (uint8)(((routing_table[sm_index].sm_ADD) >> 48) & 0x00000000000000FF);
+        IEEEaddr[2] = (uint8)(((routing_table[sm_index].sm_ADD) >> 40) & 0x00000000000000FF);
+        IEEEaddr[3] = (uint8)(((routing_table[sm_index].sm_ADD) >> 32) & 0x00000000000000FF);
+        IEEEaddr[4] = (uint8)(((routing_table[sm_index].sm_ADD) >> 24) & 0x00000000000000FF);
+        IEEEaddr[5] = (uint8)(((routing_table[sm_index].sm_ADD) >> 16) & 0x00000000000000FF);
+        IEEEaddr[6] = (uint8)(((routing_table[sm_index].sm_ADD) >> 8) & 0x00000000000000FF);
+        IEEEaddr[7] = (uint8)((routing_table[sm_index].sm_ADD) & 0x00000000000000FF);
         for(int i = 0; i < 8; i++)
         {
             _ltoa( IEEEaddr[i] >> 4, (void *)(&sDisplayCoIEEEaddr[5 + i * 2]), 16 );
@@ -4400,14 +4540,14 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 
             else  //if retry times is not 0
             {
-                zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_id]) >> 56) & 0x00000000000000FF); //AF.h; highest
-                zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_id]) >> 48) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_id]) >> 40) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_id]) >> 32) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_id]) >> 24) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_id]) >> 16) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_id]) >> 8) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_id]) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((routing_table[sm_id].sm_ADD) >> 56) & 0x00000000000000FF); //AF.h; highest
+                zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((routing_table[sm_id].sm_ADD) >> 48) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((routing_table[sm_id].sm_ADD) >> 40) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((routing_table[sm_id].sm_ADD) >> 32) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((routing_table[sm_id].sm_ADD) >> 24) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((routing_table[sm_id].sm_ADD) >> 16) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((routing_table[sm_id].sm_ADD) >> 8) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((routing_table[sm_id].sm_ADD) & 0x00000000000000FF);
                 zclCoordinator_SetParam();
 
                 sm_retry_times[sm_id]--;
@@ -4447,14 +4587,14 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 
             else  //if retry times is not 0
             {
-                zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_id]) >> 56) & 0x00000000000000FF); //AF.h; highest
-                zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_id]) >> 48) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_id]) >> 40) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_id]) >> 32) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_id]) >> 24) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_id]) >> 16) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_id]) >> 8) & 0x00000000000000FF);
-                zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_id]) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((routing_table[sm_id].sm_ADD) >> 56) & 0x00000000000000FF); //AF.h; highest
+                zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((routing_table[sm_id].sm_ADD) >> 48) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((routing_table[sm_id].sm_ADD) >> 40) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((routing_table[sm_id].sm_ADD) >> 32) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((routing_table[sm_id].sm_ADD) >> 24) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((routing_table[sm_id].sm_ADD) >> 16) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((routing_table[sm_id].sm_ADD) >> 8) & 0x00000000000000FF);
+                zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((routing_table[sm_id].sm_ADD) & 0x00000000000000FF);
                 zclCoordinator_SetTime();
 
                 sm_retry_times[sm_id]--;
@@ -4578,26 +4718,26 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         sm_ADD_1[sm_index] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[8], pInParameterReport->attrList[0].attrData[9]);
         sm_ADD_0[sm_index] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[10], pInParameterReport->attrList[0].attrData[11]);
         */
-        sm_ADD[sm_index] = BUILD_UINT64_8(pInParameterReport->attrList[0].attrData[5], pInParameterReport->attrList[0].attrData[4],
-                                          pInParameterReport->attrList[0].attrData[7], pInParameterReport->attrList[0].attrData[6],
-                                          pInParameterReport->attrList[0].attrData[9], pInParameterReport->attrList[0].attrData[8],
-                                          pInParameterReport->attrList[0].attrData[11], pInParameterReport->attrList[0].attrData[10]);
+        routing_table[sm_index].sm_ADD = BUILD_UINT64_8(pInParameterReport->attrList[0].attrData[5], pInParameterReport->attrList[0].attrData[4],
+                                         pInParameterReport->attrList[0].attrData[7], pInParameterReport->attrList[0].attrData[6],
+                                         pInParameterReport->attrList[0].attrData[9], pInParameterReport->attrList[0].attrData[8],
+                                         pInParameterReport->attrList[0].attrData[11], pInParameterReport->attrList[0].attrData[10]);
 
         zclCoordinator_LcdDisplayTestMode_smaddr();
 
         zclCoordinator_DstAddr.addrMode = (afAddrMode_t)Addr64Bit;
         zclCoordinator_DstAddr.endPoint = Coordinator_ENDPOINT;
-        zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((sm_ADD[sm_index]) >> 56) & 0x00000000000000FF); //AF.h; highest
-        zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((sm_ADD[sm_index]) >> 48) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((sm_ADD[sm_index]) >> 40) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((sm_ADD[sm_index]) >> 32) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((sm_ADD[sm_index]) >> 24) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((sm_ADD[sm_index]) >> 16) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((sm_ADD[sm_index]) >> 8) & 0x00000000000000FF);
-        zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((sm_ADD[sm_index]) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((routing_table[sm_index].sm_ADD) >> 56) & 0x00000000000000FF); //AF.h; highest
+        zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((routing_table[sm_index].sm_ADD) >> 48) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((routing_table[sm_index].sm_ADD) >> 40) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((routing_table[sm_index].sm_ADD) >> 32) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((routing_table[sm_index].sm_ADD) >> 24) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((routing_table[sm_index].sm_ADD) >> 16) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((routing_table[sm_index].sm_ADD) >> 8) & 0x00000000000000FF);
+        zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((routing_table[sm_index].sm_ADD) & 0x00000000000000FF);
 
 
-        //Ack smart meter with sm_Add[index]
+        //Ack smart meter with routing_table[index].sm_ADD
         zclCoordinator_SendAck();
 
         // for test
@@ -4684,7 +4824,7 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         if (SmartMeter_relay == flagrelay)
         {
             relay_receive_flag = 1;
-            flagrelay = 2;
+            //flagrelay = 2;
         }
         else
         {
@@ -4756,7 +4896,10 @@ static void Process_Wired_Cmd(void)
       uint8_t ui8AESKey[16] =  { 0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00,
           0x00, 0x12, 0x4b, 0x00, 0x04, 0x0f, 0x98, 0x00 };
     */
-    if (flag_end_encry)
+    char  lcdString[10];
+    //sprintf((char *)lcdString, "%d %d",(int)outing_table[end_index].flag_end_encry, (int)end_index);
+    //HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+    if (routing_table[end_index].flag_end_encry)
     {
         uint8 len_data = USB_Msg_in[10];
 
@@ -4778,9 +4921,9 @@ static void Process_Wired_Cmd(void)
     uint16 ENERGY_RESET_VALUE_1;
     uint16 ENERGY_RESET_VALUE_0;
 
-    char  lcdString[10];
-    sprintf((char *)lcdString, "%x %x", (uint8)OPERATION, (uint8)RESULT );
-    HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
+    //char  lcdString[10];
+    //sprintf((char *)lcdString, "%x %x", (uint8)OPERATION, (uint8)RESULT );
+    //HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
 
     if ((OPERATION == SET_PARAM) && (RESULT == SUCCESS))
     {
@@ -4909,7 +5052,7 @@ static void Process_Wired_Cmd(void)
             first_complete = 1;
         }
         datain_complete = 1;
-
+        HalLcdWriteString( "COMdata", HAL_LCD_LINE_5 );
     }
 
     if ((OPERATION == COM_ADD) && (RESULT == SUCCESS))
@@ -4922,14 +5065,14 @@ static void Process_Wired_Cmd(void)
         sm_ADD_0[sm_index] = UINT8_TO_16(USB_Msg_in[21], USB_Msg_in[22]);
 
 
-        sm_ADD[sm_index] = BUILD_UINT64_16(sm_ADD_3[sm_index], sm_ADD_2[sm_index],
+        routing_table[sm_index].sm_ADD = BUILD_UINT64_16(sm_ADD_3[sm_index], sm_ADD_2[sm_index],
                                            sm_ADD_1[sm_index], sm_ADD_0[sm_index]);
 
         uint16 index;
         uint8 add_duplicate_flag = 0;
         for(index = 0; index < sm_index; index ++)
         {
-            if(sm_ADD[sm_index] == sm_ADD[index])
+            if(routing_table[sm_index].sm_ADD == routing_table[index].sm_ADD)
                 add_duplicate_flag = 1;
         }
 
@@ -4997,37 +5140,43 @@ static void Process_Wired_Cmd(void)
     {
         SmartMeter_relay = UINT8_TO_16(USB_Msg_in[15], USB_Msg_in[16]);
         relay_receive_flag = 1;
+        //flagrelay = 2;
     }
 
     if ((OPERATION == AUTHEN) && (RESULT == SUCCESS))
     {
         flag_auth = true;
         //send_rom_back(&end_romread[0]);
-        if (sm_rom_table_hi[sm_ROM_index] == BUILD_UINT64_8(USB_Msg_in[15], USB_Msg_in[16], USB_Msg_in[17], USB_Msg_in[18], USB_Msg_in[19], USB_Msg_in[20], USB_Msg_in[21], USB_Msg_in[22]) &&
-                sm_rom_table_lo[sm_ROM_index] == BUILD_UINT64_8(USB_Msg_in[23], USB_Msg_in[24], USB_Msg_in[25], USB_Msg_in[26], USB_Msg_in[27], USB_Msg_in[28], USB_Msg_in[29], USB_Msg_in[30]))
+        if (routing_table[sm_ROM_index].sm_rom_table_hi == BUILD_UINT64_8(USB_Msg_in[15], USB_Msg_in[16], USB_Msg_in[17], USB_Msg_in[18], USB_Msg_in[19], USB_Msg_in[20], USB_Msg_in[21], USB_Msg_in[22]) &&
+                routing_table[sm_ROM_index].sm_rom_table_lo == BUILD_UINT64_8(USB_Msg_in[23], USB_Msg_in[24], USB_Msg_in[25], USB_Msg_in[26], USB_Msg_in[27], USB_Msg_in[28], USB_Msg_in[29], USB_Msg_in[30]))
         {
             uint8 end_key[16] = {0};
-            end_key[0] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 56) & 0x00000000000000FF);
-            end_key[1] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 48) & 0x00000000000000FF);
-            end_key[2] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 40) & 0x00000000000000FF);
-            end_key[3] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 32) & 0x00000000000000FF);
-            end_key[4] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 24) & 0x00000000000000FF);
-            end_key[5] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 16) & 0x00000000000000FF);
-            end_key[6] = (uint8)(((sm_key_table_hi[sm_ROM_index]) >> 8) & 0x00000000000000FF);
-            end_key[7] = (uint8)((sm_key_table_hi[sm_ROM_index]) & 0x00000000000000FF);
+            end_key[0] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 56) & 0x00000000000000FF);
+            end_key[1] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 48) & 0x00000000000000FF);
+            end_key[2] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 40) & 0x00000000000000FF);
+            end_key[3] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 32) & 0x00000000000000FF);
+            end_key[4] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 24) & 0x00000000000000FF);
+            end_key[5] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 16) & 0x00000000000000FF);
+            end_key[6] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 8) & 0x00000000000000FF);
+            end_key[7] = (uint8)((routing_table[sm_ROM_index].sm_key_table_hi) & 0x00000000000000FF);
 
-            end_key[8] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 56) & 0x00000000000000FF);
-            end_key[9] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 48) & 0x00000000000000FF);
-            end_key[10] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 40) & 0x00000000000000FF);
-            end_key[11] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 32) & 0x00000000000000FF);
-            end_key[12] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 24) & 0x00000000000000FF);
-            end_key[13] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 16) & 0x00000000000000FF);
-            end_key[14] = (uint8)(((sm_key_table_lo[sm_ROM_index]) >> 8) & 0x00000000000000FF);
-            end_key[15] = (uint8)((sm_key_table_lo[sm_ROM_index]) & 0x00000000000000FF);
+            end_key[8] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 56) & 0x00000000000000FF);
+            end_key[9] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 48) & 0x00000000000000FF);
+            end_key[10] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 40) & 0x00000000000000FF);
+            end_key[11] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 32) & 0x00000000000000FF);
+            end_key[12] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 24) & 0x00000000000000FF);
+            end_key[13] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 16) & 0x00000000000000FF);
+            end_key[14] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 8) & 0x00000000000000FF);
+            end_key[15] = (uint8)((routing_table[sm_ROM_index].sm_key_table_lo) & 0x00000000000000FF);
 
 
-            flag_end_encry = false;
+            routing_table[sm_ROM_index].flag_end_encry = false;
             flag_key_set = false;
+            uint32 wait_timenew = osal_GetSystemClock();
+            while (osal_GetSystemClock() - wait_timenew < 60)
+            {
+            };
+
             zclCoordinator_SetKey(end_key);
         }
     }
@@ -5035,7 +5184,7 @@ static void Process_Wired_Cmd(void)
     if ((OPERATION == SET_KEY) && (RESULT == SUCCESS))
     {
         flag_key_set = true;
-        flag_end_encry = true;
+        routing_table[sm_ROM_index].flag_end_encry = true;
     }
 
     if ((OPERATION == CALIBRATE) && (RESULT == SUCCESS))
@@ -5566,8 +5715,8 @@ static void zclCoordinator_SendData( void )
         //HalUART0Write ( HAL_UART_PORT_0, send_buffer, 13 + sizeof(packet));
 
         char  lcdString[10];
-        sprintf((char *)lcdString, "%x %x %x %x", send_buffer[5], send_buffer[6], send_buffer[7], send_buffer[8] );
-        HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+        //sprintf((char *)lcdString, "%x %x %x %x", send_buffer[5], send_buffer[6], send_buffer[7], send_buffer[8] );
+        //HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
     }
 }
 
@@ -5631,7 +5780,7 @@ static void zclCoordinator_SendReset( void )
 
 
         send_buffer[0] = 0x68;
-        if(controlReg[8] != 0xFF)
+        if(controlReg[3] != 0x08 && controlReg[8] != 0xFF)
         {
             for(i = 1; i < 9; i++)
             {
@@ -5642,14 +5791,14 @@ static void zclCoordinator_SendReset( void )
         {
             if(write_energy_index < sm_max)
             {
-                send_buffer[1] = (uint8)(((sm_ADD[write_energy_index]) >> 56) & 0x00000000000000FF);
-                send_buffer[2] = (uint8)(((sm_ADD[write_energy_index]) >> 48) & 0x00000000000000FF);
-                send_buffer[3] = (uint8)(((sm_ADD[write_energy_index]) >> 40) & 0x00000000000000FF);
-                send_buffer[4] = (uint8)(((sm_ADD[write_energy_index]) >> 32) & 0x00000000000000FF);
-                send_buffer[5] = (uint8)(((sm_ADD[write_energy_index]) >> 24) & 0x00000000000000FF);
-                send_buffer[6] = (uint8)(((sm_ADD[write_energy_index]) >> 16) & 0x00000000000000FF);
-                send_buffer[7] = (uint8)(((sm_ADD[write_energy_index]) >> 8) & 0x00000000000000FF);
-                send_buffer[8] = (uint8)((sm_ADD[write_energy_index]) & 0x00000000000000FF);
+                send_buffer[1] = (uint8)(((routing_table[write_energy_index].sm_ADD) >> 56) & 0x00000000000000FF);
+                send_buffer[2] = (uint8)(((routing_table[write_energy_index].sm_ADD) >> 48) & 0x00000000000000FF);
+                send_buffer[3] = (uint8)(((routing_table[write_energy_index].sm_ADD) >> 40) & 0x00000000000000FF);
+                send_buffer[4] = (uint8)(((routing_table[write_energy_index].sm_ADD) >> 32) & 0x00000000000000FF);
+                send_buffer[5] = (uint8)(((routing_table[write_energy_index].sm_ADD) >> 24) & 0x00000000000000FF);
+                send_buffer[6] = (uint8)(((routing_table[write_energy_index].sm_ADD) >> 16) & 0x00000000000000FF);
+                send_buffer[7] = (uint8)(((routing_table[write_energy_index].sm_ADD) >> 8) & 0x00000000000000FF);
+                send_buffer[8] = (uint8)((routing_table[write_energy_index].sm_ADD) & 0x00000000000000FF);
             }
         }
 
@@ -5713,7 +5862,7 @@ static void zclCoordinator_SendAuth( void )
         uint16 packet[] = {USR_RX_GET, AUTHEN}; //sizeof(packet) = 4
 
         send_buffer[0] = 0x68;
-        if(controlReg[8] != 0xFF)
+        if(controlReg[3] != 0x08 && controlReg[8] != 0xFF)
         {
             for(i = 1; i < 9; i++)
             {
@@ -5724,14 +5873,14 @@ static void zclCoordinator_SendAuth( void )
         {
             if(routing_index < sm_max)
             {
-                send_buffer[1] = (uint8)(((sm_ADD[smart_auth_index]) >> 56) & 0x00000000000000FF);
-                send_buffer[2] = (uint8)(((sm_ADD[smart_auth_index]) >> 48) & 0x00000000000000FF);
-                send_buffer[3] = (uint8)(((sm_ADD[smart_auth_index]) >> 40) & 0x00000000000000FF);
-                send_buffer[4] = (uint8)(((sm_ADD[smart_auth_index]) >> 32) & 0x00000000000000FF);
-                send_buffer[5] = (uint8)(((sm_ADD[smart_auth_index]) >> 24) & 0x00000000000000FF);
-                send_buffer[6] = (uint8)(((sm_ADD[smart_auth_index]) >> 16) & 0x00000000000000FF);
-                send_buffer[7] = (uint8)(((sm_ADD[smart_auth_index]) >> 8) & 0x00000000000000FF);
-                send_buffer[8] = (uint8)((sm_ADD[smart_auth_index]) & 0x00000000000000FF);
+                send_buffer[1] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 56) & 0x00000000000000FF);
+                send_buffer[2] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 48) & 0x00000000000000FF);
+                send_buffer[3] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 40) & 0x00000000000000FF);
+                send_buffer[4] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 32) & 0x00000000000000FF);
+                send_buffer[5] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 24) & 0x00000000000000FF);
+                send_buffer[6] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 16) & 0x00000000000000FF);
+                send_buffer[7] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 8) & 0x00000000000000FF);
+                send_buffer[8] = (uint8)((routing_table[smart_auth_index].sm_ADD) & 0x00000000000000FF);
             }
         }
 
@@ -5750,7 +5899,7 @@ static void zclCoordinator_SendAuth( void )
 
         send_buffer[12 + sizeof(packet)] = 0x16;
         len_uart1 = 13 + sizeof(packet);
-        HalUART0Write ( HAL_UART_PORT_0, send_buffer, 13 + sizeof(packet));
+        //HalUART0Write ( HAL_UART_PORT_0, send_buffer, 13 + sizeof(packet));
     }
 }
 
@@ -5798,7 +5947,7 @@ static void zclCoordinator_SetKey( uint8 *parameter )
                           };
 
         send_buffer[0] = 0x68;
-        if(controlReg[8] != 0xFF)
+        if(controlReg[3] != 0x08 && controlReg[8] != 0xFF)
         {
             for(i = 1; i < 9; i++)
             {
@@ -5809,14 +5958,14 @@ static void zclCoordinator_SetKey( uint8 *parameter )
         {
             if(routing_index < sm_max)
             {
-                send_buffer[1] = (uint8)(((sm_ADD[smart_auth_index]) >> 56) & 0x00000000000000FF);
-                send_buffer[2] = (uint8)(((sm_ADD[smart_auth_index]) >> 48) & 0x00000000000000FF);
-                send_buffer[3] = (uint8)(((sm_ADD[smart_auth_index]) >> 40) & 0x00000000000000FF);
-                send_buffer[4] = (uint8)(((sm_ADD[smart_auth_index]) >> 32) & 0x00000000000000FF);
-                send_buffer[5] = (uint8)(((sm_ADD[smart_auth_index]) >> 24) & 0x00000000000000FF);
-                send_buffer[6] = (uint8)(((sm_ADD[smart_auth_index]) >> 16) & 0x00000000000000FF);
-                send_buffer[7] = (uint8)(((sm_ADD[smart_auth_index]) >> 8) & 0x00000000000000FF);
-                send_buffer[8] = (uint8)((sm_ADD[smart_auth_index]) & 0x00000000000000FF);
+                send_buffer[1] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 56) & 0x00000000000000FF);
+                send_buffer[2] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 48) & 0x00000000000000FF);
+                send_buffer[3] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 40) & 0x00000000000000FF);
+                send_buffer[4] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 32) & 0x00000000000000FF);
+                send_buffer[5] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 24) & 0x00000000000000FF);
+                send_buffer[6] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 16) & 0x00000000000000FF);
+                send_buffer[7] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 8) & 0x00000000000000FF);
+                send_buffer[8] = (uint8)((routing_table[smart_auth_index].sm_ADD) & 0x00000000000000FF);
             }
         }
         send_buffer[9] = 0x68;
@@ -5969,7 +6118,7 @@ static void zclCoordinator_SetPowerCalculation( void )
 
         send_buffer[0] = 0x68;
 
-        if(controlReg[8] != 0xFF)
+        if(controlReg[9] != 0xFF && controlReg[9] != 0x00)
         {
             for(i = 1; i < 9; i++)
             {
@@ -5981,20 +6130,21 @@ static void zclCoordinator_SetPowerCalculation( void )
             /*
               if(setpower_index < sm_max)
               {
-                  send_buffer[1] = (uint8)(((sm_ADD[setpower_index]) >> 56) & 0x00000000000000FF);
-                  send_buffer[2] = (uint8)(((sm_ADD[setpower_index]) >> 48) & 0x00000000000000FF);
-                  send_buffer[3] = (uint8)(((sm_ADD[setpower_index]) >> 40) & 0x00000000000000FF);
-                  send_buffer[4] = (uint8)(((sm_ADD[setpower_index]) >> 32) & 0x00000000000000FF);
-                  send_buffer[5] = (uint8)(((sm_ADD[setpower_index]) >> 24) & 0x00000000000000FF);
-                  send_buffer[6] = (uint8)(((sm_ADD[setpower_index]) >> 16) & 0x00000000000000FF);
-                  send_buffer[7] = (uint8)(((sm_ADD[setpower_index]) >> 8) & 0x00000000000000FF);
-                  send_buffer[8] = (uint8)((sm_ADD[setpower_index]) & 0x00000000000000FF);
+                  send_buffer[1] = (uint8)(((routing_table[setpower_index].sm_ADD) >> 56) & 0x00000000000000FF);
+                  send_buffer[2] = (uint8)(((routing_table[setpower_index].sm_ADD) >> 48) & 0x00000000000000FF);
+                  send_buffer[3] = (uint8)(((routing_table[setpower_index].sm_ADD) >> 40) & 0x00000000000000FF);
+                  send_buffer[4] = (uint8)(((routing_table[setpower_index].sm_ADD) >> 32) & 0x00000000000000FF);
+                  send_buffer[5] = (uint8)(((routing_table[setpower_index].sm_ADD) >> 24) & 0x00000000000000FF);
+                  send_buffer[6] = (uint8)(((routing_table[setpower_index].sm_ADD) >> 16) & 0x00000000000000FF);
+                  send_buffer[7] = (uint8)(((routing_table[setpower_index].sm_ADD) >> 8) & 0x00000000000000FF);
+                  send_buffer[8] = (uint8)((routing_table[setpower_index].sm_ADD) & 0x00000000000000FF);
               }*/
             for(i = 1; i < 9; i++)
             {
                 send_buffer[i] = 0xFF;
             }
         }
+
         send_buffer[9] = 0x68;
         send_buffer[10] = (uint8)sizeof(packet);
 
@@ -6224,7 +6374,7 @@ static void zclCoordinator_NetDiscov( void ) //verified
 
         send_buffer[0] = 0x68;
 
-        if(controlReg[8] != 0xFF)
+        if(controlReg[3] != 0x08 && controlReg[8] != 0xFF)
         {
             for(i = 1; i < 9; i++)
             {
@@ -6235,14 +6385,15 @@ static void zclCoordinator_NetDiscov( void ) //verified
         {
             if(routing_index < sm_max)
             {
-                send_buffer[1] = (uint8)(((sm_ADD[routing_index]) >> 56) & 0x00000000000000FF);
-                send_buffer[2] = (uint8)(((sm_ADD[routing_index]) >> 48) & 0x00000000000000FF);
-                send_buffer[3] = (uint8)(((sm_ADD[routing_index]) >> 40) & 0x00000000000000FF);
-                send_buffer[4] = (uint8)(((sm_ADD[routing_index]) >> 32) & 0x00000000000000FF);
-                send_buffer[5] = (uint8)(((sm_ADD[routing_index]) >> 24) & 0x00000000000000FF);
-                send_buffer[6] = (uint8)(((sm_ADD[routing_index]) >> 16) & 0x00000000000000FF);
-                send_buffer[7] = (uint8)(((sm_ADD[routing_index]) >> 8) & 0x00000000000000FF);
-                send_buffer[8] = (uint8)((sm_ADD[routing_index]) & 0x00000000000000FF);
+                send_buffer[1] = (uint8)(((routing_table[routing_index].sm_ADD) >> 56) & 0x00000000000000FF);
+                send_buffer[2] = (uint8)(((routing_table[routing_index].sm_ADD) >> 48) & 0x00000000000000FF);
+                send_buffer[3] = (uint8)(((routing_table[routing_index].sm_ADD) >> 40) & 0x00000000000000FF);
+                send_buffer[4] = (uint8)(((routing_table[routing_index].sm_ADD) >> 32) & 0x00000000000000FF);
+                send_buffer[5] = (uint8)(((routing_table[routing_index].sm_ADD) >> 24) & 0x00000000000000FF);
+                send_buffer[6] = (uint8)(((routing_table[routing_index].sm_ADD) >> 16) & 0x00000000000000FF);
+                send_buffer[7] = (uint8)(((routing_table[routing_index].sm_ADD) >> 8) & 0x00000000000000FF);
+                send_buffer[8] = (uint8)((routing_table[routing_index].sm_ADD) & 0x00000000000000FF);
+                //HalUART0Write ( HAL_UART_PORT_0, send_buffer, 9);
             }
         }
         send_buffer[9] = 0x68;
@@ -6261,7 +6412,9 @@ static void zclCoordinator_NetDiscov( void ) //verified
         send_buffer[12 + sizeof(packet)] = 0x16;
         len_uart1 = 13 + sizeof(packet);
 
-        //HalUART0Write ( HAL_UART_PORT_0, send_buffer, 13 + sizeof(packet));
+        send_buffer[13 + sizeof(packet)] = routing_index;
+        send_buffer[14 + sizeof(packet)] = sm_max;
+        //HalUART0Write ( HAL_UART_PORT_0, send_buffer, 15 + sizeof(packet));
     }
 
 }
@@ -6282,8 +6435,8 @@ static void zclCoordinator_SendAck( void )  //verified
     {
 #ifdef ZCL_REPORT
         zclReportCmd_t *pReportCmd;
-        uint16 packet[] = {USR_RX_GET, ACK_SUCCESS, (uint16)(((sm_ADD[sm_index]) >> 48) & 0x000000000000FFFF), (uint16)(((sm_ADD[sm_index]) >> 32) & 0x000000000000FFFF),
-                           (uint16)(((sm_ADD[sm_index]) >> 16) & 0x000000000000FFFF), (uint16)((sm_ADD[sm_index]) & 0x000000000000FFFF)
+        uint16 packet[] = {USR_RX_GET, ACK_SUCCESS, (uint16)(((routing_table[sm_index].sm_ADD) >> 48) & 0x000000000000FFFF), (uint16)(((routing_table[sm_index].sm_ADD) >> 32) & 0x000000000000FFFF),
+                           (uint16)(((routing_table[sm_index].sm_ADD) >> 16) & 0x000000000000FFFF), (uint16)((routing_table[sm_index].sm_ADD) & 0x000000000000FFFF)
                           };
 
         pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
@@ -6312,8 +6465,8 @@ static void zclCoordinator_SendAck( void )  //verified
         //uint8 send_buffer[30] = {0};
         //uint16 coor_index = 0xffff;
 
-        uint16 packet[] = {COM_ADD, ACK_SUCCESS, (uint16)(((sm_ADD[sm_index]) >> 48) & 0x000000000000FFFF), (uint16)(((sm_ADD[sm_index]) >> 32) & 0x000000000000FFFF),
-                           (uint16)(((sm_ADD[sm_index]) >> 16) & 0x000000000000FFFF), (uint16)((sm_ADD[sm_index]) & 0x000000000000FFFF)
+        uint16 packet[] = {COM_ADD, ACK_SUCCESS, (uint16)(((routing_table[sm_index].sm_ADD) >> 48) & 0x000000000000FFFF), (uint16)(((routing_table[sm_index].sm_ADD) >> 32) & 0x000000000000FFFF),
+                           (uint16)(((routing_table[sm_index].sm_ADD) >> 16) & 0x000000000000FFFF), (uint16)((routing_table[sm_index].sm_ADD) & 0x000000000000FFFF)
                           };
 
         send_buffer[0] = 0x68;
@@ -6798,7 +6951,7 @@ static void zclCoordinator_EZModeCB( zlcEZMode_State_t state, zclEZMode_CBData_t
         }
         uint8 i;
         for(i = 0; i < NUM_SMART_METER; i++)
-            sm_ADD_status[i] = 1;
+            routing_table[i].sm_ADD_status = 1;
 
 
     }
@@ -6817,50 +6970,50 @@ static void zclCoordinator_ReadRoutingTable(uint8 sm_i)
         pack_out[i] = coor_addrRegister[i - 1];
     pack_out[9] = 0x68;
     pack_out[10] = 0x2E;
-    pack_out[11] = (uint8)(((sm_ADD[sm_i]) >> 56) & 0x00000000000000FF);
-    pack_out[12] = (uint8)(((sm_ADD[sm_i]) >> 48) & 0x00000000000000FF);
-    pack_out[13] = (uint8)(((sm_ADD[sm_i]) >> 40) & 0x00000000000000FF);
-    pack_out[14] = (uint8)(((sm_ADD[sm_i]) >> 32) & 0x00000000000000FF);
-    pack_out[15] = (uint8)(((sm_ADD[sm_i]) >> 24) & 0x00000000000000FF);
-    pack_out[16] = (uint8)(((sm_ADD[sm_i]) >> 16) & 0x00000000000000FF);
-    pack_out[17] = (uint8)(((sm_ADD[sm_i]) >> 8) & 0x00000000000000FF);
-    pack_out[18] = (uint8)((sm_ADD[sm_i]) & 0x00000000000000FF);
-    pack_out[19] = sm_ADD_status[sm_i];
-    pack_out[20] = val_prio[sm_i];
+    pack_out[11] = (uint8)(((routing_table[sm_i].sm_ADD) >> 56) & 0x00000000000000FF);
+    pack_out[12] = (uint8)(((routing_table[sm_i].sm_ADD) >> 48) & 0x00000000000000FF);
+    pack_out[13] = (uint8)(((routing_table[sm_i].sm_ADD) >> 40) & 0x00000000000000FF);
+    pack_out[14] = (uint8)(((routing_table[sm_i].sm_ADD) >> 32) & 0x00000000000000FF);
+    pack_out[15] = (uint8)(((routing_table[sm_i].sm_ADD) >> 24) & 0x00000000000000FF);
+    pack_out[16] = (uint8)(((routing_table[sm_i].sm_ADD) >> 16) & 0x00000000000000FF);
+    pack_out[17] = (uint8)(((routing_table[sm_i].sm_ADD) >> 8) & 0x00000000000000FF);
+    pack_out[18] = (uint8)((routing_table[sm_i].sm_ADD) & 0x00000000000000FF);
+    pack_out[19] = routing_table[sm_i].sm_ADD_status;
+    pack_out[20] = routing_table[sm_i].freq;
 
-    pack_out[21] = (uint8)(((sm_rom_table_hi[sm_i]) >> 56) & 0x00000000000000FF);
-    pack_out[22] = (uint8)(((sm_rom_table_hi[sm_i]) >> 48) & 0x00000000000000FF);
-    pack_out[23] = (uint8)(((sm_rom_table_hi[sm_i]) >> 40) & 0x00000000000000FF);
-    pack_out[24] = (uint8)(((sm_rom_table_hi[sm_i]) >> 32) & 0x00000000000000FF);
-    pack_out[25] = (uint8)(((sm_rom_table_hi[sm_i]) >> 24) & 0x00000000000000FF);
-    pack_out[26] = (uint8)(((sm_rom_table_hi[sm_i]) >> 16) & 0x00000000000000FF);
-    pack_out[27] = (uint8)(((sm_rom_table_hi[sm_i]) >> 8) & 0x00000000000000FF);
-    pack_out[28] = (uint8)((sm_rom_table_hi[sm_i]) & 0x00000000000000FF);
-    pack_out[29] = (uint8)(((sm_rom_table_lo[sm_i]) >> 56) & 0x00000000000000FF);
-    pack_out[30] = (uint8)(((sm_rom_table_lo[sm_i]) >> 48) & 0x00000000000000FF);
-    pack_out[31] = (uint8)(((sm_rom_table_lo[sm_i]) >> 40) & 0x00000000000000FF);
-    pack_out[32] = (uint8)(((sm_rom_table_lo[sm_i]) >> 32) & 0x00000000000000FF);
-    pack_out[33] = (uint8)(((sm_rom_table_lo[sm_i]) >> 24) & 0x00000000000000FF);
-    pack_out[34] = (uint8)(((sm_rom_table_lo[sm_i]) >> 16) & 0x00000000000000FF);
-    pack_out[35] = (uint8)(((sm_rom_table_lo[sm_i]) >> 8) & 0x00000000000000FF);
-    pack_out[36] = (uint8)((sm_rom_table_lo[sm_i]) & 0x00000000000000FF);
+    pack_out[21] = (uint8)(((routing_table[sm_i].sm_rom_table_hi) >> 56) & 0x00000000000000FF);
+    pack_out[22] = (uint8)(((routing_table[sm_i].sm_rom_table_hi) >> 48) & 0x00000000000000FF);
+    pack_out[23] = (uint8)(((routing_table[sm_i].sm_rom_table_hi) >> 40) & 0x00000000000000FF);
+    pack_out[24] = (uint8)(((routing_table[sm_i].sm_rom_table_hi) >> 32) & 0x00000000000000FF);
+    pack_out[25] = (uint8)(((routing_table[sm_i].sm_rom_table_hi) >> 24) & 0x00000000000000FF);
+    pack_out[26] = (uint8)(((routing_table[sm_i].sm_rom_table_hi) >> 16) & 0x00000000000000FF);
+    pack_out[27] = (uint8)(((routing_table[sm_i].sm_rom_table_hi) >> 8) & 0x00000000000000FF);
+    pack_out[28] = (uint8)((routing_table[sm_i].sm_rom_table_hi) & 0x00000000000000FF);
+    pack_out[29] = (uint8)(((routing_table[sm_i].sm_rom_table_lo) >> 56) & 0x00000000000000FF);
+    pack_out[30] = (uint8)(((routing_table[sm_i].sm_rom_table_lo) >> 48) & 0x00000000000000FF);
+    pack_out[31] = (uint8)(((routing_table[sm_i].sm_rom_table_lo) >> 40) & 0x00000000000000FF);
+    pack_out[32] = (uint8)(((routing_table[sm_i].sm_rom_table_lo) >> 32) & 0x00000000000000FF);
+    pack_out[33] = (uint8)(((routing_table[sm_i].sm_rom_table_lo) >> 24) & 0x00000000000000FF);
+    pack_out[34] = (uint8)(((routing_table[sm_i].sm_rom_table_lo) >> 16) & 0x00000000000000FF);
+    pack_out[35] = (uint8)(((routing_table[sm_i].sm_rom_table_lo) >> 8) & 0x00000000000000FF);
+    pack_out[36] = (uint8)((routing_table[sm_i].sm_rom_table_lo) & 0x00000000000000FF);
 
-    pack_out[37] = (uint8)(((sm_key_table_hi[sm_i]) >> 56) & 0x00000000000000FF);
-    pack_out[38] = (uint8)(((sm_key_table_hi[sm_i]) >> 48) & 0x00000000000000FF);
-    pack_out[39] = (uint8)(((sm_key_table_hi[sm_i]) >> 40) & 0x00000000000000FF);
-    pack_out[40] = (uint8)(((sm_key_table_hi[sm_i]) >> 32) & 0x00000000000000FF);
-    pack_out[41] = (uint8)(((sm_key_table_hi[sm_i]) >> 24) & 0x00000000000000FF);
-    pack_out[42] = (uint8)(((sm_key_table_hi[sm_i]) >> 16) & 0x00000000000000FF);
-    pack_out[43] = (uint8)(((sm_key_table_hi[sm_i]) >> 8) & 0x00000000000000FF);
-    pack_out[44] = (uint8)((sm_key_table_hi[sm_i]) & 0x00000000000000FF);
-    pack_out[45] = (uint8)(((sm_key_table_lo[sm_i]) >> 56) & 0x00000000000000FF);
-    pack_out[46] = (uint8)(((sm_key_table_lo[sm_i]) >> 48) & 0x00000000000000FF);
-    pack_out[47] = (uint8)(((sm_key_table_lo[sm_i]) >> 40) & 0x00000000000000FF);
-    pack_out[48] = (uint8)(((sm_key_table_lo[sm_i]) >> 32) & 0x00000000000000FF);
-    pack_out[49] = (uint8)(((sm_key_table_lo[sm_i]) >> 24) & 0x00000000000000FF);
-    pack_out[50] = (uint8)(((sm_key_table_lo[sm_i]) >> 16) & 0x00000000000000FF);
-    pack_out[51] = (uint8)(((sm_key_table_lo[sm_i]) >> 8) & 0x00000000000000FF);
-    pack_out[52] = (uint8)((sm_key_table_lo[sm_i]) & 0x00000000000000FF);
+    pack_out[37] = (uint8)(((routing_table[sm_i].sm_key_table_hi) >> 56) & 0x00000000000000FF);
+    pack_out[38] = (uint8)(((routing_table[sm_i].sm_key_table_hi) >> 48) & 0x00000000000000FF);
+    pack_out[39] = (uint8)(((routing_table[sm_i].sm_key_table_hi) >> 40) & 0x00000000000000FF);
+    pack_out[40] = (uint8)(((routing_table[sm_i].sm_key_table_hi) >> 32) & 0x00000000000000FF);
+    pack_out[41] = (uint8)(((routing_table[sm_i].sm_key_table_hi) >> 24) & 0x00000000000000FF);
+    pack_out[42] = (uint8)(((routing_table[sm_i].sm_key_table_hi) >> 16) & 0x00000000000000FF);
+    pack_out[43] = (uint8)(((routing_table[sm_i].sm_key_table_hi) >> 8) & 0x00000000000000FF);
+    pack_out[44] = (uint8)((routing_table[sm_i].sm_key_table_hi) & 0x00000000000000FF);
+    pack_out[45] = (uint8)(((routing_table[sm_i].sm_key_table_lo) >> 56) & 0x00000000000000FF);
+    pack_out[46] = (uint8)(((routing_table[sm_i].sm_key_table_lo) >> 48) & 0x00000000000000FF);
+    pack_out[47] = (uint8)(((routing_table[sm_i].sm_key_table_lo) >> 40) & 0x00000000000000FF);
+    pack_out[48] = (uint8)(((routing_table[sm_i].sm_key_table_lo) >> 32) & 0x00000000000000FF);
+    pack_out[49] = (uint8)(((routing_table[sm_i].sm_key_table_lo) >> 24) & 0x00000000000000FF);
+    pack_out[50] = (uint8)(((routing_table[sm_i].sm_key_table_lo) >> 16) & 0x00000000000000FF);
+    pack_out[51] = (uint8)(((routing_table[sm_i].sm_key_table_lo) >> 8) & 0x00000000000000FF);
+    pack_out[52] = (uint8)((routing_table[sm_i].sm_key_table_lo) & 0x00000000000000FF);
 
 
     pack_out[53] = controlReg[0];
@@ -6875,6 +7028,8 @@ static void zclCoordinator_ReadRoutingTable(uint8 sm_i)
     {
         uint8 encry_data[70] = {0};
 
+        for (uint8 i = 0; i < 70; i++)
+            encry_data[i] = 0xFF;
         for (uint8 i = 0; i < len_data; i++)
             encry_data[i] = pack_out[i + 11];
 
@@ -6907,7 +7062,7 @@ static void zclCoordinator_ReadRoutingTable(uint8 sm_i)
 
     for(i = 0; i < num_low_prio; i++) // number of low priority
     {
-        for(j = 0; j < val_prio[i] / num_low_prio; j++)
+        for(j = 0; j < routing_table[i].freq / num_low_prio; j++)
         {
             for(l = 0; l < num_high_prio; l++)
             {
@@ -7031,6 +7186,8 @@ static void zclCoordinator_sendcalreg(void)
     {
         uint8 encry_data[70] = {0};
 
+        for (uint8 i = 0; i < 70; i++)
+            encry_data[i] = 0xFF;
         for (uint8 i = 0; i < len_data; i++)
             encry_data[i] = pack_out[i + 11];
 
@@ -7092,6 +7249,8 @@ static void zclCoordinator_calregtimeout()
     {
         uint8 encry_data[70] = {0};
 
+        for (uint8 i = 0; i < 70; i++)
+            encry_data[i] = 0xFF;
         for (uint8 i = 0; i < len_data; i++)
             encry_data[i] = pack_out[i + 11];
 
@@ -7157,6 +7316,8 @@ void zclCoordinator_sendACK(uint8 ControlReg0, uint8 ControlReg1, uint8 ControlR
     {
         uint8 encry_data[70] = {0};
 
+        for (uint8 i = 0; i < 70; i++)
+            encry_data[i] = 0xFF;
         for (uint8 i = 0; i < len_data; i++)
             encry_data[i] = pack_out[i + 11];
 
@@ -7263,6 +7424,8 @@ static void send_rom_back(uint8 *reg_ro)
     {
         uint8 encry_data[70] = {0};
 
+        for (uint8 i = 0; i < 70; i++)
+            encry_data[i] = 0xFF;
         for (uint8 i = 0; i < len_data; i++)
             encry_data[i] = pack_out[i + 11];
 
@@ -7289,38 +7452,98 @@ static void send_rom_back(uint8 *reg_ro)
 void find_end_in_routing_table(uint8 buffer[])
 {
     uint64 IEEE_id = BUILD_UINT64_8(buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7], buffer[8]);
-    int end_index = 0;
+
     for (end_index = 0; end_index < sm_max; end_index++)
     {
-        if (IEEE_id == sm_ADD[end_index])
+        if (IEEE_id == routing_table[end_index].sm_ADD)
             break;
     }
     if(end_index < sm_max)
     {
-        end_final_key[0] = (uint8)(((final_key_table_hi[end_index]) >> 56) & 0x00000000000000FF);
-        end_final_key[1] = (uint8)(((final_key_table_hi[end_index]) >> 48) & 0x00000000000000FF);
-        end_final_key[2] = (uint8)(((final_key_table_hi[end_index]) >> 40) & 0x00000000000000FF);
-        end_final_key[3] = (uint8)(((final_key_table_hi[end_index]) >> 32) & 0x00000000000000FF);
-        end_final_key[4] = (uint8)(((final_key_table_hi[end_index]) >> 24) & 0x00000000000000FF);
-        end_final_key[5] = (uint8)(((final_key_table_hi[end_index]) >> 16) & 0x00000000000000FF);
-        end_final_key[6] = (uint8)(((final_key_table_hi[end_index]) >> 8) & 0x00000000000000FF);
-        end_final_key[7] = (uint8)((final_key_table_hi[end_index]) & 0x00000000000000FF);
+        end_final_key[0] = (uint8)(((routing_table[end_index].final_key_table_hi) >> 56) & 0x00000000000000FF);
+        end_final_key[1] = (uint8)(((routing_table[end_index].final_key_table_hi) >> 48) & 0x00000000000000FF);
+        end_final_key[2] = (uint8)(((routing_table[end_index].final_key_table_hi) >> 40) & 0x00000000000000FF);
+        end_final_key[3] = (uint8)(((routing_table[end_index].final_key_table_hi) >> 32) & 0x00000000000000FF);
+        end_final_key[4] = (uint8)(((routing_table[end_index].final_key_table_hi) >> 24) & 0x00000000000000FF);
+        end_final_key[5] = (uint8)(((routing_table[end_index].final_key_table_hi) >> 16) & 0x00000000000000FF);
+        end_final_key[6] = (uint8)(((routing_table[end_index].final_key_table_hi) >> 8) & 0x00000000000000FF);
+        end_final_key[7] = (uint8)((routing_table[end_index].final_key_table_hi) & 0x00000000000000FF);
 
-        end_final_key[8] = (uint8)(((final_key_table_lo[end_index]) >> 56) & 0x00000000000000FF);
-        end_final_key[9] = (uint8)(((final_key_table_lo[end_index]) >> 48) & 0x00000000000000FF);
-        end_final_key[10] = (uint8)(((final_key_table_lo[end_index]) >> 40) & 0x00000000000000FF);
-        end_final_key[11] = (uint8)(((final_key_table_lo[end_index]) >> 32) & 0x00000000000000FF);
-        end_final_key[12] = (uint8)(((final_key_table_lo[end_index]) >> 24) & 0x00000000000000FF);
-        end_final_key[13] = (uint8)(((final_key_table_lo[end_index]) >> 16) & 0x00000000000000FF);
-        end_final_key[14] = (uint8)(((final_key_table_lo[end_index]) >> 8) & 0x00000000000000FF);
-        end_final_key[15] = (uint8)((final_key_table_lo[end_index]) & 0x00000000000000FF);
+        end_final_key[8] = (uint8)(((routing_table[end_index].final_key_table_lo) >> 56) & 0x00000000000000FF);
+        end_final_key[9] = (uint8)(((routing_table[end_index].final_key_table_lo) >> 48) & 0x00000000000000FF);
+        end_final_key[10] = (uint8)(((routing_table[end_index].final_key_table_lo) >> 40) & 0x00000000000000FF);
+        end_final_key[11] = (uint8)(((routing_table[end_index].final_key_table_lo) >> 32) & 0x00000000000000FF);
+        end_final_key[12] = (uint8)(((routing_table[end_index].final_key_table_lo) >> 24) & 0x00000000000000FF);
+        end_final_key[13] = (uint8)(((routing_table[end_index].final_key_table_lo) >> 16) & 0x00000000000000FF);
+        end_final_key[14] = (uint8)(((routing_table[end_index].final_key_table_lo) >> 8) & 0x00000000000000FF);
+        end_final_key[15] = (uint8)((routing_table[end_index].final_key_table_lo) & 0x00000000000000FF);
     }
 }
 
 
-void delete_item(int index, uint64 array[], uint8 length)
+void route_table_add(r_table *routing_table, r_table routing_single)
 {
-    for(int i = index; i < length - 1; i++)
-        array[i] = array[i + 1];
-    array[length - 1] = 0;
+    int i = 0;
+    if (sm_max > 0)
+    {
+
+        while(routing_single.freq < routing_table[i].freq && i < sm_max)
+        {
+            i++;
+        }
+        int k = 0;
+        for(k = sm_max - 1; k > i - 1; k--)
+        {
+            routing_table[k + 1].sm_ADD = routing_table[k].sm_ADD;
+            routing_table[k + 1].freq = routing_table[k].freq;
+            routing_table[k + 1].sm_ADD_status = routing_table[k].sm_ADD_status;
+            routing_table[k + 1].sm_key_table_hi = routing_table[k].sm_key_table_hi;
+            routing_table[k + 1].sm_key_table_lo = routing_table[k].sm_key_table_lo;
+            routing_table[k + 1].sm_rom_table_hi = routing_table[k].sm_rom_table_hi;
+            routing_table[k + 1].sm_rom_table_lo = routing_table[k].sm_rom_table_lo;
+            routing_table[k + 1].final_key_table_hi = routing_table[k].final_key_table_hi;
+            routing_table[k + 1].final_key_table_lo = routing_table[k].final_key_table_lo;
+            routing_table[k + 1].flag_end_encry = routing_table[k].flag_end_encry;
+
+        }
+    }
+    routing_table[i].sm_ADD = routing_single.sm_ADD;
+    routing_table[i].freq = routing_single.freq;
+    routing_table[i].sm_ADD_status = routing_single.sm_ADD_status;
+    routing_table[i].sm_key_table_hi = routing_single.sm_key_table_hi;
+    routing_table[i].sm_key_table_lo = routing_single.sm_key_table_lo;
+    routing_table[i].sm_rom_table_hi = routing_single.sm_rom_table_hi;
+    routing_table[i].sm_rom_table_lo = routing_single.sm_rom_table_lo;
+    routing_table[i].final_key_table_hi = routing_single.final_key_table_hi;
+    routing_table[i].final_key_table_lo = routing_single.final_key_table_lo;
+    routing_table[i].flag_end_encry = routing_single.flag_end_encry;
+    sm_max++;
+}
+
+void route_table_delete(r_table *routing_table, r_table routing_single)
+{
+
+    if(sm_max > 0)
+    {
+        int i = 0;
+        while(routing_single.sm_ADD != routing_table[i].sm_ADD && i < sm_max)
+        {
+            i++;
+        }
+        int k = 0;
+        for(k = i; k < sm_max - 1; k++)
+        {
+            routing_table[k].sm_ADD = routing_table[k + 1].sm_ADD;
+            routing_table[k].freq = routing_table[k + 1].freq;
+            routing_table[k].sm_ADD_status = routing_table[k + 1].sm_ADD_status;
+            routing_table[k].sm_key_table_hi = routing_table[k + 1].sm_key_table_hi;
+            routing_table[k].sm_key_table_lo = routing_table[k + 1].sm_key_table_lo;
+            routing_table[k].sm_rom_table_hi = routing_table[k + 1].sm_rom_table_hi;
+            routing_table[k].sm_rom_table_lo = routing_table[k + 1].sm_rom_table_lo;
+            routing_table[k].final_key_table_hi = routing_table[k + 1].final_key_table_hi;
+            routing_table[k].final_key_table_lo = routing_table[k + 1].final_key_table_lo;
+            routing_table[k].flag_end_encry = routing_table[k + 1].flag_end_encry;
+        }
+        sm_max--;
+    }
 }
