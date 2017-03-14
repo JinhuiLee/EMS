@@ -1,10 +1,10 @@
-"C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0smart\Z-Stack Home 1.2.0\Components\hal\common\hal_drivers.c"
+"C:\workspace\Energy-Management-System\SmartMeter\Components\hal\common\hal_drivers.c"
 -std=c99
 -ferror-limit=100
 -I
-E:\PRO\IAR72\arm\inc
+C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.5\arm\inc
 -I
-E:\PRO\IAR72\arm\inc\c
+C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.5\arm\inc\c
 -D__CHAR_BITS__=8
 -D__CHAR_MAX__=0xff
 -D__CHAR_MIN__=0
@@ -143,15 +143,19 @@ E:\PRO\IAR72\arm\inc\c
 -D__JMP_BUF_ELEMENT_TYPE__=unsigned long long int
 -D__JMP_BUF_NUM_ELEMENTS__=8
 -D__TID__=0xcf60
--D__VER__=7020005
--D__BUILD_NUMBER__=7591
+-D__VER__=7050002
+-D__BUILD_NUMBER__=10312
 -D__IAR_SYSTEMS_ICC__=8
 -D__LITTLE_ENDIAN__=1
 -D__BOOL_TYPE__=unsigned char
+-D__BOOL_SIZE__=1
 -D__WCHAR_T_TYPE__=unsigned short int
 -D__WCHAR_T_SIZE__=2
 -D__WCHAR_T_MAX__=0xffff
 -D__DEF_PTR_MEM__=__data
+-D__DEF_PTR_SIZE__=4
+-D__CODE_MEMORY_LIST3__(_P1,_P2)=__CODE_MEM_HELPER3__(__code, 0, _P1, _P2)
+-D__DATA_MEMORY_LIST3__(_P1,_P2)=__DATA_MEM_HELPER3__(__data, 0, _P1, _P2)
 -D__DATA_MEM0__=__data
 -D__DATA_MEM0_POINTER_OK__=1
 -D__DATA_MEM0_UNIQUE_POINTER__=1
@@ -167,8 +171,14 @@ E:\PRO\IAR72\arm\inc\c
 -D__CODE_MEM0_POINTER_OK__=1
 -D__CODE_MEM0_UNIQUE_POINTER__=1
 -D__CODE_MEM0_VAR_OK__=1
+-D__CODE_PTR_MEMORY_LIST3__(_P1,_P2)=__CODE_PTR_MEM_HELPER3__(__code, 0, _P1, _P2)
+-D__DATA_PTR_MEMORY_LIST3__(_P1,_P2)=__DATA_PTR_MEM_HELPER3__(__data, 0, _P1, _P2)
+-D__VAR_MEMORY_LIST3__(_P1,_P2)=__VAR_MEM_HELPER3__(__data, 0, _P1, _P2)
 -D__HEAP_MEM0__=0
+-D__HEAP_MEMORY_LIST3__(_P1,_P2)=__HEAP_MEM_HELPER3__(__data, 0, _P1, _P2)
 -D__MULTIPLE_HEAPS__=0
+-D__TOPM_DATA_MEMORY_LIST3__(_P1,_P2)=
+-D__TOPP_DATA_MEMORY_LIST3__(_P1,_P2)=__TOPP_DATA_MEM_HELPER3__(__data, 0, _P1, _P2)
 -D__DEF_HEAP_MEM__=__data
 -D__PRAGMA_PACK_ON__=1
 -D__MULTIPLE_INHERITANCE__=1
@@ -194,18 +204,18 @@ E:\PRO\IAR72\arm\inc\c
 -D__HAS_JOINED_TYPES__=1
 -D__HAS_LOCATED_DECLARATION__=1
 -D__HAS_LOCATED_WITH_INIT__=1
--D__IAR_COMPILERBASE__=593926
--D__DATE__="Dec 15 2014"
--D__TIME__="16:19:07"
+-D__IAR_COMPILERBASE__=594445
 -D__STDC__=1
 -D__STDC_VERSION__=199901L
 -D__STDC_HOSTED__=1
+-D__STDC_NO_VLA__=1
+-D__STDC_NO_ATOMICS__=1
 -D__EDG_IA64_ABI=1
 -D__EDG_IA64_ABI_VARIANT_CTORS_AND_DTORS_RETURN_THIS=1
 -D__EDG_IA64_ABI_USE_INT_STATIC_INIT_GUARD=1
 -D__EDG_TYPE_TRAITS_ENABLED=1
 -D__EDG__=1
--D__EDG_VERSION__=403
+-D__EDG_VERSION__=409
 -D__EDG_SIZE_TYPE__=unsigned int
 -D__EDG_PTRDIFF_TYPE__=int
 -D__EDG_DELTA_TYPE=int
@@ -220,7 +230,7 @@ E:\PRO\IAR72\arm\inc\c
 -D__EDG_BSD=0
 -D__EDG_SYSV=0
 -D__EDG_ANSIC=1
--D__EDG_CPP0X_IL_EXTENSIONS_SUPPORTED=1
+-D__EDG_CPP11_IL_EXTENSIONS_SUPPORTED=1
 -DZIGBEEPRO=1
 -DSECURE=1
 -DZG_SECURE_DYNAMIC=0
@@ -247,7 +257,7 @@ E:\PRO\IAR72\arm\inc\c
 -DDEFAULT_KEY={0x01, 0x03, 0x05, 0x07, 0x09, 0x0B, 0x0D, 0x0F, 0x00, 0x02, 0x04, 0x06, 0x08, 0x0A, 0x0C, 0x0D}
 -DMAC_MAX_FRAME_SIZE=116
 -DZDNWKMGR_MIN_TRANSMISSIONS=20
--DRFD_RCVC_ALWAYS_ON=FALSE
+-DRFD_RCVC_ALWAYS_ON=TRUE
 -DPOLL_RATE=1000
 -DQUEUED_POLL_RATE=100
 -DRESPONSE_POLL_RATE=100
@@ -258,10 +268,9 @@ E:\PRO\IAR72\arm\inc\c
 -DMAC_CFG_RX_MAX=5
 -DZDO_COORDINATOR=1
 -DRTR_NWK=1
--D_DLIB_CONFIG_FILE_HEADER_NAME="E:\PRO\IAR72\arm\INC\c\DLib_Config_Normal.h"
--D_DLIB_CONFIG_FILE_STRING="E:\\PRO\\IAR72\\arm\\INC\\c\\DLib_Config_Normal.h"
--D__VERSION__="IAR ANSI C/C++ Compiler V7.20.5.7591/W32 for ARM"
--D_VA_DEFINED=
+-D_DLIB_CONFIG_FILE_HEADER_NAME="C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.5\arm\INC\c\DLib_Config_Normal.h"
+-D_DLIB_CONFIG_FILE_STRING="C:\\Program Files (x86)\\IAR Systems\\Embedded Workbench 7.5\\arm\\INC\\c\\DLib_Config_Normal.h"
+-D__VERSION__="IAR ANSI C/C++ Compiler V7.50.2.10312/W32 for ARM"
 -D__CODE_MEMORY_LIST1__()=__CODE_MEM_HELPER1__(__code, 0 )
 -D__CODE_MEMORY_LIST2__(_P1)=__CODE_MEM_HELPER2__(__code, 0 ,  _P1 )
 -D__CODE_MEMORY_LIST3__(_P1, _P2)=__CODE_MEM_HELPER3__(__code, 0 ,  _P1 ,  _P2 )

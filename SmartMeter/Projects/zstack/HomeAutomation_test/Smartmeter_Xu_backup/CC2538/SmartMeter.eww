@@ -4,23 +4,7 @@
   <project>
     <path>$WS_DIR$\SmartMeter.ewp</path>
   </project>
-  <batchBuild>
-    <batchDefinition>
-      <name>ALL</name>
-      <member>
-        <project>SmartMeter</project>
-        <configuration>Coordinator</configuration>
-      </member>
-      <member>
-        <project>SmartMeter</project>
-        <configuration>Router</configuration>
-      </member>
-      <member>
-        <project>SmartMeter</project>
-        <configuration>EndDevice</configuration>
-      </member>
-    </batchDefinition>
-  </batchBuild>
+  <batchBuild/>
 </workspace>
 
 

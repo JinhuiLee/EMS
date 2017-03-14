@@ -2,7 +2,7 @@
 $ sepk
   pod_drvr=jioserdesusbv3.dll
   pod_port=0
-  pod_serial=06EB122013BB
+  pod_serial=06EB122013D5
 $ /
 $ product
   title="Texas Instruments XDS100v3 USB"
@@ -48,22 +48,22 @@ $ /
 $ dot7
   dts_usage=enable
   dts_type=xds100v3
+  ts_pin_width=only_two
   dts_program=emulator
   dts_frequency=10.0MHz
 $ /
 $ uscif
   tclk_program=adaptive
-  tclk_frequency=3.0MHz
+  tclk_frequency=3.0
 $ /
 $ dot7
   ts_format=oscan5
-  ts_pin_width=only_two
 $ /
 @ icepick_c family=icepick_c irbits=6 drbits=1 subpaths=1
   & subpath_0 address=16 default=no custom=no force=yes pseudo=no
     @ cs_dap_0 family=cs_dap irbits=4 drbits=1 subpaths=1 identify=0x4BA00477
       & subpath_1 type=debug address=0 default=no custom=no force=yes pseudo=no
-        @ cortex_m3_0 family=cortex_mxx irbits=0 drbits=0 identify=0x24770011
+        @ cortex_m3_0 family=cortex_mxx irbits=0 drbits=0 identify=0x02000000 traceid=0x0
       & /
   & /
 # /

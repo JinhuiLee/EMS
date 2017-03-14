@@ -19,6 +19,22 @@
 @REM 
 
 
-"E:\PRO\IAR72\common\bin\cspybat" "E:\PRO\IAR72\arm\bin\armproc.dll" "E:\PRO\IAR72\arm\bin\armxds100.dll"  %1 --plugin "E:\PRO\IAR72\arm\bin\armbat.dll" --device_macro "E:\PRO\IAR72\arm\config\debugger\TexasInstruments\xds\cc2538_reset.mac" --flash_loader "E:\PRO\IAR72\arm\config\flashloader\TexasInstruments\FlashCC2538RAM32K.board" --backend -B "--endian=little" "--cpu=Cortex-M3" "--fpu=None" "-p" "E:\PRO\IAR72\arm\CONFIG\debugger\TexasInstruments\CC2538SF53.ddf" "--drv_verify_download" "--semihosting" "--device=CC2538SF53" "--drv_vector_table_base=0" "--xds_board_file=E:\PRO\IAR72\arm\config\debugger\TexasInstruments\xds\CC2538_XDS100v3c2.dat" 
+@echo off 
 
+if not "%~1" == "" goto debugFile 
 
+@echo on 
+
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.5\common\bin\cspybat" -f "C:\workspace\Energy-Management-System-zigbee\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\settings\Coordinator.Coordinator.general.xcl" --backend -f "C:\workspace\Energy-Management-System-zigbee\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\settings\Coordinator.Coordinator.driver.xcl" 
+
+@echo off 
+goto end 
+
+:debugFile 
+
+@echo on 
+
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.5\common\bin\cspybat" -f "C:\workspace\Energy-Management-System-zigbee\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\settings\Coordinator.Coordinator.general.xcl" "--debug_file=%~1" --backend -f "C:\workspace\Energy-Management-System-zigbee\Coordinator\Projects\zstack\HomeAutomation_test\Coordinator_wang\CC2538\settings\Coordinator.Coordinator.driver.xcl" 
+
+@echo off 
+:end

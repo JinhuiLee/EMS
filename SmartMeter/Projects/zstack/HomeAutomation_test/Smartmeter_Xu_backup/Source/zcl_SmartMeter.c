@@ -118,8 +118,8 @@
 #define UINT8_TO_16(hiByte, loByte) \
           ((uint16)(((loByte) & 0x00FF) + (((hiByte) & 0x00FF) << 8)))
 
-#define Connect_Mode WIRED_CONNECTION
-//#define Connect_Mode WIRELESS_CONNECTION
+//#define Connect_Mode WIRED_CONNECTION
+#define Connect_Mode WIRELESS_CONNECTION
 //#define TIMEINDEX 0.1
 #define TIMEINDEX 1            
 //#defien TIMEINDEX 3.125
@@ -429,6 +429,20 @@ static const zclEZMode_RegisterData_t zclSmartMeter_RegisterEZModeData =
     &zclSmartMeterSeqNum,
     zclSmartMeter_EZModeCB
 };
+// NOT ZCL_EZMODE, Use EndDeviceBind
+#else
+
+static cId_t bindingOutClusters[] =
+{
+      ZCL_CLUSTER_ID_HVAC_THERMOSTAT,
+    ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
+    //data attribute for SmartMeter defined in zcl_SmartMeter_data_c
+    ZCL_CLUSTER_ID_MS_PARAMETER_MEASUREMENT,  // added for SmartMeter
+    ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT,  // added for SmartMeter
+    ZCL_CLUSTER_ID_MS_ADD_MEASUREMENT,  // added for SmartMeter
+    ZCL_CLUSTER_ID_MS_COM_MEASUREMENT  // added for SmartMeter
+};
+#define ZCLSMARTMETER_BINDINGLIST        6
 #endif
 devStates_t zclSmartMeter_NwkState = DEV_INIT;
 uint8 giTemperatureSensorScreenMode = TEMPSENSE_MAINMODE;   // display main screen mode first
@@ -620,8 +634,8 @@ void zclSmartMeter_Init( byte task_id )
     //HalLcdWriteString( (char *)sDeviceName, HAL_LCD_LINE_3 );
     //HalLcdWriteString( (char *)sDeviceName, HAL_LCD_LINE_5 );
 #endif
-    if( Connect_Mode == WIRELESS_CONNECTION)
-        zclsmartmeter_startEZmode();
+    //if( Connect_Mode == WIRELESS_CONNECTION)
+       // zclsmartmeter_startEZmode();
     // Initialize SmartMeter parameters
     zclSmartMeter_parameterInit();
     //Initialize SmartMeter data register
@@ -640,7 +654,10 @@ void zclSmartMeter_Init( byte task_id )
     ADD_2 = smADD[1];
     ADD_1 = smADD[2];
     ADD_0 = smADD[3];
-
+    
+    //zclSmartMeter_DstAddr.addrMode = (afAddrMode_t)Addr16Bit;
+    //zclSmartMeter_DstAddr.addr.shortAddr = 0x0000;
+    
     // Set up the serial console to use for displaying messages.  This is
     // just for debugging purpose and is not needed for Systick operation.
     InitConsole();
@@ -744,6 +761,24 @@ void Configuration_Reg_Process()  //once
 }
 
 
+uint8 HexToChar(uint8 temp)
+{ uint8 dst; if (temp < 10){ dst = temp + '0'; }else{ dst = temp -10 +'A'; }
+    return dst;
+}
+ void showPANID()
+{ uint8 tempStr[4]; uint8 dstPan[5] = {0};
+  uint8 i;
+  int tempPan =  _NIB.nwkPanId;
+  tempStr[3] = tempPan&0xf;
+  tempStr[2] = (tempPan>>4)&0xf;
+  tempStr[1] = (tempPan>>8)&0xf;
+  tempStr[0] = (tempPan>>12)&0xf;
+  for(i = 0; i<4;i++)
+    { dstPan[i] = HexToChar(tempStr[i]); }
+  dstPan[4] = '\0';
+  HalLcdWriteString( dstPan, HAL_LCD_LINE_3 );
+}
+
 /*********************************************************************
  * @fn          zclSample_event_loop
  *
@@ -794,9 +829,10 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
                         (zclSmartMeter_NwkState == DEV_ROUTER)   ||
                         (zclSmartMeter_NwkState == DEV_END_DEVICE) )
                 {
+                  showPANID();
 #ifndef HOLD_AUTO_START
                     giTemperatureSensorScreenMode = TEMPSENSE_MAINMODE;
-                    zclSmartMeter_LCDDisplayUpdate();
+                    //zclSmartMeter_LCDDisplayUpdate();
 #endif
 #ifdef ZCL_EZMODE
                     zcl_EZModeAction( EZMODE_ACTION_NETWORK_STARTED, NULL );
@@ -1143,23 +1179,47 @@ static void zclSmartMeter_HandleKeys( byte shift, byte keys )
         sprintf((char *)lcdString, "%d", osal_GetSystemClock() - switch_timenew);
         HalLcdWriteString( lcdString, HAL_LCD_LINE_3 );
         */
-        int status1 = ROM_PageErase(0x0027f800,0x800);
-        uint32_t pulData[4] = {0xffffffff, 0xf0ffffff, 0x00000001, 0x00200000};
-        int status2 = ROM_ProgramFlash(pulData, 0x0027ffd0, 16);
+        //int status1 = ROM_PageErase(0x0027f800,0x800);
+        //uint32_t pulData[4] = {0xffffffff, 0xf0ffffff, 0x00000001, 0x00200000};
+        //int status2 = ROM_ProgramFlash(pulData, 0x0027ffd0, 16);
         
-        //zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
-        //SystemResetSoft();
+        zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+        SystemResetSoft();
         //if (status1 == 0 && status2 == 0)
-            ROM_ResetDevice();
+           // ROM_ResetDevice();
     }
     if ( keys & HAL_KEY_SW_2 )
     {
+      zclSmartMeter_SendTime();
     }
     if ( keys & HAL_KEY_SW_3 )
     {
+      zclsmartmeter_startEZmode();
     }
     if ( keys & HAL_KEY_SW_4 )
     {
+      #ifdef LCD_SUPPORTED
+        HalLcdWriteString( "Bind", HAL_LCD_LINE_3 );
+      #endif
+        giTemperatureSensorScreenMode = TEMPSENSE_MAINMODE;
+        zAddrType_t dstAddr;
+        dstAddr.addrMode = Addr16Bit;
+        dstAddr.addr.shortAddr = 0; 
+        //byte address[] = {0x00,0x12,0x4B,0x00,0x06,0x3A,0x4D,0x19};
+        //for (int i = 0 ; i < 8 ; i++)
+        //    dstAddr.addr.extAddr[i] = address[i]; 
+        // Coordinator makes the EDB match
+
+        // Initiate an End Device Bind Request, this bind request will
+        // only use a cluster list that is important to binding.
+        HalLedSet ( HAL_LED_1, HAL_LED_MODE_OFF );
+        ZDP_EndDeviceBindReq( &dstAddr, NLME_GetShortAddr(),
+                              SmartMeter_ENDPOINT,
+                              ZCL_HA_PROFILE_ID,
+                              0, NULL,
+                              ZCLSMARTMETER_BINDINGLIST, bindingOutClusters,
+                              FALSE );
+        
     }
     if ( shift && ( keys & HAL_KEY_SW_5 ) )
     {
@@ -1196,7 +1256,7 @@ void zclsmartmeter_startEZmode( void )
         ezModeData.pActiveOutClusterIDs = NULL;
         zcl_InvokeEZMode( &ezModeData );
 #ifdef LCD_SUPPORTED
-        HalLcdWriteString( "EZMode", HAL_LCD_LINE_2 );
+        HalLcdWriteString( "EZMode", HAL_LCD_LINE_3 );
 #endif
 #endif // ZCL_EZMODE
     }
@@ -2525,6 +2585,8 @@ static void zclSmartMeter_calReadParam( void )
  */
 static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 {
+  
+    HalLcdWriteString( "CMD Received", HAL_LCD_LINE_7 );
     zclReportCmd_t *pInParameterReport;
     pInParameterReport = (zclReportCmd_t *)pInMsg->attrCmd;
     uint16 COMMAND = BUILD_UINT16(pInParameterReport->attrList[0].attrData[0], pInParameterReport->attrList[0].attrData[1]);
@@ -2550,6 +2612,17 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         };
         zclSmartMeter_SendParam();
     }
+    
+    //Added by Jinhui, 1/9/2017 to restore wireless function
+     else if ((COMMAND == TEMP_STOP))
+    {
+        flaginc = OPERATION;
+        start = 1;
+        HalLcdWriteString( "send_start", HAL_LCD_LINE_4 );
+        // send the current start value to send over the air to Coordinator
+        zclSmartMeter_SendStart();
+    }
+    
     else if ((COMMAND == USR_RX_GET) && (OPERATION == COM_DATA) &&
              (pInParameterReport->attrList[0].attrID) == ATTRID_MS_DATA_MEASURED_VALUE)
         // send the current data value sent over the air to Coordinator
@@ -2590,6 +2663,7 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     else if ((COMMAND == USR_RX_SET) && (OPERATION == SET_PARAM) &&
              (pInParameterReport->attrList[0].attrID) == ATTRID_MS_PARAMETER_MEASURED_VALUE)
     {
+        HalLcdWriteString( "SET_PARAM", HAL_LCD_LINE_4 );
         // set the current parameter sent over the air from the Coordinator
         MIN_ADC = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
         MAX_ADC = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]);
@@ -2622,6 +2696,7 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     else if ((COMMAND == TIME_SET) &&
              (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)                                    //added 11.12
     {
+        HalLcdWriteString( "sendTime", HAL_LCD_LINE_7 );
         // set the current parameter sent over the air from the Coordinator
         YEAR = BUILD_UINT16(pInParameterReport->attrList[0].attrData[2], pInParameterReport->attrList[0].attrData[3]);
         MONTH = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
@@ -2719,15 +2794,62 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     else if ((COMMAND == START) &&
              (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
     {
-        start = 0;
-        // send the current flaginc value to send over the air to Coordinator
-        zclSmartMeter_SendRestart();
+      
+        // original code, commented by Jinhui at 1/30/2017 to restore reset function
+        //start = 0;
+        //// send the current flaginc value to send over the air to Coordinator
+        //zclSmartMeter_SendRestart();
+      
+        //Following code is copied from wired command handler
+        
+            start = 0; 
+            CAL_OPT = 0;
+            // send the current start value to send over the air to Coordinator
+            
+            /////////////////////////////////////////////
+            //reset all the energy calculation related varibles
+            rmsTemp_V1 = 0;
+            overflow_num_V1 = 0;
+            rmsTemp_V2 = 0;
+            overflow_num_V2 = 0;
+            rmsTemp_V3 = 0;
+            overflow_num_V3 = 0;
+
+            for(uint8 i = 0; i < 8; i++)
+            {
+                rmsTemp_I1[i] = 0;
+                overflow_num_I1[i] = 0;
+                rmsTemp_I2[i] = 0;
+                overflow_num_I2[i] = 0;
+                rmsTemp_I3[i] = 0;
+                overflow_num_I3[i] = 0;
+
+                accu_GEN_INPUT1[i] = 0;
+                accu_GEN_INPUT2[i] = 0;                
+            }
+
+            l_nSamples = 0;
+            enecal_timeperiod = 0;
+            
+            flagrelay = 1;
+            //GPIOPinWrite(GPIO_C_BASE, (GPIO_PIN_0 | GPIO_PIN_1), 0x01);
+            GPIOPinWrite(GPIO_C_BASE, GPIO_PIN_0, 0x01);
+            flaginc = 1;
+            ///////////////////////////////////////
+            
+            zclSmartMeter_SendRestart();
+            zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+            SystemResetSoft();
+        
+        
     }
 
     else if ((COMMAND == USR_RX_GET) && (OPERATION == COM_ADD) &&
              (pInParameterReport->attrList[0].attrID) == ATTRID_MS_ADD_MEASURED_VALUE)
     {
-
+        #ifdef LCD_SUPPORTED
+          HalLcdWriteString( "Com Add", HAL_LCD_LINE_2 );
+        #endif
         // get the coordinator IEEE address
         coordinator_Addr_3 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
         coordinator_Addr_2 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]);
@@ -2736,16 +2858,17 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         coordinator_extAddr = BUILD_UINT64_16(coordinator_Addr_3, coordinator_Addr_2,
                                               coordinator_Addr_1, coordinator_Addr_0);
         // Set destination address to 64-bit  check &zclSmartMeter_DstAddr
-        zclSmartMeter_DstAddr.addrMode = (afAddrMode_t)Addr64Bit;
+        zclSmartMeter_DstAddr.addrMode = (afAddrMode_t)Addr16Bit;
+        zclSmartMeter_DstAddr.addr.shortAddr = 0x0000;
         zclSmartMeter_DstAddr.endPoint = SmartMeter_ENDPOINT;
-        zclSmartMeter_DstAddr.addr.extAddr[7] = (uint8)(((coordinator_extAddr) >> 56) & 0x00000000000000FF);
-        zclSmartMeter_DstAddr.addr.extAddr[6] = (uint8)(((coordinator_extAddr) >> 48) & 0x00000000000000FF);
-        zclSmartMeter_DstAddr.addr.extAddr[5] = (uint8)(((coordinator_extAddr) >> 40) & 0x00000000000000FF);
-        zclSmartMeter_DstAddr.addr.extAddr[4] = (uint8)(((coordinator_extAddr) >> 32) & 0x00000000000000FF);
-        zclSmartMeter_DstAddr.addr.extAddr[3] = (uint8)(((coordinator_extAddr) >> 24) & 0x00000000000000FF);
-        zclSmartMeter_DstAddr.addr.extAddr[2] = (uint8)(((coordinator_extAddr) >> 16) & 0x00000000000000FF);
-        zclSmartMeter_DstAddr.addr.extAddr[1] = (uint8)(((coordinator_extAddr) >> 8) & 0x00000000000000FF);
-        zclSmartMeter_DstAddr.addr.extAddr[0] = (uint8)((coordinator_extAddr) & 0x00000000000000FF);
+        //zclSmartMeter_DstAddr.addr.extAddr[7] = (uint8)(((coordinator_extAddr) >> 56) & 0x00000000000000FF);
+        //zclSmartMeter_DstAddr.addr.extAddr[6] = (uint8)(((coordinator_extAddr) >> 48) & 0x00000000000000FF);
+        //zclSmartMeter_DstAddr.addr.extAddr[5] = (uint8)(((coordinator_extAddr) >> 40) & 0x00000000000000FF);
+        //zclSmartMeter_DstAddr.addr.extAddr[4] = (uint8)(((coordinator_extAddr) >> 32) & 0x00000000000000FF);
+        //zclSmartMeter_DstAddr.addr.extAddr[3] = (uint8)(((coordinator_extAddr) >> 24) & 0x00000000000000FF);
+        //zclSmartMeter_DstAddr.addr.extAddr[2] = (uint8)(((coordinator_extAddr) >> 16) & 0x00000000000000FF);
+        //zclSmartMeter_DstAddr.addr.extAddr[1] = (uint8)(((coordinator_extAddr) >> 8) & 0x00000000000000FF);
+        //zclSmartMeter_DstAddr.addr.extAddr[0] = (uint8)((coordinator_extAddr) & 0x00000000000000FF);
         // send smart meter IEEE address to coordinator after a random delay from
         // time of reception of network discovery command  -- add code
         zclSmartMeter_SendAdd();
@@ -2817,6 +2940,9 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 
     else if ((COMMAND == COM_CONFIG) && (pInParameterReport->attrList[0].attrID) == ATTRID_MS_PARAMETER_MEASURED_VALUE)
     {
+        #ifdef LCD_SUPPORTED
+          HalLcdWriteString( "COM_CONFIG", HAL_LCD_LINE_2 );
+        #endif
         SM_CONFIG_5 = pInParameterReport->attrList[0].attrData[3];
         SM_CONFIG_4 = pInParameterReport->attrList[0].attrData[2];
         SM_CONFIG_3 = pInParameterReport->attrList[0].attrData[5];
@@ -4820,8 +4946,10 @@ static void zclSmartMeter_EZModeCB( zlcEZMode_State_t state, zclEZMode_CBData_t 
     char szLine[20];
     char *pStr;
     uint8 err;
+     HalLcdWriteString ( "CB ENTERED", HAL_LCD_LINE_4 );
 #endif
-
+  
+    
     // time to go into identify mode
     if ( state == EZMODE_STATE_IDENTIFYING )
     {
@@ -4846,7 +4974,7 @@ static void zclSmartMeter_EZModeCB( zlcEZMode_State_t state, zclEZMode_CBData_t 
         {
             if ( giTemperatureSensorScreenMode == TEMPSENSE_MAINMODE )
             {
-                HalLcdWriteString ( pStr, HAL_LCD_LINE_2 );
+                HalLcdWriteString ( pStr, HAL_LCD_LINE_4 );
             }
         }
 #endif
@@ -4886,7 +5014,7 @@ static void zclSmartMeter_EZModeCB( zlcEZMode_State_t state, zclEZMode_CBData_t 
         {
             if ( giTemperatureSensorScreenMode == TEMPSENSE_MAINMODE )
             {
-                HalLcdWriteString ( pStr, HAL_LCD_LINE_2 );
+                HalLcdWriteString ( pStr, HAL_LCD_LINE_4 );
             }
         }
 #endif  // LCD_SUPPORTED

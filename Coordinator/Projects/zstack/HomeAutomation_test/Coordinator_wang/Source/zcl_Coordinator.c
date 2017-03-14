@@ -133,8 +133,8 @@
 #define Coordinator_SendData_INTERVAL  1000 //in millisecond
 
 //wireless or wired connection switch
-#define Connect_Mode WIRED_CONNECTION
-//#define Connect_Mode WIRELESS_CONNECTION
+//#define Connect_Mode WIRED_CONNECTION
+#define Connect_Mode WIRELESS_CONNECTION
 
 #define NUM_SMART_METER  5
 /*********************************************************************
@@ -388,7 +388,7 @@ static cId_t bindingInClusters[] =
     ZCL_CLUSTER_ID_MS_ADD_MEASUREMENT,  // added for SmartMeter
     ZCL_CLUSTER_ID_MS_COM_MEASUREMENT  // added for SmartMeter
 };
-#define ZCLCoordinator_BINDINGLIST_IN      2
+#define ZCLCoordinator_BINDINGLIST_IN      6
 
 #endif
 
@@ -638,8 +638,8 @@ void zclCoordinator_Init( byte task_id )
     //Initialize SmartMeter data register
     zclCoordinator_dataRegInit();
 
-    if(Connect_Mode == WIRELESS_CONNECTION)
-        zclscoordinator_startEZmode();
+    //if(Connect_Mode == WIRELESS_CONNECTION)
+        //zclscoordinator_startEZmode();
 
     // Get coordinator 64-bit IEEE external address and network address
     pcoordinator_extAddr = saveExtAddr; //ZDApp.h uint8 saveExtAddr[];
@@ -744,6 +744,24 @@ void ProcessUartData( mtOSALSerialData_t *Uart_Msg)
 
 }
 
+uint8 HexToChar(uint8 temp)
+{ uint8 dst; if (temp < 10){ dst = temp + '0'; }else{ dst = temp -10 +'A'; }
+    return dst;
+}
+ void showPANID()
+{ uint8 tempStr[4]; uint8 dstPan[5] = {0};
+  uint8 i;
+  int tempPan =  _NIB.nwkPanId;
+  tempStr[3] = tempPan&0xf;
+  tempStr[2] = (tempPan>>4)&0xf;
+  tempStr[1] = (tempPan>>8)&0xf;
+  tempStr[0] = (tempPan>>12)&0xf;
+  for(i = 0; i<4;i++)
+    { dstPan[i] = HexToChar(tempStr[i]); }
+    dstPan[4] = '\0';
+    HalLcdWriteString( dstPan, HAL_LCD_LINE_3 );
+}
+
 /*********************************************************************
  * @fn          zclCoordinator_event_loop
  *
@@ -815,6 +833,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                     giThermostatScreenMode = THERMOSTAT_MAINMODE;
                     // zclCoordinator_LcdDisplayUpdate();
                     zclCoordinator_LCDDisplayUpdate();
+                    showPANID();
 #endif
 #ifdef ZCL_EZMODE
                     zcl_EZModeAction( EZMODE_ACTION_NETWORK_STARTED, NULL );
@@ -827,12 +846,13 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             case CMD_SERIAL_MSG:                                           //ZcomDef.h 10.8
                 ProcessUartData((mtOSALSerialData_t *)pMsg);
                 Process_Wired_Cmd();
-                //HalLcdWriteString( "datarcv", HAL_LCD_LINE_6 );
-                //osal_set_event(task_id, Coordinator_USB_EVT);
+                HalLcdWriteString( "datarcv", HAL_LCD_LINE_6 );
+                osal_set_event(task_id, Coordinator_USB_EVT);
                 break;
 
             case CMD_USB_MSG:                                           //ZcomDef.h 10.8
                 osal_set_event(task_id, Coordinator_USB_EVT);
+                HalLcdWriteString( "datarcv", HAL_LCD_LINE_6 );
                 //HalUART0Write ( HAL_UART_PORT_0, USB_Msg_in, dataLen + 13);
                 break;
 
@@ -1334,6 +1354,8 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                 // Write to controlReg when controlReg write is disabled  *
                 // This is the normal write operation from server
 
+                //if ((controlReg[1] & 0x01) == 1)
+                //modify temperately by Jinhui 1/24/2017 for debugging purpose
                 if ((controlReg[1] & 0x01) == 1)
                 {
                     uint8 i;
@@ -2594,7 +2616,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
                   }
               }
               else */
-            if( Connect_Mode == WIRED_CONNECTION)
+            if( Connect_Mode == WIRED_CONNECTION || Connect_Mode == WIRELESS_CONNECTION)
             {
                 int index;
                 time_new = osal_GetSystemClock();
@@ -3909,21 +3931,42 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
         uint8 send_buffer[2] = {0x55, 0x55};
         HalUART1Write ( HAL_UART_PORT_1, send_buffer, 2);
         */
+      
+      
+      zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+       SystemResetSoft();
     }
 
     if ( keys & HAL_KEY_SW_2 )
     {
-
+        zclCoordinator_SetTime();
     }
 
     if ( keys & HAL_KEY_SW_3 )
     {
-
+        zclscoordinator_startEZmode();
     }
 
     if ( keys & HAL_KEY_SW_4 )
     {
+      #ifdef LCD_SUPPORTED
+        HalLcdWriteString( "Bind", HAL_LCD_LINE_3 );
+      #endif
+      giThermostatScreenMode = THERMOSTAT_MAINMODE;
+      zAddrType_t dstAddr;
+      HalLedSet ( HAL_LED_1, HAL_LED_MODE_OFF );
 
+      // Initiate an End Device Bind Request, this bind request will
+      // only use a cluster list that is important to binding.
+      dstAddr.addrMode = afAddr16Bit;
+      dstAddr.addr.shortAddr = 0;   // Coordinator makes the match
+      ZDP_EndDeviceBindReq( &dstAddr, NLME_GetShortAddr(),
+                            Coordinator_ENDPOINT,
+                            ZCL_HA_PROFILE_ID,
+                            ZCLCoordinator_BINDINGLIST_IN, bindingInClusters,
+                            ZCLCoordinator_BINDINGLIST_OUT, bindingOutClusters,
+                            TRUE );
+      initUSB();
     }
 
 }
@@ -4370,6 +4413,9 @@ static void zclCoordinator_IdentifyQueryRspCB(  zclIdentifyQueryRsp_t *pRsp )
  */
 static void zclCoordinator_ProcessIncomingMsg( zclIncomingMsg_t *pInMsg)
 {
+  #ifdef LCD_SUPPORTED
+        HalLcdWriteString( "Received", HAL_LCD_LINE_4 );
+#endif
     switch ( pInMsg->zclHdr.commandID )
     {
 #ifdef ZCL_READ
@@ -4485,7 +4531,10 @@ static uint8 zclCoordinator_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
  */
 static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 {
-
+  
+    #ifdef LCD_SUPPORTED
+        HalLcdWriteString( "Received report", HAL_LCD_LINE_4 );
+#endif
     // Process incomming parameter report from smart meter in response to GET parameter command *
     zclReportCmd_t *pInParameterReport;
 
@@ -4500,7 +4549,9 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     if ((OPERATION == USR_TX_GET) && (RESULT == SUCCESS) &&
             (pInParameterReport->attrList[0].attrID == ATTRID_MS_PARAMETER_MEASURED_VALUE))
     {
-
+        #ifdef LCD_SUPPORTED
+          HalLcdWriteString( "set_para_ack", HAL_LCD_LINE_4 );
+        #endif
         // store the current parameter value sent over the air from smart meter *
         SmartMeterparamReg[0] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]); //MIN_ADC
         SmartMeterparamReg[1] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]); //MAX_ADC
@@ -4560,7 +4611,9 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
             (pInParameterReport->attrList[0].attrID == ATTRID_MS_COM_MEASURED_VALUE))
     {
         // store the current time value sent over the air from smart meter *
-
+        #ifdef LCD_SUPPORTED
+          HalLcdWriteString( "TIME_SET", HAL_LCD_LINE_4 );
+        #endif
         SmartMeterTimeReg[0] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
         SmartMeterTimeReg[1] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]);
         SmartMeterTimeReg[2] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[8], pInParameterReport->attrList[0].attrData[9]);
@@ -4608,6 +4661,9 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     if ((OPERATION == USR_TX_GET) && (RESULT == SUCCESS) &&
             (pInParameterReport->attrList[0].attrID == ATTRID_MS_DATA_MEASURED_VALUE))
     {
+        #ifdef LCD_SUPPORTED
+          HalLcdWriteString( "PingPong", HAL_LCD_LINE_4 );
+        #endif
         /*
         uint16 smADD_3 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
         uint16 smADD_2 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]);
@@ -4712,6 +4768,9 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     if ((OPERATION == USR_TX_GET) && (RESULT == SUCCESS) &&
             ((pInParameterReport->attrList[0].attrID) == ATTRID_MS_ADD_MEASURED_VALUE ))
     {
+        #ifdef LCD_SUPPORTED
+          HalLcdWriteString( "USR_TX_GET", HAL_LCD_LINE_4 );
+        #endif
         /*
         sm_ADD_3[sm_index] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
         sm_ADD_2[sm_index] = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]);
@@ -4859,7 +4918,7 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 
     // Process incomming restart report from smart meter in response to RESTART command *
     if ((OPERATION == TEMP_STOP) && (RESULT == SUCCESS)  &&
-            (pInParameterReport->attrList[0].attrID == ATTRID_MS_COM_MEASURED_VALUE))
+            (pInParameterReport->attrList[0].attrID == ATTRID_MS_ADD_MEASURED_VALUE))
     {
         SmartMeter_flaginc = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
         zclCoordinator_SendData();   //send request to get data
@@ -6939,9 +6998,10 @@ static void zclCoordinator_EZModeCB( zlcEZMode_State_t state, zclEZMode_CBData_t
         }
         if ( pStr )
         {
+             HalLcdWriteString ( pStr, HAL_LCD_LINE_3 );
             if ( giThermostatScreenMode == THERMOSTAT_MAINMODE )
             {
-                //HalLcdWriteString ( pStr, HAL_LCD_LINE_2 );
+                HalLcdWriteString ( pStr, HAL_LCD_LINE_3 );
             }
         }
 #endif  // LCD_SUPPORTED
@@ -7275,7 +7335,7 @@ static void zclCoordinator_calregtimeout()
 
 /********************************************************
 //send ACK to local server when command is done successfully
-void zclCoordinator_sendACK(void)
+void zclCoordinator_ACK(void)
 **********************************************************/
 void zclCoordinator_sendACK(uint8 ControlReg0, uint8 ControlReg1, uint8 ControlReg2, uint8 ControlReg3)
 {

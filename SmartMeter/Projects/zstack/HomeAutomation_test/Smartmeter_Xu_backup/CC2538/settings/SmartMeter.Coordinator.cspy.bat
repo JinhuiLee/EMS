@@ -19,6 +19,22 @@
 @REM 
 
 
-"E:\PRO\IAR72\common\bin\cspybat" "E:\PRO\IAR72\arm\bin\armproc.dll" "E:\PRO\IAR72\arm\bin\armsim2.dll"  %1 --plugin "E:\PRO\IAR72\arm\bin\armbat.dll" --device_macro "E:\PRO\IAR72\arm\config\debugger\TexasInstruments\xds\cc2538_reset.mac" --backend -B "--endian=little" "--cpu=Cortex-M3" "--fpu=None" "-p" "E:\PRO\IAR72\arm\CONFIG\debugger\TexasInstruments\CC2538SF53.ddf" "--semihosting" "--device=CC2538SF53" "--drv_vector_table_base=0" "--multicore_nr_of_cores=1" 
+@echo off 
 
+if not "%~1" == "" goto debugFile 
 
+@echo on 
+
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.5\common\bin\cspybat" -f "C:\workspace\Energy-Management-System-zigbee\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\settings\SmartMeter.Coordinator.general.xcl" --backend -f "C:\workspace\Energy-Management-System-zigbee\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\settings\SmartMeter.Coordinator.driver.xcl" 
+
+@echo off 
+goto end 
+
+:debugFile 
+
+@echo on 
+
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.5\common\bin\cspybat" -f "C:\workspace\Energy-Management-System-zigbee\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\settings\SmartMeter.Coordinator.general.xcl" "--debug_file=%~1" --backend -f "C:\workspace\Energy-Management-System-zigbee\SmartMeter\Projects\zstack\HomeAutomation_test\Smartmeter_Xu_backup\CC2538\settings\SmartMeter.Coordinator.driver.xcl" 
+
+@echo off 
+:end

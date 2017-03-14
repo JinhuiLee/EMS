@@ -89,7 +89,7 @@ static void zmain_lcd_init( void );
  * @return  Don't care
  */
 
-int main( void )
+ int main( void )
 {
   // Turn off interrupts
   osal_int_disable( INTS_ALL );
