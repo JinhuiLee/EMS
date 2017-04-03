@@ -3232,7 +3232,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
             HalLcdWriteString( "datawait1", HAL_LCD_LINE_6 );
             time_new = osal_GetSystemClock();
 
-            if((time_new - time_old) > 0x00000320)//750ms
+            if((time_new - time_old) > 0x00000640)//1500ms
             {
                 HalLcdWriteString( "timeout", HAL_LCD_LINE_1 );
                 sys_timenew = osal_GetSystemClock();
@@ -3933,7 +3933,7 @@ static void zclCoordinator_HandleKeys( byte shift, byte keys )
         */
       
       
-      zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+      //zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
        SystemResetSoft();
     }
 
@@ -4920,6 +4920,7 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     if ((OPERATION == TEMP_STOP) && (RESULT == SUCCESS)  &&
             (pInParameterReport->attrList[0].attrID == ATTRID_MS_ADD_MEASURED_VALUE))
     {
+        HalLcdWriteString( "Send Data request", HAL_LCD_LINE_3 );
         SmartMeter_flaginc = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
         zclCoordinator_SendData();   //send request to get data
     }

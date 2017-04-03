@@ -779,6 +779,41 @@ uint8 HexToChar(uint8 temp)
   HalLcdWriteString( dstPan, HAL_LCD_LINE_3 );
 }
 
+
+void bindToZC(){
+  zclSmartMeter_DstAddr.addrMode = (afAddrMode_t)Addr16Bit;
+
+  zclSmartMeter_DstAddr.addr.shortAddr = NLME_GetCoordShortAddr();
+
+  zclSmartMeter_DstAddr.endPoint = SmartMeter_ENDPOINT;
+  
+//  dstAddr.addrMode = Addr16Bit;
+//  dstAddr.addr.shortAddr = 0; 
+//  //byte address[] = {0x00,0x12,0x4B,0x00,0x06,0x3A,0x4D,0x19};
+//  //for (int i = 0 ; i < 8 ; i++)
+//  //    dstAddr.addr.extAddr[i] = address[i]; 
+//  // Coordinator makes the EDB match
+//
+//  // Initiate an End Device Bind Request, this bind request will
+//  // only use a cluster list that is important to binding.
+//  ZDP_EndDeviceBindReq( &dstAddr, NLME_GetShortAddr(),
+//                                SmartMeter_ENDPOINT,
+//                                ZCL_HA_PROFILE_ID,
+//                                0, NULL,
+//                                ZCLSMARTMETER_BINDINGLIST, bindingOutClusters,
+//                                FALSE );
+//  
+  HalLedSet ( HAL_LED_2, HAL_LED_MODE_ON );
+  
+//  ZDP_MatchDescReq(&dstAddr, NLME_GetShortAddr(),
+//                        ZCL_HA_PROFILE_ID,
+//                        0, NULL,
+//                        ZCLSMARTMETER_BINDINGLIST, bindingOutClusters,
+//                        FALSE );
+  
+}
+
+
 /*********************************************************************
  * @fn          zclSample_event_loop
  *
@@ -830,6 +865,7 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
                         (zclSmartMeter_NwkState == DEV_END_DEVICE) )
                 {
                   showPANID();
+                  bindToZC();
 #ifndef HOLD_AUTO_START
                     giTemperatureSensorScreenMode = TEMPSENSE_MAINMODE;
                     //zclSmartMeter_LCDDisplayUpdate();
@@ -1183,7 +1219,7 @@ static void zclSmartMeter_HandleKeys( byte shift, byte keys )
         //uint32_t pulData[4] = {0xffffffff, 0xf0ffffff, 0x00000001, 0x00200000};
         //int status2 = ROM_ProgramFlash(pulData, 0x0027ffd0, 16);
         
-        zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+        //zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
         SystemResetSoft();
         //if (status1 == 0 && status2 == 0)
            // ROM_ResetDevice();
@@ -2627,6 +2663,7 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
              (pInParameterReport->attrList[0].attrID) == ATTRID_MS_DATA_MEASURED_VALUE)
         // send the current data value sent over the air to Coordinator
     {
+        HalLcdWriteString( "Send Data", HAL_LCD_LINE_5 );
         time_old = osal_GetSystemClock();
         flaginc = 1;
 
