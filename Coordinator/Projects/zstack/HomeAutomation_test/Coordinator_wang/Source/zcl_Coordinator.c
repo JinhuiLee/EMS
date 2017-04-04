@@ -3498,7 +3498,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         {
             int index;
             time_new = osal_GetSystemClock();
-            if((time_new - time_old) > 0x0000013B)
+            if((time_new - time_old) > 0x00000320)
             {
                 sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
                 for(index = 0; index < sm_max; index++)
@@ -4913,6 +4913,7 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     if ((OPERATION == CALIBRATE) && (RESULT == SUCCESS)  &&
             (pInParameterReport->attrList[0].attrID == ATTRID_MS_COM_MEASURED_VALUE))
     {
+        HalLcdWriteString( "cali", HAL_LCD_LINE_7 );
         cal_receive_flag = 1;
     }
 
@@ -4926,15 +4927,19 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     }
 
     if ((OPERATION == COM_CONFIG) && (RESULT == SUCCESS)  &&
-            (pInParameterReport->attrList[0].attrID == ZCL_CLUSTER_ID_MS_PARAMETER_MEASUREMENT))
+            (pInParameterReport->attrList[0].attrID == ATTRID_MS_COM_MEASURED_VALUE))
     {
 
         uint16 get_SM_CONFIG_2 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
         uint16 get_SM_CONFIG_1 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]);
         uint16 get_SM_CONFIG_0 = BUILD_UINT16(pInParameterReport->attrList[0].attrData[8], pInParameterReport->attrList[0].attrData[9]);
 
-        if( get_SM_CONFIG_2 == SM_CONFIG_2 && get_SM_CONFIG_1 == SM_CONFIG_1 && get_SM_CONFIG_0 == SM_CONFIG_0 )
+        if( get_SM_CONFIG_2 == SM_CONFIG_2 && get_SM_CONFIG_1 == SM_CONFIG_1 && get_SM_CONFIG_0 == SM_CONFIG_0 ) {
+            HalLcdWriteString( "COM_CONFIG Success", HAL_LCD_LINE_5 );
             flag_config_reg = 1;
+        } else {
+            HalLcdWriteString( "COM_CONFIG Not Success", HAL_LCD_LINE_5 );
+        }
     }
 
 }
@@ -6248,8 +6253,10 @@ static void zclCoordinator_SendCalibrate( void )
         I_CAL = controlReg[29];
         T_CAL = controlReg[30];
         N_CAL = controlReg[31];
-
-        uint16 packet[] = {CALIBRATE, V_CAL, I_CAL, T_CAL, N_CAL};
+        INPUT_1_CAL = controlReg[32];
+        INPUT_2_CAL = controlReg[33];
+        
+        uint16 packet[] = {CALIBRATE, V_CAL, I_CAL, T_CAL, N_CAL, INPUT_1_CAL, INPUT_2_CAL};
 
         pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
         if ( pReportCmd != NULL )

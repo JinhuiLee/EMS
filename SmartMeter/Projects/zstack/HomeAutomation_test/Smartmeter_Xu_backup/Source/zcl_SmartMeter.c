@@ -1622,10 +1622,12 @@ static void zclSmartMeter_SendData( void )
         packet[14 + len_DataReg] = HOUR;
         packet[15 + len_DataReg] = MINUTE;
         packet[16 + len_DataReg] = SECOND;
-
-        //UARTprintf(" RMS_V1: %d\n", RMS_V1);
+        
+        
+        char info[20];
+        sprintf(info, " RMS_V1: %d  I1: %d\n", RMS_V1, RMS_I1);
         //UARTprintf(" RMS_I1: %d\n", RMS_I1);
-
+        HalLcdWriteString( info, HAL_LCD_LINE_6 );
 
         pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
         if ( pReportCmd != NULL )
@@ -1868,7 +1870,7 @@ static void zclSmartMeter_SendCalibrate(void)
 #ifdef ZCL_REPORT
         zclReportCmd_t *pReportCmd;
 
-        uint16 packet[] = {CALIBRATE, SUCCESS, V_CAL, I_CAL, T_CAL, N_CAL};
+        uint16 packet[] = {CALIBRATE, SUCCESS, V_CAL, I_CAL, T_CAL, N_CAL, INPUT_1_CAL, INPUT_2_CAL};
         pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
         if ( pReportCmd != NULL )
         {
@@ -1881,6 +1883,7 @@ static void zclSmartMeter_SendCalibrate(void)
                                ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
                                pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclSmartMeterSeqNum++ );
         }
+        HalLcdWriteString( "send cali", HAL_LCD_LINE_5 );
         osal_mem_free( pReportCmd );
 #endif  // ZCL_REPORT     
     }
@@ -1909,7 +1912,7 @@ static void zclSmartMeter_SendCalibrate(void)
         pack_out[12 + sizeof(packet)] = 0x16;
 
         len_uart1 = 13 + sizeof(packet);
-        HalLcdWriteString( "send cali", HAL_LCD_LINE_7 );
+        HalLcdWriteString( "send cali", HAL_LCD_LINE_5 );
         //HalUART1Write ( HAL_UART_PORT_1, pack_out, 13 + sizeof(packet));
     }
 }
@@ -2288,13 +2291,67 @@ static void zclSmartMeter_SendCalPara(void)
 #ifdef ZCL_REPORT
         zclReportCmd_t *pReportCmd;
 
+        uint16 MAG[8] = {0};
+        uint8 MAG_COUNT = 0;
+        if(Num_phase[1])
+        {
+            MAG[MAG_COUNT] = MAG_V[MAG_COUNT];
+            MAG_COUNT++;
+            for (uint8 i = 0;  i < Num_phase[1]; i++)
+            {
+                MAG[MAG_COUNT] = MAG_I[MAG_COUNT];
+                MAG_COUNT++;
+            }
+        }
+
+        if(Num_phase[2])
+        {
+            MAG[MAG_COUNT] = MAG_V[MAG_COUNT];
+            MAG_COUNT++;
+            for (uint8 i = 0;  i < Num_phase[2]; i++)
+            {
+                MAG[MAG_COUNT] = MAG_I[MAG_COUNT];
+                MAG_COUNT++;
+            }
+        }
+
+        if(Num_phase[3])
+        {
+            MAG[MAG_COUNT] = MAG_V[MAG_COUNT];
+            MAG_COUNT++;
+            for (uint8 i = 0;  i < Num_phase[3]; i++)
+            {
+                MAG[MAG_COUNT] = MAG_I[MAG_COUNT];
+                MAG_COUNT++;
+            }
+        }
+
+        if(Num_phase[0])
+        {
+            for (uint8 i = 0;  i < Num_phase[0]; i++)
+            {
+                MAG[MAG_COUNT] = MAG_GEN_INPUT1[MAG_COUNT];
+                MAG_COUNT++;
+            }
+        }
+
+        if(Num_phase[4])
+        {
+            for (uint8 i = 0;  i < Num_phase[4]; i++)
+            {
+                MAG[MAG_COUNT] = MAG_GEN_INPUT2[MAG_COUNT];
+                MAG_COUNT++;
+            }
+        }
+        
         uint16 packet[] = {COM_CAL, SUCCESS, SM_ADD16, ADD_3, ADD_2, ADD_1, ADD_0,
                            UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4), UINT8_TO_16(SM_CONFIG_3, SM_CONFIG_2),
                            UINT8_TO_16(SM_CONFIG_1, SM_CONFIG_0),
-                           MAG_V[0], MAG_I[0], MAG_V[1], MAG_I[1], MAG_V[2], MAG_I[2], MAG_V[3], MAG_I[3],
-                           MAG_V[4], MAG_I[4], MAG_V[5], MAG_I[5], MAG_V[6], MAG_I[6], MAG_V[7], MAG_I[7],
+                           MAG[0], MAG[1], MAG[2], MAG[3], MAG[4], MAG[5], MAG[6], MAG[7],
                            T_EFF
                           };
+        
+        
         pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
         if ( pReportCmd != NULL )
         {
@@ -2373,6 +2430,9 @@ static void zclSmartMeter_SendCalPara(void)
             }
         }
 
+        
+        
+        
         uint16 packet[] = {COM_CAL, SUCCESS, SM_ADD16, ADD_3, ADD_2, ADD_1, ADD_0,
                            UINT8_TO_16(SM_CONFIG_5, SM_CONFIG_4), UINT8_TO_16(SM_CONFIG_3, SM_CONFIG_2),
                            UINT8_TO_16(SM_CONFIG_1, SM_CONFIG_0),
@@ -2928,50 +2988,52 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 
     else if ((COMMAND == CALIBRATE) && (pInParameterReport->attrList[0].attrID) == ATTRID_MS_COM_MEASURED_VALUE)
     {
-        V_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[2], pInParameterReport->attrList[0].attrData[3]);
-        I_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
-        T_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]);
-        N_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[8], pInParameterReport->attrList[0].attrData[9]);
+          start = 1;
+          HalLcdWriteString( "cali0", HAL_LCD_LINE_5 );
+          
+          V_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[2], pInParameterReport->attrList[0].attrData[3]);
+          I_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5]);
+          T_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7]);
+          N_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[8], pInParameterReport->attrList[0].attrData[9]);
+          INPUT_1_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[10], pInParameterReport->attrList[0].attrData[11]);
+          INPUT_2_CAL = BUILD_UINT16(pInParameterReport->attrList[0].attrData[12], pInParameterReport->attrList[0].attrData[13]);
 
-        time_old = osal_GetSystemClock();
-        time_new = time_old;
+          time_old = osal_GetSystemClock();
+          time_new = time_old;
 
 
-        l_nSamples = 0;
-        VrmsTemp[0] = 0;
-        IrmsTemp[0] = 0;
+          l_nSamples = 0;
+          VrmsTemp[0] = 0;
+          IrmsTemp[0] = 0;
+          
+          
+          if(V_CAL != 0 && I_CAL == 0)
+          {
 
-        if(V_CAL != 0 && I_CAL == 0)
-        {
-            CAL_OPT = CAL_VOL;
-            MAG_V1 = 0;
-            //UARTprintf(" CAL_VOL ");
-            //UARTprintf(" V_CAL: %d\n", V_CAL);
-            //UARTprintf(" I_CAL: %d\n", I_CAL);
-            //UARTprintf(" T_CAL: %d\n", T_CAL);
-            //UARTprintf(" N_CAL: %d\n", N_CAL);
-        }
-        else if(V_CAL == 0 && I_CAL != 0)
-        {
-            CAL_OPT = CAL_CUR;
-            MAG_I1 = 0;
-            //UARTprintf(" CAL_CUR ");
-            //UARTprintf(" V_CAL: %d\n", V_CAL);
-            //UARTprintf(" I_CAL: %d\n", I_CAL);
-            //UARTprintf(" T_CAL: %d\n", T_CAL);
-            //UARTprintf(" N_CAL: %d\n", N_CAL);
-        }
-        else if(V_CAL != 0 && I_CAL != 0)
-        {
-            CAL_OPT = CAL_ENE;
+              CAL_OPT = CAL_VOL;
+              MAG_V1 = 0;
+              //sprintf((char *)lcdString, "%d %d %d %d", V_CAL, I_CAL, T_CAL, N_CAL );
+              //HalLcdWriteString( lcdString, HAL_LCD_LINE_6 );
+          }
+          else if(V_CAL == 0 && I_CAL != 0)
+          {
+              CAL_OPT = CAL_CUR;
+              MAG_I1 = 0;
+          }
+          else if(V_CAL != 0 && I_CAL != 0)
+          {
+              CAL_OPT = CAL_ENE;
+              enecal_cycle = 0;
+          }
+          else if(INPUT_1_CAL != 0 && N_CAL != 0)
+          {
+              CAL_OPT = CAL_GEN_1;
+          }
 
-            enecal_cycle = 0;
-            //UARTprintf(" CAL_ENE ");
-            //UARTprintf(" V_CAL: %d\n", V_CAL);
-            //UARTprintf(" I_CAL: %d\n", I_CAL);
-            //UARTprintf(" T_CAL: %d\n", T_CAL);
-            //UARTprintf(" N_CAL: %d\n", N_CAL);
-        }
+          else if(INPUT_2_CAL != 0 && N_CAL != 0)
+          {
+              CAL_OPT = CAL_GEN_2;
+          }
 
     }
 
@@ -2980,16 +3042,15 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         #ifdef LCD_SUPPORTED
           HalLcdWriteString( "COM_CONFIG", HAL_LCD_LINE_2 );
         #endif
-        SM_CONFIG_5 = pInParameterReport->attrList[0].attrData[3];
-        SM_CONFIG_4 = pInParameterReport->attrList[0].attrData[2];
-        SM_CONFIG_3 = pInParameterReport->attrList[0].attrData[5];
-        SM_CONFIG_2 = pInParameterReport->attrList[0].attrData[4];
-        SM_CONFIG_1 = pInParameterReport->attrList[0].attrData[7];
-        SM_CONFIG_0 = pInParameterReport->attrList[0].attrData[6];
+        SM_CONFIG_5 = pInParameterReport->attrList[0].attrData[2];
+        SM_CONFIG_4 = pInParameterReport->attrList[0].attrData[3];
+        SM_CONFIG_3 = pInParameterReport->attrList[0].attrData[4];
+        SM_CONFIG_2 = pInParameterReport->attrList[0].attrData[5];
+        SM_CONFIG_1 = pInParameterReport->attrList[0].attrData[6];
+        SM_CONFIG_0 = pInParameterReport->attrList[0].attrData[7];  
 
-        //Update flash memory
         zclSmartMeter_WriteConfigReg();
-        // send the current parameter value to send over the air to Coordinator
+        Configuration_Reg_Process();
         zclSmartMeter_SendConfigAck();
 
     }
@@ -3730,7 +3791,7 @@ static void zclSmartMeter_calibrateInc(void)
         
         //HalUART0Write ( HAL_UART_PORT_0, uart0show, 6);
         //sprintf((char *)lcdString, " %d %d",  uart0show[3], uart0show[4] );
-        //HalLcdWriteString( lcdString, HAL_LCD_LINE_5 );
+        HalLcdWriteString( "caliInc", HAL_LCD_LINE_4 );
 
 
         l_nSamples ++;

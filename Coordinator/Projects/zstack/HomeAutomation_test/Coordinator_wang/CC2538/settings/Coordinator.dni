@@ -9,7 +9,7 @@ TriggerName=main
 LimitSize=0
 ByteLimit=50
 [DebugChecksum]
-Checksum=-854451141
+Checksum=-835424882
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -69,14 +69,14 @@ Sort=4 0
 Count=0
 [XdsDriver]
 CStepIntDis=_ 0
-xds100serialNo=06EB122013BA
-xds100foundProbes=06EB122013BA:06EB122013D5:
+xds100serialNo=06EB122013D5
+xds100foundProbes=
 xdsResetStyle=0
 xdsResetStrategy=2
 [Disassemble mode]
 mode=0
 [Breakpoints2]
-Bp0=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\Source\zcl_Coordinator.c}.4928.5" 0 0 1 "" 0 "" 0
+Bp0=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\Source\zcl_Coordinator.c}.4937.9" 0 0 1 "" 0 "" 0
 Count=1
 [Log file]
 LoggingEnabled=_ 0
