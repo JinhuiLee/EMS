@@ -120,6 +120,7 @@
 #define TEMP_STOP    0xD5
 #define AUTHEN       0xD6
 #define SET_KEY      0xD7
+#define PING      0xD8
 
 #define FLASH_PARAM  0x1000
 #define FLASH_RO     0x1100
@@ -434,6 +435,7 @@ void initUSB(void);
 
 //Coordinator functions
 static void zclCoordinator_SendData( void );
+static void zclCoordinator_SendPing( afAddrType_t dst );
 static void zclCoordinator_SetParam( void );
 static void zclCoordinator_SetTime();
 static void zclCoordinator_nvWriteParam( void );
@@ -4544,7 +4546,14 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 
     uint16 ENERGY_RESET_VALUE_1;
     uint16 ENERGY_RESET_VALUE_0;
-
+    
+    
+    if ((OPERATION == PING) && (RESULT == SUCCESS)) {
+        #ifdef LCD_SUPPORTED
+          HalLcdWriteString( "sent ping", HAL_LCD_LINE_4 );
+        #endif
+        zclCoordinator_SendPing(pInMsg->srcAddr);
+    }
 
     if ((OPERATION == USR_TX_GET) && (RESULT == SUCCESS) &&
             (pInParameterReport->attrList[0].attrID == ATTRID_MS_PARAMETER_MEASURED_VALUE))
@@ -5698,6 +5707,50 @@ static void zclCoordinator_SetTime( void ) //verified
 
         len_uart1 = 13 + sizeof(packet);
         //HalUART1Write ( HAL_UART_PORT_1, send_buffer, 13 + sizeof(packet));
+    }
+}
+
+
+
+/*********************************************************************
+ * @fn      zclCoordinator_SendPing *
+
+
+ *
+ * @brief   Called to answer ping request from smartmeter
+
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void zclCoordinator_SendPing(afAddrType_t dst)
+{
+    if( Connect_Mode == WIRELESS_CONNECTION)
+    {
+#ifdef ZCL_REPORT
+        zclReportCmd_t *pReportCmd;
+        uint16 packet[] = {PING, SUCCESS};
+
+        pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
+
+        if ( pReportCmd != NULL )
+        {
+            pReportCmd->numAttr = 1;
+            pReportCmd->attrList[0].attrID = ATTRID_MS_DATA_MEASURED_VALUE;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT32; //zcl.c
+
+
+            pReportCmd->attrList[0].attrData = (void *)(packet);
+
+            zcl_SendReportCmd( Coordinator_ENDPOINT, &dst,
+                               ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT,
+
+                               pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclCoordinatorSeqNum++ );
+        }
+
+        osal_mem_free( pReportCmd );
+#endif  // ZCL_REPORT
     }
 }
 

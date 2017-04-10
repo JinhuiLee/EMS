@@ -34,6 +34,7 @@ extern "C"
 #define SmartMeter_RELAY_SEND_EVT                         0x0080
 #define SmartMeter_NWKDISCOV_SEND_EVT                     0x0100
 #define SmartMeter_CLOCK_EVT                              0x0200
+#define SmartMeter_PING_EVT                               0x0400
 // Application Display Modes
 #define TEMPSENSE_MAINMODE                                 0x00
 #define TEMPSENSE_HELPMODE                                 0x01

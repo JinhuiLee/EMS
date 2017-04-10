@@ -82,7 +82,10 @@
 #define TEMP_STOP    0xD5
 #define AUTHEN       0xD6
 #define SET_KEY      0xD7
-
+#define PING         0xD8
+   
+   
+   
 #define FLASH_PARAM  0x1000
 #define FLASH_PARAMCAL  0x1100
 #define FLASH_CONFIG 0x1078
@@ -155,6 +158,7 @@ const uint16 senPin1Current = SOCADC_AIN6;
 /*********************************************************************
  * GLOBAL VARIABLES
  */
+uint16 ping_counter = 0;
 byte zclSmartMeter_TaskID;
 uint8 zclSmartMeterSeqNum;
 uint16 flagreset = 0;
@@ -489,6 +493,7 @@ static void zclSmartMeter_SendReset(void);
 static void zclSmartMeter_SendRelay(void);
 static void zclSmartMeter_SendAdd(void);
 static void zclSmartMeter_SendStart(void);
+static void zclSmartMeter_SendPing(void);
 
 static void zclSmartMeter_SendCalibrate(void);
 static void zclSmartMeter_SendCalPara(void);
@@ -674,8 +679,14 @@ void zclSmartMeter_Init( byte task_id )
     enecal_timeold = osal_GetSystemClock();
     enecal_timenew = enecal_timeold;
     Configuration_Reg_Process();
-    osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_ADC_SEND_EVT, 1 );
-
+    
+    if( Connect_Mode == WIRELESS_CONNECTION)
+    {
+      osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_PING_EVT, 10000 );
+    }
+    osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_ADC_SEND_EVT, 3 );
+    
+    
 }
 
 
@@ -918,6 +929,30 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
         zclSmartMeter_LCDDisplayUpdate();
         return ( events ^ SmartMeter_MAIN_SCREEN_EVT );
     }
+    
+    if ( Connect_Mode == WIRELESS_CONNECTION && events & SmartMeter_PING_EVT)
+    {
+      
+        if (ping_counter > 3) {
+          HalLedBlink ( HAL_LED_2, 0xFF, HAL_LED_DEFAULT_DUTY_CYCLE, HAL_LED_DEFAULT_FLASH_TIME );
+          HalLcdWriteString( "ZCD down RESET NOW", HAL_LCD_LINE_3 );
+        }
+        if (ping_counter > 6) {
+          SystemResetSoft();
+        }
+        
+        
+        
+        
+        ping_counter++;
+        zclSmartMeter_SendPing();
+        osal_start_timerEx( zclSmartMeter_TaskID, SmartMeter_PING_EVT, 10000 );
+        
+        return ( events ^ SmartMeter_PING_EVT );
+    }
+    
+    
+    
     if ( events & SmartMeter_ADC_SEND_EVT )
     {
         zclSmartMeter_calibrateInc();
@@ -1063,8 +1098,8 @@ uint16 zclSmartMeter_event_loop( uint8 task_id, uint16 events )
         
         return ( events ^ SmartMeter_ADC_SEND_EVT );
     }
-
-
+    
+    
 
 
 
@@ -1573,6 +1608,47 @@ static void zclSmartMeter_SendConfigAck( void )                                 
 }
 
 
+
+/*********************************************************************
+
+ * @fn      zclSmartMeter_SendPing     *
+ *
+
+ * @brief   Called to send Ping to the coordinator
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+
+static void zclSmartMeter_SendPing( void )
+{
+    if( Connect_Mode == WIRELESS_CONNECTION)
+    {
+#ifdef ZCL_REPORT
+        zclReportCmd_t *pReportCmd;
+
+        
+        uint16 packet[] = {PING,SUCCESS};
+
+        pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
+        if ( pReportCmd != NULL )
+        {
+            pReportCmd->numAttr = 1;
+
+            pReportCmd->attrList[0].attrID = ATTRID_MS_DATA_MEASURED_VALUE;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT512;
+            pReportCmd->attrList[0].attrData = (void *)(packet);
+            zcl_SendReportCmd( SmartMeter_ENDPOINT, &zclSmartMeter_DstAddr,
+
+                               ZCL_CLUSTER_ID_MS_DATA_MEASUREMENT,
+                               pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclSmartMeterSeqNum++ );
+        }
+        osal_mem_free( pReportCmd );
+#endif  // ZCL_REPORT
+    }
+
+}
 /*********************************************************************
 
  * @fn      zclSmartMeter_SendData     *
@@ -2708,7 +2784,10 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         };
         zclSmartMeter_SendParam();
     }
-    
+    else if ((COMMAND == PING) && (OPERATION == SUCCESS))
+    {
+        ping_counter = 0;
+    }
     //Added by Jinhui, 1/9/2017 to restore wireless function
      else if ((COMMAND == TEMP_STOP))
     {
