@@ -492,6 +492,7 @@ static void zclSmartMeter_SendData(void);
 static void zclSmartMeter_SendReset(void);
 static void zclSmartMeter_SendRelay(void);
 static void zclSmartMeter_SendAdd(void);
+static void zclSmartMeter_SendAuth(void);
 static void zclSmartMeter_SendStart(void);
 static void zclSmartMeter_SendPing(void);
 
@@ -1255,7 +1256,8 @@ static void zclSmartMeter_HandleKeys( byte shift, byte keys )
         //int status2 = ROM_ProgramFlash(pulData, 0x0027ffd0, 16);
         
         //zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
-        SystemResetSoft();
+        zclSmartMeter_SendAuth();
+        //SystemResetSoft();
         //if (status1 == 0 && status2 == 0)
            // ROM_ResetDevice();
     }
@@ -2185,19 +2187,33 @@ static void zclSmartMeter_SendStart(void)
  */
 static void zclSmartMeter_SendAuth(void)
 {
-  /*
+  
     if( Connect_Mode == WIRELESS_CONNECTION)
     {
       
 #ifdef ZCL_REPORT
         zclReportCmd_t *pReportCmd;
-        uint16 packet[] = {TEMP_STOP, SUCCESS, flaginc};
+        
+        //////// TO BE REPLACED
+        uint8 romreg[16] = {0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11};
+        osal_nv_item_init (FLASH_RO, 40, NULL);
+        osal_nv_write (FLASH_RO, 0, 40, &romreg[0]);
+        //////// TO BE REPLACED
+
+
+        osal_nv_item_init (FLASH_RO, 40, NULL);
+        osal_nv_read (FLASH_RO, 0, 40, &romread[0]);
+        //HalUART0Write ( HAL_UART_PORT_0, romread, 16);
+        
+        uint16 packet[] = {AUTHEN, SUCCESS, UINT8_TO_16(romread[1], romread[0]), UINT8_TO_16(romread[3], romread[2]), UINT8_TO_16(romread[5], romread[4]), UINT8_TO_16(romread[7], romread[6]),
+                                            UINT8_TO_16(romread[9], romread[8]), UINT8_TO_16(romread[11], romread[10]), UINT8_TO_16(romread[13], romread[12]), UINT8_TO_16(romread[15], romread[14])};
+      
         pReportCmd = osal_mem_alloc( sizeof(zclReportCmd_t) + sizeof(zclReport_t) );
         if ( pReportCmd != NULL )
         {
             pReportCmd->numAttr = 1;
             pReportCmd->attrList[0].attrID = ATTRID_MS_ADD_MEASURED_VALUE;
-            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT128;
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT256;
             pReportCmd->attrList[0].attrData = (void *)(packet);
             zcl_SendReportCmd( SmartMeter_ENDPOINT, &zclSmartMeter_DstAddr,
                                ZCL_CLUSTER_ID_MS_ADD_MEASUREMENT,
@@ -2206,9 +2222,7 @@ static void zclSmartMeter_SendAuth(void)
         osal_mem_free( pReportCmd );
     }
 #endif  // ZCL_REPORT 
-    else */
-      
-    if( Connect_Mode == WIRED_CONNECTION)
+    else if( Connect_Mode == WIRED_CONNECTION)
     {
         //////// TO BE REPLACED
         uint8 romreg[16] = {0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11};
@@ -2978,48 +2992,85 @@ static void zclSmartMeter_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
       
         //Following code is copied from wired command handler
         
-            start = 0; 
-            CAL_OPT = 0;
-            // send the current start value to send over the air to Coordinator
-            
-            /////////////////////////////////////////////
-            //reset all the energy calculation related varibles
-            rmsTemp_V1 = 0;
-            overflow_num_V1 = 0;
-            rmsTemp_V2 = 0;
-            overflow_num_V2 = 0;
-            rmsTemp_V3 = 0;
-            overflow_num_V3 = 0;
+        start = 0; 
+        CAL_OPT = 0;
+        // send the current start value to send over the air to Coordinator
+        
+        /////////////////////////////////////////////
+        //reset all the energy calculation related varibles
+        rmsTemp_V1 = 0;
+        overflow_num_V1 = 0;
+        rmsTemp_V2 = 0;
+        overflow_num_V2 = 0;
+        rmsTemp_V3 = 0;
+        overflow_num_V3 = 0;
 
-            for(uint8 i = 0; i < 8; i++)
-            {
-                rmsTemp_I1[i] = 0;
-                overflow_num_I1[i] = 0;
-                rmsTemp_I2[i] = 0;
-                overflow_num_I2[i] = 0;
-                rmsTemp_I3[i] = 0;
-                overflow_num_I3[i] = 0;
+        for(uint8 i = 0; i < 8; i++)
+        {
+            rmsTemp_I1[i] = 0;
+            overflow_num_I1[i] = 0;
+            rmsTemp_I2[i] = 0;
+            overflow_num_I2[i] = 0;
+            rmsTemp_I3[i] = 0;
+            overflow_num_I3[i] = 0;
 
-                accu_GEN_INPUT1[i] = 0;
-                accu_GEN_INPUT2[i] = 0;                
-            }
+            accu_GEN_INPUT1[i] = 0;
+            accu_GEN_INPUT2[i] = 0;                
+        }
 
-            l_nSamples = 0;
-            enecal_timeperiod = 0;
-            
-            flagrelay = 1;
-            //GPIOPinWrite(GPIO_C_BASE, (GPIO_PIN_0 | GPIO_PIN_1), 0x01);
-            GPIOPinWrite(GPIO_C_BASE, GPIO_PIN_0, 0x01);
-            flaginc = 1;
-            ///////////////////////////////////////
-            
-            zclSmartMeter_SendRestart();
-            zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
-            SystemResetSoft();
+        l_nSamples = 0;
+        enecal_timeperiod = 0;
+        
+        flagrelay = 1;
+        //GPIOPinWrite(GPIO_C_BASE, (GPIO_PIN_0 | GPIO_PIN_1), 0x01);
+        GPIOPinWrite(GPIO_C_BASE, GPIO_PIN_0, 0x01);
+        flaginc = 1;
+        ///////////////////////////////////////
+        
+        zclSmartMeter_SendRestart();
+        zgWriteStartupOptions( ZG_STARTUP_SET, ZCD_STARTOPT_DEFAULT_CONFIG_STATE|ZCD_STARTOPT_DEFAULT_NETWORK_STATE );
+        SystemResetSoft();
         
         
     }
+    //added by Jinhui at 4/17, to restore AUTHEN function
+    else if ((COMMAND == USR_RX_GET) && (OPERATION == AUTHEN))
+    {          
+        zclSmartMeter_SendAuth();   
+    }
+    
+    else if ((COMMAND == USR_RX_SET) && (OPERATION == SET_KEY))
+    {          
+        uint8 end_key[16] = {0};
+        for (uint8 i = 0; i < 16; i++)
+            end_key[i] = Msg_in[15 + i];
+        
+        uint8 encry_data[16] = {0};
+        encry_data[0] = (uint8)((ADD_3 & 0xff00) >> 8);
+        encry_data[1] = (uint8)(ADD_3 & 0x00ff);
+        encry_data[2] = (uint8)((ADD_2 & 0xff00) >> 8);
+        encry_data[3] = (uint8)(ADD_2 & 0x00ff);
+        encry_data[4] = (uint8)((ADD_1 & 0xff00) >> 8);
+        encry_data[5] = (uint8)(ADD_1 & 0x00ff);
+        encry_data[6] = (uint8)((ADD_0 & 0xff00) >> 8);
+        encry_data[7] = (uint8)(ADD_0 & 0x00ff);
 
+        //HalUART0Write ( HAL_UART_PORT_0, end_key, 16);
+        //HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+        AesEncryptDecrypt(end_key, encry_data, 0, ENCRYPT_AES);
+        //HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+
+        for (uint8 i = 0; i < 16; i++)
+            end_final_key[i] = romread[i];
+
+        //HalUART0Write ( HAL_UART_PORT_0, encry_data, 16);
+        //HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+        AesEncryptDecrypt(encry_data, end_final_key,  0, ENCRYPT_AES);
+        //HalUART0Write ( HAL_UART_PORT_0, end_final_key, 16);
+        zclSmartMeter_SendKeyAck();
+
+        //flag_end_encry = true;
+    }
     else if ((COMMAND == USR_RX_GET) && (OPERATION == COM_ADD) &&
              (pInParameterReport->attrList[0].attrID) == ATTRID_MS_ADD_MEASURED_VALUE)
     {

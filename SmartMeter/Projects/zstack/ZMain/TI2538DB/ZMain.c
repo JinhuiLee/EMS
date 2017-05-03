@@ -109,7 +109,12 @@ static void zmain_lcd_init( void );
 
   // Initialize the MAC
   ZMacInit();
-
+  
+  //output power setting
+  //cc2530   page 24
+  {
+    macRadioSetTxPower(0xF5);
+  }
   // Determine the extended address
   zmain_ext_addr();
 

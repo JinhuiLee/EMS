@@ -9,7 +9,7 @@ TriggerName=main
 LimitSize=0
 ByteLimit=50
 [DebugChecksum]
-Checksum=-409775516
+Checksum=-1547410231
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -87,8 +87,7 @@ ShowTiming=1
 [Disassemble mode]
 mode=0
 [Breakpoints2]
-Bp0=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\Source\zcl_Coordinator.c}.4946.9" 0 0 1 "" 0 "" 0
-Count=1
+Count=0
 [Aliases]
 A0=_ "C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coor\Z-Stack Home 1.2.0\Components\mt\MT_UTIL.c" ""
 A1=_ "C:\Users\Administrator\Desktop\newcoor_and_smart\Z-Stack Home 1.2.0coor\Z-Stack Home 1.2.0\Projects\zstack\ZMain\TI2538DB\ZMain.c" ""

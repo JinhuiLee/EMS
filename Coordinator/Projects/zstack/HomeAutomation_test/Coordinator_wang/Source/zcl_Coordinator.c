@@ -2749,7 +2749,7 @@ uint16 zclCoordinator_event_loop( uint8 task_id, uint16 events )
         {
             int index;
             time_new = osal_GetSystemClock();
-            if((time_new - time_old) > 0x00000258)
+            if((time_new - time_old) > 0x00000320)
             {
                 if(controlReg[8] != 0xFF)
                     sm_ADD_reg = BUILD_UINT64_8(controlReg[8], controlReg[9], controlReg[10], controlReg[11], controlReg[12], controlReg[13], controlReg[14], controlReg[15]);
@@ -4918,7 +4918,57 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
             }
         }
     }
+    
+    if ((OPERATION == AUTHEN) && (RESULT == SUCCESS))
+    {
+        flag_auth = true;
+        //send_rom_back(&end_romread[0]);
+        
+        uint64 hi =  BUILD_UINT64_8(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5], pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7],pInParameterReport->attrList[0].attrData[8], pInParameterReport->attrList[0].attrData[9], pInParameterReport->attrList[0].attrData[10], pInParameterReport->attrList[0].attrData[11]);
+        uint64 lo = BUILD_UINT64_8(pInParameterReport->attrList[0].attrData[12], pInParameterReport->attrList[0].attrData[13], pInParameterReport->attrList[0].attrData[14], pInParameterReport->attrList[0].attrData[15], pInParameterReport->attrList[0].attrData[16], pInParameterReport->attrList[0].attrData[17], pInParameterReport->attrList[0].attrData[18], pInParameterReport->attrList[0].attrData[19]);
+        if (routing_table[sm_ROM_index].sm_rom_table_hi == BUILD_UINT64_8(pInParameterReport->attrList[0].attrData[4], pInParameterReport->attrList[0].attrData[5], pInParameterReport->attrList[0].attrData[6], pInParameterReport->attrList[0].attrData[7],pInParameterReport->attrList[0].attrData[8], pInParameterReport->attrList[0].attrData[9], pInParameterReport->attrList[0].attrData[10], pInParameterReport->attrList[0].attrData[11]) &&
+                routing_table[sm_ROM_index].sm_rom_table_lo == BUILD_UINT64_8(pInParameterReport->attrList[0].attrData[12], pInParameterReport->attrList[0].attrData[13], pInParameterReport->attrList[0].attrData[14], pInParameterReport->attrList[0].attrData[15], pInParameterReport->attrList[0].attrData[16], pInParameterReport->attrList[0].attrData[17], pInParameterReport->attrList[0].attrData[18], pInParameterReport->attrList[0].attrData[19]))
+        {
+            uint8 end_key[16] = {0};
+            end_key[0] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 56) & 0x00000000000000FF);
+            end_key[1] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 48) & 0x00000000000000FF);
+            end_key[2] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 40) & 0x00000000000000FF);
+            end_key[3] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 32) & 0x00000000000000FF);
+            end_key[4] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 24) & 0x00000000000000FF);
+            end_key[5] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 16) & 0x00000000000000FF);
+            end_key[6] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_hi) >> 8) & 0x00000000000000FF);
+            end_key[7] = (uint8)((routing_table[sm_ROM_index].sm_key_table_hi) & 0x00000000000000FF);
 
+            end_key[8] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 56) & 0x00000000000000FF);
+            end_key[9] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 48) & 0x00000000000000FF);
+            end_key[10] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 40) & 0x00000000000000FF);
+            end_key[11] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 32) & 0x00000000000000FF);
+            end_key[12] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 24) & 0x00000000000000FF);
+            end_key[13] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 16) & 0x00000000000000FF);
+            end_key[14] = (uint8)(((routing_table[sm_ROM_index].sm_key_table_lo) >> 8) & 0x00000000000000FF);
+            end_key[15] = (uint8)((routing_table[sm_ROM_index].sm_key_table_lo) & 0x00000000000000FF);
+
+
+            routing_table[sm_ROM_index].flag_end_encry = false;
+            flag_key_set = false;
+            uint32 wait_timenew = osal_GetSystemClock();
+            while (osal_GetSystemClock() - wait_timenew < 60)
+            {
+            };
+
+            zclCoordinator_SetKey(end_key);
+        }
+    }
+
+    if ((OPERATION == SET_KEY) && (RESULT == SUCCESS))
+    {
+        flag_key_set = true;
+        routing_table[sm_ROM_index].flag_end_encry = true;
+    }
+
+    
+    
+    
     if ((OPERATION == CALIBRATE) && (RESULT == SUCCESS)  &&
             (pInParameterReport->attrList[0].attrID == ATTRID_MS_COM_MEASURED_VALUE))
     {
@@ -4947,8 +4997,9 @@ static void zclCoordinator_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
             HalLcdWriteString( "COM_CONFIG Success", HAL_LCD_LINE_5 );
             flag_config_reg = 1;
         } else {
-            HalLcdWriteString( "COM_CONFIG Not Success", HAL_LCD_LINE_5 );
+            //HalLcdWriteString( "COM_CONFIG Not Success", HAL_LCD_LINE_5 );
         }
+        flag_config_reg = 1;
     }
 
 }
@@ -5964,7 +6015,32 @@ static void zclCoordinator_SendAuth( void )
             pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
             pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT32; //zcl.c
             pReportCmd->attrList[0].attrData = (void *)(packet);
-
+            
+            zclCoordinator_DstAddr.addrMode = (afAddrMode_t)Addr64Bit;
+            zclCoordinator_DstAddr.endPoint = Coordinator_ENDPOINT;
+            
+            if(controlReg[3] != 0x08 && controlReg[8] != 0xFF)
+            {
+                for(int i = 7; i >=0 ; i--)
+                {
+                    zclCoordinator_DstAddr.addr.extAddr[i] = controlReg[15-i];
+                }
+            }
+            else
+            {
+                if(routing_index < sm_max)
+                {
+                    zclCoordinator_DstAddr.addr.extAddr[7] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 56) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[6] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 48) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[5] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 40) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[4] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 32) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[3] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 24) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[2] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 16) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[1] = (uint8)(((routing_table[smart_auth_index].sm_ADD) >> 8) & 0x00000000000000FF);
+                    zclCoordinator_DstAddr.addr.extAddr[0] = (uint8)((routing_table[smart_auth_index].sm_ADD) & 0x00000000000000FF);
+                }
+            }
+            
             zcl_SendReportCmd( Coordinator_ENDPOINT, &zclCoordinator_DstAddr,
                                ZCL_CLUSTER_ID_MS_COM_MEASUREMENT,
                                pReportCmd, ZCL_FRAME_SERVER_CLIENT_DIR, TRUE, zclCoordinatorSeqNum++ );
@@ -6045,7 +6121,7 @@ static void zclCoordinator_SetKey( uint8 *parameter )
         {
             pReportCmd->numAttr = 1;
             pReportCmd->attrList[0].attrID = ATTRID_MS_COM_MEASURED_VALUE;
-            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT32; //zcl.c
+            pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT256; //zcl.c
             pReportCmd->attrList[0].attrData = (void *)(packet);
 
             zcl_SendReportCmd( Coordinator_ENDPOINT, &zclCoordinator_DstAddr,

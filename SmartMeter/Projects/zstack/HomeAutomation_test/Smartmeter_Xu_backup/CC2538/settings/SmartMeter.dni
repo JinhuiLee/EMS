@@ -14,7 +14,7 @@ xds100foundProbes=
 xdsResetStyle=0
 xdsResetStrategy=0
 [DebugChecksum]
-Checksum=-535183917
+Checksum=1166096588
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -42,7 +42,7 @@ Bp2=_ "STD_CODE" "{C:\Texas Instruments\Z-Stack Home 1.2.0\Projects\zstack\HomeA
 Count=3
 [XdsDriver]
 CStepIntDis=_ 0
-xds100serialNo=06EB122013BA
+xds100serialNo=06EB122013BB
 xds100foundProbes=
 xdsResetStyle=0
 xdsResetStrategy=2
@@ -87,7 +87,8 @@ ShowTiming=1
 [Disassemble mode]
 mode=0
 [Breakpoints2]
-Count=0
+Bp0=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\Source\zcl_SmartMeter.c}.2198.15" 0 0 1 "" 0 "" 0
+Count=1
 [Aliases]
 Count=0
 SuppressDialog=0

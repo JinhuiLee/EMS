@@ -354,7 +354,7 @@ MAC_INTERNAL_API void macRadioTurnOffPower(void);
  *  In this case, the value passed to the set power function will be written directly to TXCTRLL.
  *  Characterized values for this register can be found in the datasheet in the "power settings" table.
  */
-//#define HAL_MAC_USE_REGISTER_POWER_VALUES
+#define HAL_MAC_USE_REGISTER_POWER_VALUES
 
 
 /**************************************************************************************************
